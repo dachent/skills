@@ -9,7 +9,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'pptx_com.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'pptx_com.psm1') -Force -DisableNameChecking
 
 $resolvedMapPath = Resolve-AbsolutePath -Path $MapPath
 $mapping = Read-JsonFileAsHashtable -Path $resolvedMapPath

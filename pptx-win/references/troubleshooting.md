@@ -26,7 +26,8 @@ Likely causes:
 Mitigation:
 - save to a new output filename
 - close the source deck everywhere else
-- use a local working directory outside synced folders for intermediate files
+- the bundled scripts now stage editable deck outputs under `%TEMP%\\pptx-win` before copying them to the requested destination
+- if a synced-folder destination still fails, rerun with a plain local destination to isolate whether the final filesystem copy is blocked
 
 ### Fonts differ from expectation
 
