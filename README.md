@@ -1,39 +1,96 @@
 # codex_skills
 
-Windows-specific Codex ports of Office skills sourced from the Anthropic skills repository.
+[![Validate](https://github.com/dachent/codex_skills/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/dachent/codex_skills/actions/workflows/validate.yml)
 
-These ports are not just copied prompts. Each one rewrites the default execution path around local Microsoft Office desktop automation on Windows, so the behavior depends on Word, PowerPoint, or Excel being installed and callable through COM.
+Windows-native Codex skills for Word, PowerPoint, and Excel using Microsoft Office COM automation.
 
-## Provenance
+Canonical GitHub About settings:
+- Description: `Windows-native Codex skills for Word, PowerPoint, and Excel using Microsoft Office COM automation.`
+- Topics: `codex`, `skills`, `windows`, `powershell`, `python`, `microsoft-office`, `office-automation`, `word`, `powerpoint`, `excel`, `com-automation`
+- Homepage: leave blank until the repository has a real external docs or project site
 
-| Skill | Upstream repo | Source folder | Source branch | Port depth | Why Windows-specific |
-| --- | --- | --- | --- | --- | --- |
-| `docx-win` | `https://github.com/anthropics/skills` | `skills/docx` | `main` | Light port | Uses local Microsoft Word COM automation and PowerShell wrappers instead of the upstream LibreOffice-first path. |
-| `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` | Light port | Uses local Microsoft PowerPoint COM automation and PowerShell wrappers as the primary path, with OOXML retained only as fallback. |
-| `xlsx-win` | `https://github.com/anthropics/skills` | `skills/xlsx` | `main` | Heavy adaptation | Uses native Excel Desktop COM semantics for refresh, recalculation, Power Query, validation, and self-test instead of the upstream LibreOffice-centered recalculation path. |
+## Why This Repo Exists
 
-## Skills
+This repository ports Office-oriented skills from Anthropic's `skills` repository into Codex-friendly Windows workflows.
 
-### `docx-win`
+The core design choice is deliberate: prefer local Microsoft Office desktop automation over LibreOffice-style file transformation whenever Word, PowerPoint, or Excel fidelity matters. That makes these skills Windows-specific and environment-dependent by design.
 
-`docx-win` is a light port of Anthropic's `skills/docx` skill into a Codex-friendly Windows workflow.
+## Skill Catalog
 
-The upstream skill centers on OOXML unpacking/editing plus LibreOffice-based conversion and change-acceptance helpers. This port keeps the document workflow but changes the default execution path to Microsoft Word COM and PowerShell so Word itself handles conversion, tracked changes, comments, fields, pagination, and PDF export.
+| Skill | Engine | Upstream source | Smoke test |
+| --- | --- | --- | --- |
+| [`docx-win`](./docx-win) | Microsoft Word COM + PowerShell | `anthropics/skills` -> `skills/docx` | `powershell -ExecutionPolicy Bypass -File .\docx-win\scripts\smoke-test.ps1` |
+| [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + PowerShell, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
+| [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + PowerShell, Python helpers | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
 
-This skill is Windows-specific because those guarantees depend on a local Microsoft Word desktop install and COM automation rather than a cross-platform LibreOffice pipeline.
+## Prerequisites
 
-### `pptx-win`
+- Windows with a local interactive desktop session
+- Microsoft 365 desktop apps installed for the skills you plan to use
+- PowerShell for the Office automation entrypoints
+- Python 3 for the bundled Python helpers and fallback tooling
+- Codex configured to load local skills from your skills directory
 
-`pptx-win` is a light port of Anthropic's `skills/pptx` skill into a Codex-friendly Windows workflow.
+## Installation
 
-The upstream skill centers on XML- and file-based presentation workflows, including unpacking, inspection, and non-COM editing paths. This port switches the preferred execution path to PowerPoint COM and PowerShell for inspection, placeholder replacement, rendering, and PDF export while keeping OOXML tooling available as a fallback.
+1. Clone this repository locally.
+2. Copy the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
+3. Keep the directory names unchanged: `docx-win`, `pptx-win`, and `xlsx-win`.
+4. Use the skill by name from Codex, for example `$docx-win`, `$pptx-win`, or `$xlsx-win`.
+5. Run the relevant smoke test before relying on a new machine or Office installation.
 
-This skill is Windows-specific because the preferred workflow depends on a local Microsoft PowerPoint desktop install and COM automation rather than a cross-platform file transformation path.
+## Validation And CI
 
-### `xlsx-win`
+The repository uses a two-tier validation model.
 
-`xlsx-win` is a heavy adaptation of Anthropic's `skills/xlsx` skill into a Codex-friendly Windows workflow.
+Hosted validation runs in GitHub Actions on `windows-latest`:
+- YAML parse and required-field validation for every `agents/openai.yaml`
+- `SKILL.md` front matter and internal `scripts/...` and `references/...` path validation
+- PowerShell parser checks plus `PSScriptAnalyzer` with a repo-owned rule set
+- Python syntax compilation for the bundled `.py` files
 
-The upstream skill focused on general spreadsheet guidance and LibreOffice-backed recalculation. This port replaces that model with native Excel Desktop behavior: COM-based refresh and recalculation, explicit `Workbook.Queries` and Power Query load handling, `power_query_excel.ps1`, formula validation, self-test coverage, and Windows-specific macro and session policy guidance.
+Office runtime validation is separate because GitHub-hosted runners do not provide reliable Microsoft Office COM automation:
+- `.github/workflows/office-smoke.yml` is designed for a self-hosted Windows runner labeled `office`
+- it runs the Word, PowerPoint, and Excel smoke tests
+- it uploads logs and generated artifacts for debugging
+- it can be started manually or requested from a pull request with `/office-smoke`
 
-This skill is Windows-specific because the intended behavior depends on Excel Desktop fidelity and COM refresh semantics, not just file-level spreadsheet editing.
+Local validation commands:
+
+```powershell
+pwsh -NoLogo -NoProfile -File .\tools\validate_repo.ps1
+pwsh -NoLogo -NoProfile -File .\tools\validate_powershell.ps1 -SettingsPath .github\PSScriptAnalyzerSettings.psd1
+python -m compileall -q .\pptx-win\scripts .\xlsx-win\scripts .\tools
+```
+
+## Repo Layout
+
+- [`docx-win/`](./docx-win): Word skill, scripts, references, and agent metadata
+- [`pptx-win/`](./pptx-win): PowerPoint skill, scripts, references, fallback OOXML utilities, and agent metadata
+- [`xlsx-win/`](./xlsx-win): Excel skill, scripts, references, and agent metadata
+- [`.github/workflows/`](./.github/workflows): hosted validation and self-hosted Office smoke workflows
+- [`tools/`](./tools): repository validation helpers used by CI and local contributors
+
+## Contributing
+
+Contributions should preserve the repo's current contract:
+
+- keep each skill Windows-specific and COM-first unless the skill explicitly documents a fallback path
+- update `agents/openai.yaml` together with any skill behavior changes
+- keep `SKILL.md` examples and referenced scripts in sync
+- run the hosted validation commands locally before opening a PR
+- request the Office smoke workflow when a change affects runtime Office automation behavior
+
+## Licensing And Provenance
+
+This repository records provenance for each skill but does not currently publish a root `LICENSE` file.
+
+Before redistributing or repackaging this repository, review the upstream provenance and decide on an explicit licensing policy for the repo as a whole.
+
+Current upstream provenance:
+
+| Skill | Upstream repo | Source folder | Source branch | Port depth |
+| --- | --- | --- | --- | --- |
+| `docx-win` | `https://github.com/anthropics/skills` | `skills/docx` | `main` | Light port |
+| `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` | Light port |
+| `xlsx-win` | `https://github.com/anthropics/skills` | `skills/xlsx` | `main` | Heavy adaptation |

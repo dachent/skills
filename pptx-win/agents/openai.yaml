@@ -1,2 +1,4 @@
 interface:
   display_name: "PPTX Win"
+  short_description: "native microsoft powerpoint automation for windows presentation workflows"
+  default_prompt: "Use $pptx-win to automate a local PowerPoint presentation on Windows with Microsoft PowerPoint COM for inspection, editing, rendering, and export."
