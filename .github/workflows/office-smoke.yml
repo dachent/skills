@@ -1,0 +1,122 @@
+name: Office Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag, or SHA to test"
+        required: false
+        default: "main"
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.resolve.outputs.should_run }}
+      checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
+      checkout_repository: ${{ steps.resolve.outputs.checkout_repository }}
+    steps:
+      - name: Resolve trigger
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+
+            if (context.eventName === 'workflow_dispatch') {
+              core.setOutput('should_run', 'true');
+              core.setOutput('checkout_ref', context.payload.inputs.ref || 'main');
+              core.setOutput('checkout_repository', `${context.repo.owner}/${context.repo.repo}`);
+              return;
+            }
+
+            const issue = context.payload.issue;
+            const comment = context.payload.comment;
+            const allowed = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+
+            if (!issue || !issue.pull_request) {
+              core.setOutput('should_run', 'false');
+              core.setOutput('checkout_ref', '');
+              core.setOutput('checkout_repository', '');
+              return;
+            }
+
+            if (!comment || !comment.body || !comment.body.includes('/office-smoke')) {
+              core.setOutput('should_run', 'false');
+              core.setOutput('checkout_ref', '');
+              core.setOutput('checkout_repository', '');
+              return;
+            }
+
+            if (!allowed.includes(comment.author_association)) {
+              core.setOutput('should_run', 'false');
+              core.setOutput('checkout_ref', '');
+              core.setOutput('checkout_repository', '');
+              return;
+            }
+
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: issue.number
+            });
+
+            core.setOutput('should_run', 'true');
+            core.setOutput('checkout_ref', pr.data.head.sha);
+            core.setOutput('checkout_repository', pr.data.head.repo.full_name);
+
+  smoke:
+    needs: authorize
+    if: needs.authorize.outputs.should_run == 'true'
+    runs-on:
+      - self-hosted
+      - windows
+      - office
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.authorize.outputs.checkout_repository }}
+          ref: ${{ needs.authorize.outputs.checkout_ref }}
+
+      - name: Run Office smoke tests
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $artifactRoot = Join-Path $env:RUNNER_TEMP 'office-smoke'
+          $docxDir = Join-Path $artifactRoot 'docx'
+          $pptxDir = Join-Path $artifactRoot 'pptx'
+          $xlsxDir = Join-Path $artifactRoot 'xlsx'
+
+          foreach ($path in @($artifactRoot, $docxDir, $pptxDir, $xlsxDir)) {
+              if (-not (Test-Path -LiteralPath $path)) {
+                  New-Item -ItemType Directory -Path $path -Force | Out-Null
+              }
+          }
+
+          powershell -ExecutionPolicy Bypass -File .\docx-win\scripts\smoke-test.ps1 -WorkingDirectory $docxDir |
+            Tee-Object -FilePath (Join-Path $docxDir 'smoke-test.log')
+
+          powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1 -OutputDir $pptxDir |
+            Tee-Object -FilePath (Join-Path $pptxDir 'smoke-test.json')
+
+          powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1 -JsonPath (Join-Path $xlsxDir 'self-test.json') |
+            Tee-Object -FilePath (Join-Path $xlsxDir 'self-test.log')
+
+      - name: Upload smoke test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-smoke-artifacts
+          path: ${{ runner.temp }}/office-smoke
+          if-no-files-found: error

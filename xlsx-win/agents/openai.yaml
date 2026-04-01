@@ -1,4 +1,4 @@
 interface:
   display_name: "XLSX Win"
-  short_description: "Native Excel refresh, Power Query, and validation"
-  default_prompt: "Use $xlsx-win to automate a local Excel workbook on Windows with Excel COM, Power Query helpers, refresh, validation, and self-test when needed."
+  short_description: "native microsoft excel automation for windows workbook refresh and validation"
+  default_prompt: "Use $xlsx-win to automate a local Excel workbook on Windows with Microsoft Excel COM for refresh, Power Query, validation, and workbook-safe edits."

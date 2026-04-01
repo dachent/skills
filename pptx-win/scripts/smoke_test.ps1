@@ -1,12 +1,12 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDir = 'smoke-test-output',
+    [string]$OutputDir = ([System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), 'pptx-win', 'smoke-test-output')),
     [switch]$Visible
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'pptx_com.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'pptx_com.psm1') -Force -DisableNameChecking
 
 $PP_LAYOUT_BLANK = 12
 $MSO_TEXT_ORIENTATION_HORIZONTAL = 1

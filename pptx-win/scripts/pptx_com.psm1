@@ -53,6 +53,92 @@ function Resolve-AbsolutePath {
     return (Resolve-Path -LiteralPath $Path).Path
 }
 
+function Get-TemporaryPptxWinRoot {
+    $root = Join-Path ([System.IO.Path]::GetTempPath()) 'pptx-win'
+    if (-not (Test-Path -LiteralPath $root)) {
+        New-Item -ItemType Directory -Path $root -Force | Out-Null
+    }
+    return $root
+}
+
+function New-TemporaryPptxWinDirectory {
+    param([string]$Prefix = 'pptxwin')
+
+    $root = Get-TemporaryPptxWinRoot
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        $name = '{0}-{1}' -f $Prefix, ([guid]::NewGuid().ToString('N'))
+        $path = Join-Path $root $name
+        if (-not (Test-Path -LiteralPath $path)) {
+            New-Item -ItemType Directory -Path $path -Force | Out-Null
+            return $path
+        }
+    }
+
+    throw "Could not allocate a temporary pptx-win directory under '$root'."
+}
+
+function Test-WebUriPath {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $false
+    }
+
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($Path, [System.UriKind]::Absolute, [ref]$uri)) {
+        return $false
+    }
+
+    return ($uri.Scheme -in @('http', 'https'))
+}
+
+function Test-EditablePowerPointOutputPath {
+    param(
+        [Parameter(Mandatory)] [string]$Path,
+        [int]$FileFormat = 24
+    )
+
+    if ($FileFormat -eq 24) {
+        return $true
+    }
+
+    $editableExtensions = @(
+        '.pptx', '.pptm', '.ppt', '.pot', '.potx', '.potm', '.pps', '.ppsx', '.ppsm'
+    )
+    $extension = [System.IO.Path]::GetExtension($Path)
+    if ([string]::IsNullOrWhiteSpace($extension)) {
+        return $false
+    }
+
+    return ($editableExtensions -contains $extension.ToLowerInvariant())
+}
+
+function Copy-OutputFileToDestination {
+    param(
+        [Parameter(Mandatory)] [string]$SourcePath,
+        [Parameter(Mandatory)] [string]$DestinationPath
+    )
+
+    $resolvedSource = Resolve-AbsolutePath -Path $SourcePath
+    $resolvedDestination = Resolve-AbsolutePath -Path $DestinationPath -AllowMissing
+    $destinationParent = Split-Path -Parent $resolvedDestination
+    if (-not (Test-Path -LiteralPath $destinationParent)) {
+        New-Item -ItemType Directory -Path $destinationParent -Force | Out-Null
+    }
+
+    try {
+        Copy-Item -LiteralPath $resolvedSource -Destination $resolvedDestination -Force
+    } catch {
+        throw "PowerPoint saved a local file at '$resolvedSource', but the final copy to '$resolvedDestination' failed. $($_.Exception.Message)"
+    }
+
+    if (-not (Test-Path -LiteralPath $resolvedDestination)) {
+        throw "PowerPoint saved a local file at '$resolvedSource', but the final copy to '$resolvedDestination' did not create the destination file."
+    }
+
+    return $resolvedDestination
+}
+
 
 function Convert-JsonObjectToHashtable {
     param([Parameter(Mandatory)] $InputObject)
@@ -189,13 +275,40 @@ function Save-PowerPointPresentation {
         [int]$FileFormat = 24
     )
 
-    $fullPath = Resolve-AbsolutePath -Path $Path -AllowMissing
-    $parent = Split-Path -Parent $fullPath
+    $requestedPath = Resolve-AbsolutePath -Path $Path -AllowMissing
+    $parent = Split-Path -Parent $requestedPath
     if (-not (Test-Path -LiteralPath $parent)) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
-    $Presentation.SaveAs($fullPath, $FileFormat)
-    return $fullPath
+
+    if (Test-EditablePowerPointOutputPath -Path $requestedPath -FileFormat $FileFormat) {
+        $stagingDirectory = New-TemporaryPptxWinDirectory -Prefix 'presentation-save'
+        $stagedPath = Join-Path $stagingDirectory (Split-Path -Leaf $requestedPath)
+
+        $Presentation.SaveAs($stagedPath, $FileFormat)
+
+        $presentationFullName = ''
+        try {
+            $presentationFullName = [string]$Presentation.FullName
+        } catch {
+        }
+
+        if (Test-WebUriPath -Path $presentationFullName) {
+            throw "PowerPoint rebound the presentation to cloud-backed path '$presentationFullName' while saving a staged editable copy at '$stagedPath'."
+        }
+        if (-not (Test-Path -LiteralPath $stagedPath)) {
+            throw "PowerPoint did not create a local editable presentation output at '$stagedPath'."
+        }
+
+        return (Copy-OutputFileToDestination -SourcePath $stagedPath -DestinationPath $requestedPath)
+    }
+
+    $Presentation.SaveAs($requestedPath, $FileFormat)
+    if (-not (Test-Path -LiteralPath $requestedPath)) {
+        throw "PowerPoint output was not created at '$requestedPath'."
+    }
+
+    return $requestedPath
 }
 
 function Export-PowerPointPresentationSlides {
@@ -281,9 +394,8 @@ function Get-NotesTextFromSlide {
 
     $texts = New-Object System.Collections.Generic.List[string]
     try {
-        $shapes = $Slide.NotesPage.Shapes
-        for ($i = 1; $i -le $shapes.Count; $i++) {
-            foreach ($value in (Get-TextFromShape -Shape $shapes.Item($i))) {
+        foreach ($shape in (Get-UserNotesPageShapes -Slide $Slide)) {
+            foreach ($value in (Get-TextFromShape -Shape $shape)) {
                 if (-not [string]::IsNullOrWhiteSpace($value)) {
                     $texts.Add($value)
                 }
@@ -292,6 +404,43 @@ function Get-NotesTextFromSlide {
     } catch {
     }
     return (($texts | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) | Select-Object -Unique)
+}
+
+function Get-UserNotesPageShapes {
+    param($Slide)
+
+    $shapes = New-Object System.Collections.Generic.List[object]
+    try {
+        $notesShapes = $Slide.NotesPage.Shapes
+        for ($i = 1; $i -le $notesShapes.Count; $i++) {
+            $shape = $notesShapes.Item($i)
+
+            $hasUserText = $false
+            try {
+                $hasUserText = ($shape.HasTextFrame -ne 0 -and $shape.TextFrame.HasText -ne 0)
+            } catch {
+            }
+            if (-not $hasUserText) {
+                continue
+            }
+
+            $placeholderType = $null
+            try {
+                $placeholderType = [int]$shape.PlaceholderFormat.Type
+            } catch {
+            }
+
+            # Keep the notes body placeholder and custom text boxes, but exclude built-in slide image/number/footer placeholders.
+            if ($null -ne $placeholderType -and $placeholderType -notin @(0, 2)) {
+                continue
+            }
+
+            $shapes.Add($shape)
+        }
+    } catch {
+    }
+
+    return (ConvertTo-ObjectArray -InputObject $shapes)
 }
 
 function Get-ShapeInventoryForSlide {
@@ -538,9 +687,8 @@ function Replace-TextInPowerPointPresentation {
 
         if ($IncludeNotes) {
             try {
-                $notesShapes = $slide.NotesPage.Shapes
-                for ($shapeIndex = 1; $shapeIndex -le $notesShapes.Count; $shapeIndex++) {
-                    $changes += Set-TextOnShape -Shape $notesShapes.Item($shapeIndex) -Map $Map
+                foreach ($notesShape in (Get-UserNotesPageShapes -Slide $slide)) {
+                    $changes += Set-TextOnShape -Shape $notesShape -Map $Map
                 }
             } catch {
             }
