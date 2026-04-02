@@ -5,21 +5,6 @@ description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xl
 
 # XLSX Win
 
-## Notes
-
-### Provenance
-
-- Upstream repo: `https://github.com/anthropics/skills`
-- Source folder: `skills/xlsx`
-- Source branch: `main`
-
-### Porting Notes
-
-- This is a heavy Windows-specific adaptation of Anthropic's `xlsx` skill for Codex.
-- The upstream skill centered on general spreadsheet editing guidance plus LibreOffice-backed recalculation.
-- This port replaces that model with native Excel Desktop COM refresh and recalculation, explicit Power Query and `Workbook.Queries` handling, `power_query_excel.ps1`, formula validation, self-test coverage, and Windows-specific macro and session policy guidance.
-- It remains Windows-only because the intended behavior depends on Excel Desktop fidelity and COM refresh semantics rather than file-only spreadsheet editing.
-
 Use this skill only for Codex local execution on Windows machines with Microsoft 365 Excel desktop installed.
 
 ## Core operating rules
