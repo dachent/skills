@@ -33,10 +33,20 @@ The core design choice is deliberate: prefer local Microsoft Office desktop auto
 
 ## Installation
 
+### Codex
+
 1. Clone this repository locally.
 2. Copy the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
 3. Keep the directory names unchanged: `docx-win`, `pptx-win`, and `xlsx-win`.
 4. Use the skill by name from Codex, for example `$docx-win`, `$pptx-win`, or `$xlsx-win`.
+5. Run the relevant smoke test before relying on a new machine or Office installation.
+
+### Claude Code
+
+1. Clone this repository locally.
+2. In your project's `.claude/skills/` directory, copy or symlink the three subdirectories from `.claude/skills/` in this repository: `docx-win`, `pptx-win`, and `xlsx-win`.
+3. Keep the directory names unchanged.
+4. Reference each skill from a `CLAUDE.md` or system prompt by its name, for example `docx-win`, `pptx-win`, or `xlsx-win`.
 5. Run the relevant smoke test before relying on a new machine or Office installation.
 
 ## Validation And CI

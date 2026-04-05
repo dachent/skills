@@ -136,7 +136,9 @@ foreach ($agentFile in $agentFiles) {
     Assert-RequiredString -InputObject $interface -PropertyName 'default_prompt' -Context $context -Failures $failures
 }
 
-$skillFiles = Get-ChildItem -Path $repositoryRoot -Recurse -File -Filter 'SKILL.md' | Sort-Object FullName
+$skillFiles = Get-ChildItem -Path $repositoryRoot -Recurse -File -Filter 'SKILL.md' |
+    Where-Object { $_.FullName -notmatch [regex]::Escape([System.IO.Path]::Combine($repositoryRoot, '.claude') + [System.IO.Path]::DirectorySeparatorChar) } |
+    Sort-Object FullName
 foreach ($skillFile in $skillFiles) {
     $skillRoot = Split-Path -Parent $skillFile.FullName
     $skillName = Split-Path -Leaf $skillRoot
