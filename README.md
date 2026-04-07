@@ -1,8 +1,8 @@
-# codex_skills
+# llm agent skills
 
 [![Validate](https://github.com/dachent/codex_skills/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/dachent/codex_skills/actions/workflows/validate.yml)
 
-Windows-native Codex skills for Word, PowerPoint, and Excel using Microsoft Office COM automation.
+Windows-native skills for Word, PowerPoint, and Excel using Microsoft Office COM automation.
 
 Canonical GitHub About settings:
 - Description: `Windows-native Codex skills for Word, PowerPoint, and Excel using Microsoft Office COM automation.`
