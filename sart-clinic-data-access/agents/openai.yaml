@@ -1,0 +1,4 @@
+interface:
+  display_name: "SART Clinic Data"
+  short_description: "find ClinicPKIDs and access SART clinic reports"
+  default_prompt: "Use $sart-clinic-data-access to find a clinic's ClinicPKID and open the right SART report for the requested clinic, year, or metric."
