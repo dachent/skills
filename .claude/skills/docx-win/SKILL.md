@@ -1,7 +1,6 @@
 ---
 name: docx-win
 description: native microsoft word automation for windows .docx workflows. use when chatgpt or codex is running on windows with microsoft word installed and needs to create, edit, review, convert, or verify word documents through word com automation. trigger for .docx or .doc requests, professional word deliverables, tracked changes, comments, find and replace, table of contents, headers and footers, page numbering, layout-sensitive edits, or exporting a word document to pdf for review. prefer this skill over libreoffice-based document workflows when word is available.
-disable-model-invocation: true
 ---
 
 # DOCX Win
@@ -37,10 +36,18 @@ Do not edit OOXML directly unless Word automation fails and the task truly requi
 
 ## Preflight
 
+Before any Word COM step, run the shared Office preflight from a regular PowerShell window opened as the signed-in desktop user:
+
+```powershell
+& "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps Word
+```
+
+If preflight reports `can_use_com = false`, do not create `Word.Application` from the Codex sandbox. Prepare non-COM inputs in Codex and run the Word COM step from that desktop-user PowerShell window through `scripts/invoke-docx-win.ps1` or a task-specific script.
+
 For a new machine or after an Office repair/update, run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File docx-win\scripts\smoke-test.ps1
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action smoke-test
 ```
 
 The smoke test proves that:
@@ -54,7 +61,7 @@ If the smoke test fails, stop and fix the local Word/Office environment before a
 
 ## Default operating rules
 
-- Prefer PowerShell scripts in `docx-win\scripts\` over ad hoc GUI interaction.
+- Prefer PowerShell scripts in `scripts/` over ad hoc GUI interaction.
 - Keep `Word.Application.Visible = $false` unless visual debugging is required.
 - Set `DisplayAlerts = 0` to avoid blocking prompts.
 - Work on a copy unless the user clearly wants in-place edits.
@@ -64,39 +71,38 @@ If the smoke test fails, stop and fix the local Word/Office environment before a
 - Before final delivery, update all fields and tables of contents, then save again.
 - Always close the document and quit Word in `finally` blocks.
 - Always release COM objects. Orphaned `WINWORD.EXE` processes are a reliability bug.
+- Never call `New-Object -ComObject Word.Application` directly from the Codex sandbox. Use the shared preflight and then run COM work from the signed-in desktop user session through `scripts/invoke-docx-win.ps1` or a task-specific script.
 
 ## Common commands
-
-Run all commands from the root of this repository.
 
 ### Convert legacy `.doc` to `.docx`
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File docx-win\scripts\convert-doc-to-docx.ps1 -InputPath .\input.doc -OutputPath .\input.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action convert-doc-to-docx -InputPath .\input.doc -OutputPath .\input.docx
 ```
 
 ### Export `.docx` to PDF for review
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File docx-win\scripts\export-pdf.ps1 -InputPath .\report.docx -OutputPath .\report.pdf
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action export-pdf -InputPath .\report.docx -OutputPath .\report.pdf
 ```
 
 ### Accept all tracked changes
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File docx-win\scripts\accept-revisions.ps1 -InputPath .\draft.docx -OutputPath .\clean.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action accept-revisions -InputPath .\draft.docx -OutputPath .\clean.docx
 ```
 
 ### Find and replace across the document
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File docx-win\scripts\find-replace.ps1 -InputPath .\draft.docx -FindText "Old Name" -ReplaceText "New Name" -OutputPath .\draft-updated.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action find-replace -InputPath .\draft.docx -FindText "Old Name" -ReplaceText "New Name" -OutputPath .\draft-updated.docx
 ```
 
 ### Add a comment to a specific range
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File docx-win\scripts\add-comment.ps1 -InputPath .\draft.docx -Start 1 -End 25 -CommentText "verify this figure" -Author "Claude" -Initials "CC" -OutputPath .\draft-commented.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action add-comment -InputPath .\draft.docx -Start 1 -End 25 -CommentText "verify this figure" -Author "Codex" -Initials "CX" -OutputPath .\draft-commented.docx
 ```
 
 ## Decide the path
@@ -114,7 +120,7 @@ After creating content:
 4. save the `.docx`,
 5. export a PDF when layout matters.
 
-Use `docx-win\references\word-com-recipes.md` for common construction patterns.
+Use `references/word-com-recipes.md` for common construction patterns.
 
 ### Editing an existing document
 
@@ -147,7 +153,7 @@ Use Word-native review features through COM.
 Use this verification loop whenever formatting or pagination matters:
 
 1. save the `.docx`,
-2. export a PDF with `docx-win\scripts\export-pdf.ps1`,
+2. export a PDF with `scripts/export-pdf.ps1`,
 3. inspect the PDF or page count,
 4. fix issues,
 5. export again.
@@ -162,7 +168,7 @@ For final delivery:
 
 ## Word COM patterns and references
 
-Load `docx-win\references\word-com-recipes.md` when you need examples for:
+Load `references/word-com-recipes.md` when you need examples for:
 - headings and styles,
 - tables,
 - headers and footers,
@@ -176,23 +182,23 @@ Load `docx-win\references\word-com-recipes.md` when you need examples for:
 
 ## Bundled scripts
 
-All scripts live in `docx-win\scripts\` relative to the repository root.
-
-- `word-common.ps1`: shared helpers for Word COM startup, cleanup, save, field refresh, PDF export, and path handling.
-- `convert-doc-to-docx.ps1`: convert legacy `.doc` to `.docx`.
-- `export-pdf.ps1`: export a `.docx` to PDF.
-- `accept-revisions.ps1`: open a document and write a clean copy with all revisions accepted.
-- `find-replace.ps1`: run Word's native find/replace engine and save output.
-- `add-comment.ps1`: add a Word comment to a range and save output.
-- `smoke-test.ps1`: end-to-end validation for the local Windows + Word automation environment.
+- `scripts/word-common.ps1`: shared helpers for Word COM startup, cleanup, save, field refresh, PDF export, and path handling.
+- `scripts/convert-doc-to-docx.ps1`: convert legacy `.doc` to `.docx`.
+- `scripts/export-pdf.ps1`: export a `.docx` to PDF.
+- `scripts/accept-revisions.ps1`: open a document and write a clean copy with all revisions accepted.
+- `scripts/find-replace.ps1`: run Word's native find/replace engine and save output.
+- `scripts/add-comment.ps1`: add a Word comment to a range and save output.
+- `scripts/smoke-test.ps1`: end-to-end validation for the local Windows + Word automation environment.
 
 ## Failure handling
 
 If Word cannot be automated:
 - confirm the machine is Windows,
 - confirm Microsoft Word launches manually,
-- rerun `docx-win\scripts\smoke-test.ps1`,
+- rerun `scripts/invoke-docx-win.ps1 -Action smoke-test`,
 - check for blocked dialogs, protected view, or orphaned `WINWORD.EXE` processes,
 - retry with a fresh working copy.
+
+If Word COM throws `0x80070520`, treat that as a wrong-session problem, not as a document problem. Move the COM step to the signed-in desktop user session and rerun it there.
 
 Only fall back to lower-level ZIP/XML repair when Word COM is unavailable or the file is structurally damaged in a way Word cannot fix.

@@ -22,6 +22,14 @@ description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xl
 
 Use this skill only for Codex local execution on Windows machines with Microsoft 365 Excel desktop installed.
 
+Before any Excel COM step, run the shared Office preflight from a regular PowerShell window opened as the signed-in desktop user:
+
+```powershell
+& "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps Excel
+```
+
+If preflight reports `can_use_com = false`, do not create `Excel.Application` from the Codex sandbox. Prepare the non-COM inputs in Codex and run the Excel COM step from that desktop-user PowerShell window through `scripts/invoke-xlsx-win.ps1` or a task-specific script.
+
 ## Core operating rules
 
 - Keep all workbook work local.
@@ -31,6 +39,7 @@ Use this skill only for Codex local execution on Windows machines with Microsoft
 - Deliver workbooks with zero visible Excel error cells after refresh and validation.
 - Match the workbook's existing template style and conventions exactly when editing an established file.
 - Expect Excel COM refresh to require an interactive Windows desktop session. A Codex sandbox may block COM even when Excel is installed.
+- Never call `New-Object -ComObject Excel.Application` directly from the Codex sandbox. Use the shared preflight first, then run COM work from the signed-in desktop user session through `scripts/invoke-xlsx-win.ps1` or a task-specific script.
 - Disable macros by default during automation. Only enable them when the user explicitly requests macro-dependent refresh or workbook automation.
 
 ## Tool selection
@@ -113,26 +122,28 @@ Examples:
 ## Standard workflow
 
 1. Inspect the source file and decide whether the task is primarily analysis, data cleanup, workbook editing, Power Query M work, conversion, or Excel-native refresh.
-2. Choose `pandas`, `openpyxl`, `scripts/power_query_excel.ps1`, or direct Excel COM based on fidelity and Power Query needs.
-3. Make the workbook edits.
-4. Save the workbook.
-5. If the task changes `Workbook.Queries` or query load targets, prefer `scripts/power_query_excel.ps1` and pass `-MFormulaPath` for nontrivial M definitions.
-6. If the output is `.xlsx` or `.xlsm` and formulas, refreshable objects, or cached values matter, run:
+2. Run the shared Office preflight in the desktop-user PowerShell window before any Excel COM step.
+3. Choose `pandas`, `openpyxl`, `scripts/power_query_excel.ps1`, or direct Excel COM based on fidelity and Power Query needs.
+4. Make the workbook edits.
+5. Save the workbook.
+6. If the task changes `Workbook.Queries` or query load targets, prefer `scripts/power_query_excel.ps1` and pass `-MFormulaPath` for nontrivial M definitions.
+7. If Codex is in the sandbox and preflight fails there, keep Codex on non-COM prep work and hand the COM step to the desktop-user shell through `invoke-xlsx-win.ps1`.
+8. If the output is `.xlsx` or `.xlsm` and formulas, refreshable objects, or cached values matter, run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\refresh_excel.ps1 -WorkbookPath .\output.xlsx
 ```
 
-7. Validate OOXML workbooks with:
+9. Validate OOXML workbooks with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check_formula_errors.ps1 -WorkbookPath .\output.xlsx
 ```
 
-8. If the source is `.xls`, convert it to `.xlsx` before formula validation.
-9. If the source is `.csv` or `.tsv`, skip formula validation unless you export it to an OOXML Excel workbook first.
-10. If validation reports errors, fix the workbook and rerun refresh plus validation until clean.
-11. If Excel COM or Power Query behavior is in doubt for the current machine, run `scripts/self_test_xlsx_win.ps1`.
+10. If the source is `.xls`, convert it to `.xlsx` before formula validation.
+11. If the source is `.csv` or `.tsv`, skip formula validation unless you export it to an OOXML Excel workbook first.
+12. If validation reports errors, fix the workbook and rerun refresh plus validation until clean.
+13. If Excel COM or Power Query behavior is in doubt for the current machine, run `scripts/self_test_xlsx_win.ps1`.
 
 ## Refresh workflow
 
@@ -155,7 +166,13 @@ Refresh contract highlights:
 - exit code `0` means success
 - exit code `2` means operational failure
 
-If Excel COM is blocked by the current session, treat that as an environment limitation, inspect the JSON error, and rerun the refresh from an interactive Windows desktop session or outside the Codex sandbox.
+If Excel COM is blocked by the current session, treat that as an environment limitation, not as a workbook problem. The typical `0x80070520` failure means the shell is in the wrong Windows user or logon-session context. Rerun the refresh from the signed-in desktop user session through:
+
+```powershell
+& "$env:USERPROFILE\.codex\skills\xlsx-win\scripts\invoke-xlsx-win.ps1" -Action refresh -WorkbookPath .\model.xlsx
+```
+
+For direct Excel COM creation or targeted edits, use a task-specific PowerShell script only after the helper preflight succeeds in that same desktop-user shell.
 
 See `references/windows-excel-refresh.md` for execution details and troubleshooting.
 

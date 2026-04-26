@@ -38,6 +38,9 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $refreshScript = Join-Path $scriptDir "refresh_excel.ps1"
 $actionPayload = [ordered]@{}
 $resolvedMFormula = $null
+$sharedOfficeModule = (Resolve-Path (Join-Path $PSScriptRoot '..\..\.shared\office-com\scripts\office_com_common.psm1')).Path
+
+Import-Module $sharedOfficeModule -Force -DisableNameChecking
 
 function Ensure-ParentDirectory {
     param(
@@ -125,7 +128,12 @@ function Get-ErrorInfo {
     $errorKind = "runtime_error"
     $friendlyMessage = $rawMessage
 
-    if ($rawMessage.StartsWith("REFRESH_FAILED::")) {
+    if ($rawMessage.StartsWith("OFFICE_PRECHECK::")) {
+        $parts = $rawMessage.Split("::", 3)
+        $errorKind = if ($parts.Length -ge 2) { $parts[1] } else { "excel_com_unavailable" }
+        $friendlyMessage = if ($parts.Length -ge 3) { $parts[2] } else { "Excel COM automation is unavailable in this session." }
+    }
+    elseif ($rawMessage.StartsWith("REFRESH_FAILED::")) {
         $parts = $rawMessage.Split("::", 3)
         $errorKind = if ($parts.Length -ge 2) { $parts[1] } else { "refresh_failed" }
         $friendlyMessage = if ($parts.Length -ge 3) { $parts[2] } else { "refresh_excel.ps1 failed." }
@@ -214,6 +222,12 @@ function Open-ExcelSession {
     param(
         [string]$ResolvedPath
     )
+
+    $preflight = Get-OfficeComPreflightResult -Apps @('Excel')
+    $failureInfo = Get-OfficePreflightFailureInfo -Preflight $preflight -AppName 'Excel'
+    if ($null -ne $failureInfo) {
+        throw "OFFICE_PRECHECK::$($failureInfo.error_kind)::$($failureInfo.message)"
+    }
 
     $script:excel = New-Object -ComObject Excel.Application
     $script:excel.Visible = $false
