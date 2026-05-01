@@ -1,6 +1,10 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$sharedOfficeModule = (Resolve-Path (Join-Path $PSScriptRoot '..\..\.shared\office-com\scripts\office_com_common.psm1')).Path
+
+Import-Module $sharedOfficeModule -Force -DisableNameChecking
+
 function ConvertTo-MsoTriState {
     param([bool]$Value)
     if ($Value) { return -1 }
@@ -200,6 +204,7 @@ function Read-JsonFileAsHashtable {
 function New-PowerPointApplication {
     param([bool]$Visible = $false)
 
+    Assert-OfficeComAvailable -AppName 'PowerPoint' | Out-Null
     $app = New-Object -ComObject PowerPoint.Application
     try {
         $app.Visible = (ConvertTo-MsoTriState -Value $Visible)

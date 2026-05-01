@@ -36,10 +36,18 @@ Do not edit OOXML directly unless Word automation fails and the task truly requi
 
 ## Preflight
 
+Before any Word COM step, run the shared Office preflight from a regular PowerShell window opened as the signed-in desktop user:
+
+```powershell
+& "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps Word
+```
+
+If preflight reports `can_use_com = false`, do not create `Word.Application` from the Codex sandbox. Prepare non-COM inputs in Codex and run the Word COM step from that desktop-user PowerShell window through `scripts/invoke-docx-win.ps1` or a task-specific script.
+
 For a new machine or after an Office repair/update, run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\smoke-test.ps1
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action smoke-test
 ```
 
 The smoke test proves that:
@@ -63,37 +71,38 @@ If the smoke test fails, stop and fix the local Word/Office environment before a
 - Before final delivery, update all fields and tables of contents, then save again.
 - Always close the document and quit Word in `finally` blocks.
 - Always release COM objects. Orphaned `WINWORD.EXE` processes are a reliability bug.
+- Never call `New-Object -ComObject Word.Application` directly from the Codex sandbox. Use the shared preflight and then run COM work from the signed-in desktop user session through `scripts/invoke-docx-win.ps1` or a task-specific script.
 
 ## Common commands
 
 ### Convert legacy `.doc` to `.docx`
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\convert-doc-to-docx.ps1 -InputPath .\input.doc -OutputPath .\input.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action convert-doc-to-docx -InputPath .\input.doc -OutputPath .\input.docx
 ```
 
 ### Export `.docx` to PDF for review
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\export-pdf.ps1 -InputPath .\report.docx -OutputPath .\report.pdf
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action export-pdf -InputPath .\report.docx -OutputPath .\report.pdf
 ```
 
 ### Accept all tracked changes
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\accept-revisions.ps1 -InputPath .\draft.docx -OutputPath .\clean.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action accept-revisions -InputPath .\draft.docx -OutputPath .\clean.docx
 ```
 
 ### Find and replace across the document
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\find-replace.ps1 -InputPath .\draft.docx -FindText "Old Name" -ReplaceText "New Name" -OutputPath .\draft-updated.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action find-replace -InputPath .\draft.docx -FindText "Old Name" -ReplaceText "New Name" -OutputPath .\draft-updated.docx
 ```
 
 ### Add a comment to a specific range
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\add-comment.ps1 -InputPath .\draft.docx -Start 1 -End 25 -CommentText "verify this figure" -Author "Codex" -Initials "CX" -OutputPath .\draft-commented.docx
+& "$env:USERPROFILE\.codex\skills\docx-win\scripts\invoke-docx-win.ps1" -Action add-comment -InputPath .\draft.docx -Start 1 -End 25 -CommentText "verify this figure" -Author "Codex" -Initials "CX" -OutputPath .\draft-commented.docx
 ```
 
 ## Decide the path
@@ -186,8 +195,10 @@ Load `references/word-com-recipes.md` when you need examples for:
 If Word cannot be automated:
 - confirm the machine is Windows,
 - confirm Microsoft Word launches manually,
-- rerun `scripts/smoke-test.ps1`,
+- rerun `scripts/invoke-docx-win.ps1 -Action smoke-test`,
 - check for blocked dialogs, protected view, or orphaned `WINWORD.EXE` processes,
 - retry with a fresh working copy.
+
+If Word COM throws `0x80070520`, treat that as a wrong-session problem, not as a document problem. Move the COM step to the signed-in desktop user session and rerun it there.
 
 Only fall back to lower-level ZIP/XML repair when Word COM is unavailable or the file is structurally damaged in a way Word cannot fix.

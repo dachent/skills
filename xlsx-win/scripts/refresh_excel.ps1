@@ -20,6 +20,9 @@ $resolvedWorkbookPath = $WorkbookPath
 $logReady = $false
 $saveOnClose = $false
 $macroPolicy = if ($EnableMacros.IsPresent) { "enabled" } else { "disabled" }
+$sharedOfficeModule = (Resolve-Path (Join-Path $PSScriptRoot '..\..\.shared\office-com\scripts\office_com_common.psm1')).Path
+
+Import-Module $sharedOfficeModule -Force -DisableNameChecking
 
 function Ensure-ParentDirectory {
     param(
@@ -107,7 +110,12 @@ function Get-ErrorInfo {
     $errorKind = "runtime_error"
     $friendlyMessage = $rawMessage
 
-    if (
+    if ($rawMessage.StartsWith("OFFICE_PRECHECK::")) {
+        $parts = $rawMessage.Split("::", 3)
+        $errorKind = if ($parts.Length -ge 2) { $parts[1] } else { "excel_com_unavailable" }
+        $friendlyMessage = if ($parts.Length -ge 3) { $parts[2] } else { "Excel COM automation is unavailable in this session." }
+    }
+    elseif (
         $normalized.Contains("0x80070520") -or
         $normalized.Contains("80070520") -or
         $normalized.Contains("specified logon session does not exist") -or
@@ -231,6 +239,12 @@ try {
 
     $resolvedWorkbookPath = (Resolve-Path -LiteralPath $WorkbookPath -ErrorAction Stop).Path
     Write-Log "Resolved workbook path: $resolvedWorkbookPath"
+
+    $preflight = Get-OfficeComPreflightResult -Apps @('Excel')
+    $failureInfo = Get-OfficePreflightFailureInfo -Preflight $preflight -AppName 'Excel'
+    if ($null -ne $failureInfo) {
+        throw "OFFICE_PRECHECK::$($failureInfo.error_kind)::$($failureInfo.message)"
+    }
 
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false

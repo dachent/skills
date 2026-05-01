@@ -17,6 +17,8 @@ It now also hosts narrowly scoped original skills when the workflow is stable, r
 
 For the Office skills, the core design choice remains deliberate: prefer local Microsoft Office desktop automation over LibreOffice-style file transformation whenever Word, PowerPoint, or Excel fidelity matters. Those skills are Windows-specific and environment-dependent by design.
 
+The Office COM entrypoints now share a common runtime for session preflight, input-desktop checks, and normalized reroute behavior when COM is unavailable from a sandboxed or non-interactive shell.
+
 ## Skill Catalog
 
 | Skill | Engine | Upstream source | Smoke test |
@@ -40,18 +42,25 @@ For the Office skills, the core design choice remains deliberate: prefer local M
 ### Codex
 
 1. Clone this repository locally.
-2. Copy the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
-3. Keep the directory names unchanged: `docx-win`, `pptx-win`, `xlsx-win`, and `sart-clinic-data-access`.
+2. Copy the shared runtime folder `.shared\office-com` and the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
+3. Keep the directory names unchanged: `.shared`, `docx-win`, `pptx-win`, `xlsx-win`, and `sart-clinic-data-access`.
 4. Use the skill by name from Codex, for example `$docx-win`, `$pptx-win`, `$xlsx-win`, or `$sart-clinic-data-access`.
-5. Run the relevant smoke test before relying on a new machine or Office installation.
+5. Before relying on Excel, PowerPoint, or Word COM from a new machine or session, run the shared preflight from a signed-in desktop-user PowerShell window:
+
+   ```powershell
+   & "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps @('Excel','PowerPoint','Word')
+   ```
+
+6. Run the relevant smoke test or live validation before relying on a new machine or session.
 
 ### Claude Code
 
 1. Clone this repository locally.
 2. In your project's `.claude/skills/` directory, copy or symlink the desired subdirectories from `.claude/skills/` in this repository: `docx-win`, `pptx-win`, `xlsx-win`, and `sart-clinic-data-access`.
-3. Keep the directory names unchanged.
-4. Reference each skill from a `CLAUDE.md` or system prompt by its name, for example `docx-win`, `pptx-win`, `xlsx-win`, or `sart-clinic-data-access`.
-5. Run the relevant smoke test before relying on a new machine or Office installation.
+3. If you plan to use the Office skills, also copy the shared runtime folder `.shared\office-com` from this repository into `.claude\skills\.shared\office-com` so the skill wrappers can resolve their shared preflight module.
+4. Keep the directory names unchanged.
+5. Reference each skill from a `CLAUDE.md` or system prompt by its name, for example `docx-win`, `pptx-win`, `xlsx-win`, or `sart-clinic-data-access`.
+6. Run the relevant smoke test or live validation before relying on a new machine or session.
 
 ## Validation And CI
 
@@ -81,6 +90,7 @@ python -m compileall -q .\pptx-win\scripts .\xlsx-win\scripts .\tools
 
 ## Repo Layout
 
+- [`.shared/office-com/`](./.shared/office-com): shared Office COM preflight and guard runtime used by Excel, PowerPoint, and Word wrappers
 - [`docx-win/`](./docx-win): Word skill, scripts, references, and agent metadata
 - [`pptx-win/`](./pptx-win): PowerPoint skill, scripts, references, fallback OOXML utilities, and agent metadata
 - [`sart-clinic-data-access/`](./sart-clinic-data-access): SART clinic PKID and report-access workflow skill

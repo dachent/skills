@@ -11,6 +11,9 @@ $validatorScript = Join-Path $scriptDir "check_formula_errors.ps1"
 $powerQueryScript = Join-Path $scriptDir "power_query_excel.ps1"
 $powershellExe = (Get-Command powershell -ErrorAction SilentlyContinue | Select-Object -First 1).Source
 $global:ExitCode = 1
+$sharedOfficeModule = (Resolve-Path (Join-Path $PSScriptRoot '..\..\.shared\office-com\scripts\office_com_common.psm1')).Path
+
+Import-Module $sharedOfficeModule -Force -DisableNameChecking
 
 if ([string]::IsNullOrWhiteSpace($powershellExe)) {
     throw "powershell.exe was not found."
@@ -102,6 +105,7 @@ function New-ExcelWorkbook {
 
     try {
         Ensure-ParentDirectory -PathValue $PathValue
+        Assert-OfficeComAvailable -AppName 'Excel' | Out-Null
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $false
         $excel.DisplayAlerts = $false

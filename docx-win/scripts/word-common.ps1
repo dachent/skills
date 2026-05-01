@@ -1,6 +1,10 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$sharedOfficeModule = (Resolve-Path (Join-Path $PSScriptRoot '..\..\.shared\office-com\scripts\office_com_common.psm1')).Path
+
+Import-Module $sharedOfficeModule -Force -DisableNameChecking
+
 function Test-WindowsHost {
     if ($env:OS -ne 'Windows_NT') {
         throw 'This skill requires Windows with Microsoft Word installed.'
@@ -40,6 +44,7 @@ function New-WordApplication {
     )
 
     Test-WindowsHost
+    Assert-OfficeComAvailable -AppName 'Word' | Out-Null
 
     try {
         $word = New-Object -ComObject Word.Application
