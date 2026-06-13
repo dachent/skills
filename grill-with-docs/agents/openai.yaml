@@ -1,0 +1,7 @@
+interface:
+  display_name: "Grill With Docs"
+  short_description: "Stress-test plans against docs and domain language"
+  default_prompt: "Use $grill-with-docs to challenge my plan against project terminology, docs, and ADRs."
+
+policy:
+  allow_implicit_invocation: true
