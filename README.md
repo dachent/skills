@@ -2,7 +2,7 @@
 
 [![Validate](https://github.com/dachent/codex_skills/actions/workflows/validate.yml/badge.svg?branch=main)](https://github.com/dachent/codex_skills/actions/workflows/validate.yml)
 
-Focused Codex and Claude skills, currently centered on Windows Office automation plus a reusable SART clinic-data research workflow.
+Focused Codex and Claude skills, currently centered on Windows Office automation plus reusable research and planning workflows.
 
 Canonical GitHub About settings:
 - Description: `Windows-native Codex skills for Word, PowerPoint, and Excel using Microsoft Office COM automation.`
@@ -27,6 +27,7 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 | [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + PowerShell, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
 | [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + PowerShell, Python helpers | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
 | [`sart-clinic-data-access`](./sart-clinic-data-access) | Search-first SART public-site workflow | User-provided `SART Clinic Data Access Instructions.md` | Manual live Codex test: PKID lookup plus report-page selection |
+| [`ultraplan`](./ultraplan) | Codex-native deep implementation planning workflow | `6missedcalls/ultraplan` -> `.` | Live subagent forward-tests plus repo metadata validation |
 
 ## Prerequisites
 
@@ -36,6 +37,7 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 - PowerShell for the Office automation entrypoints and repo validation scripts
 - Python 3 for the bundled Python helpers and repo tooling
 - For `sart-clinic-data-access`: a session that can search and open public web pages
+- For `ultraplan`: a Codex session that can read the target codebase and write `.ultraplan/plan.md`
 
 ## Installation
 
@@ -43,8 +45,8 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 
 1. Clone this repository locally.
 2. Copy the shared runtime folder `.shared\office-com` and the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
-3. Keep the directory names unchanged: `.shared`, `docx-win`, `pptx-win`, `xlsx-win`, and `sart-clinic-data-access`.
-4. Use the skill by name from Codex, for example `$docx-win`, `$pptx-win`, `$xlsx-win`, or `$sart-clinic-data-access`.
+3. Keep the directory names unchanged: `.shared`, `docx-win`, `pptx-win`, `xlsx-win`, `sart-clinic-data-access`, and `ultraplan`.
+4. Use the skill by name from Codex, for example `$docx-win`, `$pptx-win`, `$xlsx-win`, `$sart-clinic-data-access`, or `$ultraplan`.
 5. Before relying on Excel, PowerPoint, or Word COM from a new machine or session, run the shared preflight from a signed-in desktop-user PowerShell window:
 
    ```powershell
@@ -80,6 +82,8 @@ Office runtime validation is separate because GitHub-hosted runners do not provi
 
 Docs-first web-research skills use manual live validation instead of a repo script. For `sart-clinic-data-access`, the smoke test is a real PKID lookup followed by opening the correct SART report page for the requested metric.
 
+Planning workflow skills use live agent validation instead of runtime smoke scripts. For `ultraplan`, the validation covers baseline planning, normal skill-guided planning, existing-plan refinement, parallel-agent fallback behavior, and report-only planning in a non-Git fixture.
+
 Local validation commands:
 
 ```powershell
@@ -94,6 +98,7 @@ python -m compileall -q .\pptx-win\scripts .\xlsx-win\scripts .\tools
 - [`docx-win/`](./docx-win): Word skill, scripts, references, and agent metadata
 - [`pptx-win/`](./pptx-win): PowerPoint skill, scripts, references, fallback OOXML utilities, and agent metadata
 - [`sart-clinic-data-access/`](./sart-clinic-data-access): SART clinic PKID and report-access workflow skill
+- [`ultraplan/`](./ultraplan): Codex-native deep implementation planning skill adapted from `6missedcalls/ultraplan`
 - [`xlsx-win/`](./xlsx-win): Excel skill, scripts, references, and agent metadata
 - [`.github/workflows/`](./.github/workflows): hosted validation and self-hosted Office smoke workflows
 - [`tools/`](./tools): repository validation helpers used by CI and local contributors
@@ -122,4 +127,5 @@ Current upstream provenance:
 | `docx-win` | `https://github.com/anthropics/skills` | `skills/docx` | `main` | Light port |
 | `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` | Light port |
 | `sart-clinic-data-access` | User-provided private source notes | `SART Clinic Data Access Instructions.md` | `2026-04-08` | Original skill |
+| `ultraplan` | `https://github.com/6missedcalls/ultraplan` | `.` | `main` at `06779940475f9c52b4d3b546d309b2c31ebbf8ea` (`2026-03-31T21:48:42Z`) | Heavy Codex adaptation |
 | `xlsx-win` | `https://github.com/anthropics/skills` | `skills/xlsx` | `main` | Heavy adaptation |
