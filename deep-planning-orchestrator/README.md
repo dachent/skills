@@ -13,6 +13,38 @@ Use it when a task needs more than a quick implementation plan: unfamiliar syste
 - Uses optional companion skills such as `repo-map`, `verification-plan`, `adversarial-plan-review`, `ultraplan`, `grill-me`, `grill-with-docs`, `handoff`, and Superpowers skills when available.
 - Uses Codex subagents only when the user or session explicitly allows them, with a bounded local fallback otherwise.
 
+## Sample Prompts
+
+Use the skill directly when you want Codex to plan deeply before touching implementation files:
+
+```text
+Use $deep-planning-orchestrator to plan an OAuth login migration in this repo. Use the Git workflow, create evidence-backed planning artifacts, and stop before implementation until I say PROCEED.
+```
+
+For a business project with coding but no commit workflow:
+
+```text
+Use $deep-planning-orchestrator to plan a weekly clinic KPI packet that includes data extraction scripts and an executive-ready memo. Treat this as mixed business-coding work, do not use git commits, and define stakeholder validation before execution.
+```
+
+For a high-risk backend/API change:
+
+```text
+Use $deep-planning-orchestrator to plan a multi-service API contract change. Include repo mapping, assumption attacks, targeted probes, verification criteria, rollback triggers, and adversarial plan review before implementation.
+```
+
+For explicit subagent forward planning:
+
+```text
+Use $deep-planning-orchestrator to plan this migration. You may use subagents for repo-map, verification-plan, and adversarial-plan-review, but keep planning artifacts in .deep-planning/ and stop at each PROCEED gate.
+```
+
+To resume an existing planning run:
+
+```text
+Resume the existing .deep-planning workflow for this project, re-read the current state and evidence catalog, update stale assumptions, and continue only to the next PROCEED gate.
+```
+
 ## Source Provenance
 
 This folder is a Codex-native derivative of:
