@@ -1,0 +1,7 @@
+interface:
+  display_name: "Deep Planning Orchestrator"
+  short_description: "Adaptive deep planning protocol"
+  default_prompt: "Use $deep-planning-orchestrator to plan this deeply before execution."
+
+policy:
+  allow_implicit_invocation: true

@@ -52,4 +52,6 @@ jobs:
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          python -m compileall -q pptx-win\scripts xlsx-win\scripts tools
+          $compilePaths = @('tools')
+          $compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts | ForEach-Object { $_.FullName }
+          python -m compileall -q @compilePaths

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Adversarial Plan Review"
+  short_description: "Red-team plans before execution"
+  default_prompt: "Use $adversarial-plan-review to red-team this plan before implementation."
+
+policy:
+  allow_implicit_invocation: true
