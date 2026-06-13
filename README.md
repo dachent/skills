@@ -32,7 +32,6 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 | [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + PowerShell, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
 | [`repo-map`](./repo-map) | Codex project and evidence mapping | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live mixed-project fixture plus repo metadata validation |
 | [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + PowerShell, Python helpers | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
-| [`sart-clinic-data-access`](./sart-clinic-data-access) | Search-first SART public-site workflow | User-provided `SART Clinic Data Access Instructions.md` | Manual live Codex test: PKID lookup plus report-page selection |
 | [`ultraplan`](./ultraplan) | Codex-native deep implementation planning workflow | `6missedcalls/ultraplan` -> `.` | Live subagent forward-tests plus repo metadata validation |
 | [`verification-plan`](./verification-plan) | Codex proof and rollback planning | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live verification fixture plus Python artifact validation |
 
@@ -43,7 +42,6 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 - For `docx-win`, `pptx-win`, and `xlsx-win`: Microsoft 365 desktop apps installed for the relevant skill
 - PowerShell for the Office automation entrypoints and repo validation scripts
 - Python 3 for the bundled Python helpers and repo tooling
-- For `sart-clinic-data-access`: a session that can search and open public web pages
 - For `ultraplan`: a Codex session that can read the target codebase and write `.ultraplan/plan.md`
 - For `grill-me`: a Codex session that can read the target codebase or artifacts before asking the user discoverable questions
 - For `grill-with-docs`: permission to update project documentation such as `CONTEXT.md` and accepted ADRs
@@ -56,8 +54,8 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 
 1. Clone this repository locally.
 2. Copy the shared runtime folder `.shared\office-com` and the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
-3. Keep the directory names unchanged: `.shared`, `adversarial-plan-review`, `deep-planning-orchestrator`, `docx-win`, `grill-me`, `grill-with-docs`, `handoff`, `pptx-win`, `repo-map`, `sart-clinic-data-access`, `ultraplan`, `verification-plan`, and `xlsx-win`.
-4. Use the skill by name from Codex, for example `$deep-planning-orchestrator`, `$repo-map`, `$verification-plan`, `$adversarial-plan-review`, `$docx-win`, `$grill-me`, `$grill-with-docs`, `$handoff`, `$pptx-win`, `$sart-clinic-data-access`, `$ultraplan`, or `$xlsx-win`.
+3. Keep the directory names unchanged: `.shared`, `adversarial-plan-review`, `deep-planning-orchestrator`, `docx-win`, `grill-me`, `grill-with-docs`, `handoff`, `pptx-win`, `repo-map`, `ultraplan`, `verification-plan`, and `xlsx-win`.
+4. Use the skill by name from Codex, for example `$deep-planning-orchestrator`, `$repo-map`, `$verification-plan`, `$adversarial-plan-review`, `$docx-win`, `$grill-me`, `$grill-with-docs`, `$handoff`, `$pptx-win`, `$ultraplan`, or `$xlsx-win`.
 5. Before relying on Excel, PowerPoint, or Word COM from a new machine or session, run the shared preflight from a signed-in desktop-user PowerShell window:
 
    ```powershell
@@ -69,10 +67,10 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 ### Claude Code
 
 1. Clone this repository locally.
-2. In your project's `.claude/skills/` directory, copy or symlink the desired subdirectories from `.claude/skills/` in this repository: `docx-win`, `pptx-win`, `xlsx-win`, and `sart-clinic-data-access`.
+2. In your project's `.claude/skills/` directory, copy or symlink the desired subdirectories from `.claude/skills/` in this repository: `docx-win`, `pptx-win`, and `xlsx-win`.
 3. If you plan to use the Office skills, also copy the shared runtime folder `.shared\office-com` from this repository into `.claude\skills\.shared\office-com` so the skill wrappers can resolve their shared preflight module.
 4. Keep the directory names unchanged.
-5. Reference each skill from a `CLAUDE.md` or system prompt by its name, for example `docx-win`, `pptx-win`, `xlsx-win`, or `sart-clinic-data-access`.
+5. Reference each skill from a `CLAUDE.md` or system prompt by its name, for example `docx-win`, `pptx-win`, or `xlsx-win`.
 6. Run the relevant smoke test or live validation before relying on a new machine or session.
 
 ## Validation And CI
@@ -91,7 +89,6 @@ Office runtime validation is separate because GitHub-hosted runners do not provi
 - it uploads logs and generated artifacts for debugging
 - it can be started manually or requested from a pull request with `/office-smoke`
 
-Docs-first web-research skills use manual live validation instead of a repo script. For `sart-clinic-data-access`, the smoke test is a real PKID lookup followed by opening the correct SART report page for the requested metric.
 
 Planning workflow skills use live agent validation instead of runtime smoke scripts. For `ultraplan`, the validation covers baseline planning, normal skill-guided planning, existing-plan refinement, parallel-agent fallback behavior, and report-only planning in a non-Git fixture.
 
@@ -120,7 +117,6 @@ python -m compileall -q @compilePaths
 - [`handoff/`](./handoff): redacted continuation handoff skill adapted from `mattpocock/skills`
 - [`pptx-win/`](./pptx-win): PowerPoint skill, scripts, references, fallback OOXML utilities, and agent metadata
 - [`repo-map/`](./repo-map): Codex project map and evidence catalog skill
-- [`sart-clinic-data-access/`](./sart-clinic-data-access): SART clinic PKID and report-access workflow skill
 - [`ultraplan/`](./ultraplan): Codex-native deep implementation planning skill adapted from `6missedcalls/ultraplan`
 - [`verification-plan/`](./verification-plan): Codex proof criteria and rollback planning skill
 - [`xlsx-win/`](./xlsx-win): Excel skill, scripts, references, and agent metadata
@@ -158,7 +154,6 @@ Current upstream provenance:
 | `handoff` | `https://github.com/mattpocock/skills` | `skills/productivity/handoff` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Light Codex adaptation |
 | `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` | Light port |
 | `repo-map` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
-| `sart-clinic-data-access` | User-provided private source notes | `SART Clinic Data Access Instructions.md` | `2026-04-08` | Original skill |
 | `ultraplan` | `https://github.com/6missedcalls/ultraplan` | `.` | `main` at `06779940475f9c52b4d3b546d309b2c31ebbf8ea` (`2026-03-31T21:48:42Z`) | Heavy Codex adaptation |
 | `verification-plan` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
 | `xlsx-win` | `https://github.com/anthropics/skills` | `skills/xlsx` | `main` | Heavy adaptation |
