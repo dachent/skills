@@ -24,6 +24,9 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 | Skill | Engine | Upstream source | Smoke test |
 | --- | --- | --- | --- |
 | [`docx-win`](./docx-win) | Microsoft Word COM + PowerShell | `anthropics/skills` -> `skills/docx` | `powershell -ExecutionPolicy Bypass -File .\docx-win\scripts\smoke-test.ps1` |
+| [`grill-me`](./grill-me) | Codex read-only design interview | `mattpocock/skills` -> `skills/productivity/grill-me` | Live interview scenario tests plus repo metadata validation |
+| [`grill-with-docs`](./grill-with-docs) | Codex docs-backed design interview | `mattpocock/skills` -> `skills/engineering/grill-with-docs` | Live docs fixture tests plus repo metadata validation |
+| [`handoff`](./handoff) | Codex continuation document workflow | `mattpocock/skills` -> `skills/productivity/handoff` | Temp-file handoff scenario plus repo metadata validation |
 | [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + PowerShell, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
 | [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + PowerShell, Python helpers | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
 | [`sart-clinic-data-access`](./sart-clinic-data-access) | Search-first SART public-site workflow | User-provided `SART Clinic Data Access Instructions.md` | Manual live Codex test: PKID lookup plus report-page selection |
@@ -38,6 +41,9 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 - Python 3 for the bundled Python helpers and repo tooling
 - For `sart-clinic-data-access`: a session that can search and open public web pages
 - For `ultraplan`: a Codex session that can read the target codebase and write `.ultraplan/plan.md`
+- For `grill-me`: a Codex session that can read the target codebase or artifacts before asking the user discoverable questions
+- For `grill-with-docs`: permission to update project documentation such as `CONTEXT.md` and accepted ADRs
+- For `handoff`: permission to write a redacted continuation document to the operating system temporary directory
 
 ## Installation
 
@@ -45,8 +51,8 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 
 1. Clone this repository locally.
 2. Copy the shared runtime folder `.shared\office-com` and the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
-3. Keep the directory names unchanged: `.shared`, `docx-win`, `pptx-win`, `xlsx-win`, `sart-clinic-data-access`, and `ultraplan`.
-4. Use the skill by name from Codex, for example `$docx-win`, `$pptx-win`, `$xlsx-win`, `$sart-clinic-data-access`, or `$ultraplan`.
+3. Keep the directory names unchanged: `.shared`, `docx-win`, `grill-me`, `grill-with-docs`, `handoff`, `pptx-win`, `sart-clinic-data-access`, `ultraplan`, and `xlsx-win`.
+4. Use the skill by name from Codex, for example `$docx-win`, `$grill-me`, `$grill-with-docs`, `$handoff`, `$pptx-win`, `$sart-clinic-data-access`, `$ultraplan`, or `$xlsx-win`.
 5. Before relying on Excel, PowerPoint, or Word COM from a new machine or session, run the shared preflight from a signed-in desktop-user PowerShell window:
 
    ```powershell
@@ -84,6 +90,8 @@ Docs-first web-research skills use manual live validation instead of a repo scri
 
 Planning workflow skills use live agent validation instead of runtime smoke scripts. For `ultraplan`, the validation covers baseline planning, normal skill-guided planning, existing-plan refinement, parallel-agent fallback behavior, and report-only planning in a non-Git fixture.
 
+Interactive workflow skills use scenario validation. For `grill-me`, validation covers one-question-at-a-time plan interrogation and repo exploration before asking discoverable questions. For `grill-with-docs`, validation covers `CONTEXT.md` discovery, lazy docs creation, glossary-only updates, and ADR gating. For `handoff`, validation covers temp-directory output, redaction, artifact references, and suggested skill handoff content.
+
 Local validation commands:
 
 ```powershell
@@ -96,6 +104,9 @@ python -m compileall -q .\pptx-win\scripts .\xlsx-win\scripts .\tools
 
 - [`.shared/office-com/`](./.shared/office-com): shared Office COM preflight and guard runtime used by Excel, PowerPoint, and Word wrappers
 - [`docx-win/`](./docx-win): Word skill, scripts, references, and agent metadata
+- [`grill-me/`](./grill-me): read-only plan and design grilling interview skill adapted from `mattpocock/skills`
+- [`grill-with-docs/`](./grill-with-docs): docs-backed plan grilling skill with context and ADR references adapted from `mattpocock/skills`
+- [`handoff/`](./handoff): redacted continuation handoff skill adapted from `mattpocock/skills`
 - [`pptx-win/`](./pptx-win): PowerPoint skill, scripts, references, fallback OOXML utilities, and agent metadata
 - [`sart-clinic-data-access/`](./sart-clinic-data-access): SART clinic PKID and report-access workflow skill
 - [`ultraplan/`](./ultraplan): Codex-native deep implementation planning skill adapted from `6missedcalls/ultraplan`
@@ -109,6 +120,7 @@ Contributions should preserve each skill's documented contract:
 
 - keep the Office skills Windows-specific and COM-first unless the skill explicitly documents a fallback path
 - keep docs-first skills concise, reproducible, and explicit about any search/open constraints
+- keep interactive workflow skills strict about their write scope, especially `handoff` temp files and `grill-with-docs` documentation-only edits
 - update `agents/openai.yaml` together with any skill behavior changes
 - keep `SKILL.md` examples and referenced scripts in sync
 - run the hosted validation commands locally before opening a PR
@@ -125,6 +137,9 @@ Current upstream provenance:
 | Skill | Upstream repo | Source folder | Source branch | Port depth |
 | --- | --- | --- | --- | --- |
 | `docx-win` | `https://github.com/anthropics/skills` | `skills/docx` | `main` | Light port |
+| `grill-me` | `https://github.com/mattpocock/skills` | `skills/productivity/grill-me` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Light Codex adaptation |
+| `grill-with-docs` | `https://github.com/mattpocock/skills` | `skills/engineering/grill-with-docs` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Medium Codex adaptation |
+| `handoff` | `https://github.com/mattpocock/skills` | `skills/productivity/handoff` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Light Codex adaptation |
 | `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` | Light port |
 | `sart-clinic-data-access` | User-provided private source notes | `SART Clinic Data Access Instructions.md` | `2026-04-08` | Original skill |
 | `ultraplan` | `https://github.com/6missedcalls/ultraplan` | `.` | `main` at `06779940475f9c52b4d3b546d309b2c31ebbf8ea` (`2026-03-31T21:48:42Z`) | Heavy Codex adaptation |
