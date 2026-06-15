@@ -21,7 +21,7 @@ Red-team a plan before execution. The goal is to find blocking flaws while chang
 ## When Invoked By deep-planning-codex
 
 - Treat `.deep-planning/implementation-plan.md` and `.deep-planning/verification-plan.md` as required inputs before a final execution gate.
-- Return `PASS` only when there are no `BLOCKING` findings. Use `FAIL` for blocking flaws and `PARTIAL` when required evidence cannot be inspected.
+- Return `PASS` only when there are no `BLOCKING` findings. Use `FAIL` when inspected evidence proves a blocking flaw. Use `PARTIAL` when required evidence cannot be inspected well enough to determine whether the plan is safe.
 - A `FAIL` or `PARTIAL` verdict must block `READY_FOR_PROCEED`; the Deep Planning Delta status should be `FAILED_VALIDATION`, `BLOCKED_BY_MISSING_EVIDENCE`, or `BLOCKED_NEEDS_USER_DECISION` based on the fix required.
 - End with a Deep Planning Delta for the orchestrator to merge into `.deep-planning/state.md`, including the exact artifact or decision needed for re-review.
 
