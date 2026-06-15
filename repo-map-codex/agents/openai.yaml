@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Repo Map"
+  short_description: "Map project structure for planning"
+  default_prompt: "Use $repo-map-codex to build a durable project map before planning."
+
+policy:
+  allow_implicit_invocation: true

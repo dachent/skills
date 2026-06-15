@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Deep Planning Orchestrator"
+  short_description: "Adaptive deep planning protocol"
+  default_prompt: "Use $deep-planning-codex to plan this deeply before execution."
+
+policy:
+  allow_implicit_invocation: true

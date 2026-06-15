@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Verification Plan"
+  short_description: "Define proof before execution"
+  default_prompt: "Use $verification-plan-codex to define how this work will be proven correct."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Grill Me"
+  short_description: "Stress-test plans through pointed interviews"
+  default_prompt: "Use $grill-me-codex to stress-test my plan before I commit to it."
+
+policy:
+  allow_implicit_invocation: true

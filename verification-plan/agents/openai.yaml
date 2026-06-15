@@ -1,7 +1,0 @@
-interface:
-  display_name: "Verification Plan"
-  short_description: "Define proof before execution"
-  default_prompt: "Use $verification-plan to define how this work will be proven correct."
-
-policy:
-  allow_implicit_invocation: true
