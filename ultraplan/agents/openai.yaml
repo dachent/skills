@@ -1,7 +1,0 @@
-interface:
-  display_name: "UltraPlan"
-  short_description: "Deep implementation planning for Codex"
-  default_prompt: "Use $ultraplan to create a grounded implementation plan before coding."
-
-policy:
-  allow_implicit_invocation: true

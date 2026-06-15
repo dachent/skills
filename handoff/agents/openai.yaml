@@ -1,7 +1,0 @@
-interface:
-  display_name: "Handoff"
-  short_description: "Create redacted continuation notes"
-  default_prompt: "Use $handoff to write a redacted handoff for the next session."
-
-policy:
-  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Codex Grill With Docs"
+  short_description: "Stress-test plans against docs and domain language"
+  default_prompt: "Use $grill-with-docs-codex to challenge my plan against project terminology, docs, and ADRs."
+
+policy:
+  allow_implicit_invocation: true
