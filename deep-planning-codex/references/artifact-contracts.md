@@ -42,6 +42,8 @@ Next action:
 ...
 ```
 
+In dry-run, forward-test, or no-edit contexts, return artifact snippets and the delta instead of writing files. The `Updated artifacts` list should still name the paths that would be written in a normal run.
+
 ## assumption-ledger.md
 
 ```markdown
@@ -69,7 +71,7 @@ Next action:
 
 | Item | What it is | Attempt/context | Outcome | Relevance | Failure mechanism |
 | --- | --- | --- | --- | --- | --- |
-| ... | ... | succeeded/failed/partial/unreached | high/medium/low | ... |
+| E1 | ... | ... | succeeded/failed/partial/unreached | high/medium/low | N/A for succeeded rows; otherwise explain why the attempt failed, is partial, is stale, or was not reached |
 ```
 
 ## verification-plan.md
