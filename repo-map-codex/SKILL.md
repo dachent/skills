@@ -21,6 +21,7 @@ Create a durable map of the project so later planning is grounded in evidence ra
 
 - Use the orchestrator-selected project mode unless discovered evidence contradicts it. If the mode changes, record the reason in `.deep-planning/project-mode.md`.
 - Write `.deep-planning/repo-map.md` and `.deep-planning/evidence-catalog.md` using the deep-planning artifact contract. The evidence catalog must include `Failure mechanism` for failed, partial, stale, or unreached evidence.
+- Use `N/A` in `Failure mechanism` for successful evidence rows.
 - End with a Deep Planning Delta for the orchestrator to merge into `.deep-planning/state.md`. Use `READY_FOR_PROCEED` only when the map and evidence catalog are complete enough for the next planning phase.
 - If required evidence is missing, set status to `BLOCKED_BY_MISSING_EVIDENCE` and make `Next action` name the exact source, access, or probe needed.
 
