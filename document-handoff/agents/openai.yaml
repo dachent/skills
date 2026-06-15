@@ -1,0 +1,4 @@
+interface:
+  display_name: "Document Handoff"
+  short_description: "Create structured project handoff packages"
+  default_prompt: "Use $document-handoff to package a completed project into a handoff workfolder and browsable HTML memo."
