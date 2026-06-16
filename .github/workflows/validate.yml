@@ -87,3 +87,10 @@ jobs:
           npm ci --ignore-scripts
           npm run check
           Pop-Location
+
+      - name: Validate Codex visual skills
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          python .\tools\test_visual_skills_contract.py

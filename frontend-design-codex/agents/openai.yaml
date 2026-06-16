@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Design Codex"
+  short_description: "Browser-verified frontend UI design"
+  default_prompt: "Use $frontend-design-codex to build or review a responsive frontend UI with screenshot evidence and visual QA."

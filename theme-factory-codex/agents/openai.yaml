@@ -1,0 +1,4 @@
+interface:
+  display_name: "Theme Factory Codex"
+  short_description: "No-template design token and theme guidance"
+  default_prompt: "Use $theme-factory-codex to create or audit a theme with design tokens, contrast checks, and screenshot evidence."

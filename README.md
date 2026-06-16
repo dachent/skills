@@ -26,13 +26,18 @@ The shared visual runtime gives future Codex visual skills a browser and image e
 | Skill | Engine | Upstream source | Smoke test |
 | --- | --- | --- | --- |
 | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | Codex hostile plan review | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live flawed-plan fixture plus repo metadata validation |
+| [`artifact-runtime-codex`](./artifact-runtime-codex) | Browser runtime handoff + evidence bundles | repo-owned original | Visual skills contract validation |
+| [`canvas-design-codex`](./canvas-design-codex) | Canvas, SVG, WebGL, and pixel evidence QA | repo-owned original | Visual skills contract validation |
 | [`deep-planning-codex`](./deep-planning-codex) | Codex-native gated planning workflow | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live subagent forward-tests plus artifact validator |
 | [`docx-win`](./docx-win) | Microsoft Word COM + no-template document polish | `anthropics/skills` -> `skills/docx` | `powershell -ExecutionPolicy Bypass -File .\docx-win\scripts\smoke-test.ps1` |
+| [`frontend-design-codex`](./frontend-design-codex) | Responsive frontend design + screenshot QA | repo-owned original | Visual skills contract validation |
 | [`grill-me-codex`](./grill-me-codex) | Codex read-only design interview | `mattpocock/skills` -> `skills/productivity/grill-me` | Live interview scenario tests plus repo metadata validation |
 | [`grill-with-docs-codex`](./grill-with-docs-codex) | Codex docs-backed design interview | `mattpocock/skills` -> `skills/engineering/grill-with-docs` | Live docs fixture tests plus repo metadata validation |
 | [`handoff-codex`](./handoff-codex) | Codex continuation document workflow | `mattpocock/skills` -> `skills/productivity/handoff` | Temp-file handoff scenario plus repo metadata validation |
 | [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + no-template deck design, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
 | [`repo-map-codex`](./repo-map-codex) | Codex project and evidence mapping | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live mixed-project fixture plus repo metadata validation |
+| [`theme-factory-codex`](./theme-factory-codex) | Design tokens, palettes, and theme QA | repo-owned original | Visual skills contract validation |
+| [`web-artifacts-builder-codex`](./web-artifacts-builder-codex) | Standalone web artifact packaging + visual evidence | repo-owned original | Visual skills contract validation |
 | [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + chart-ready workbook reliability | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
 | [`ultraplan-codex`](./ultraplan-codex) | Codex-native deep implementation planning workflow | `6missedcalls/ultraplan` -> `.` | Live subagent forward-tests plus repo metadata validation |
 | [`verification-plan-codex`](./verification-plan-codex) | Codex proof and rollback planning | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live verification fixture plus Python artifact validation |
@@ -70,14 +75,16 @@ The lock file is `.upstream/anthropic-skills.lock.json`. Each in-scope Office sk
 
 `.shared/visual-runtime` is the browser-native layer for future visual skills. It gives Codex reusable scripts and references for screenshot capture, console capture, visual lint, PDF export, image bounds inspection, contact sheets, accessibility checks, and design-token discipline. This phase requires no Office COM: browser rendering and image inspection can run in normal Codex execution, while later Office embedding or export still belongs to the Office COM skills.
 
+Codex visual skills now consume that runtime directly. `frontend-design-codex`, `web-artifacts-builder-codex`, `theme-factory-codex`, `canvas-design-codex`, and `artifact-runtime-codex` each document what they teach Codex, why the lesson matters when no template exists, how `.shared\visual-runtime` supplies screenshot/visual-lint/evidence loops, and how users or agents should verify the result. These skills are browser-first and do not require Office COM.
+
 ## Installation
 
 ### Codex
 
 1. Clone this repository locally.
 2. Copy the shared runtime folders `.shared\office-com` and `.shared\visual-runtime`, plus the skill folders you want to use, into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
-3. Keep the directory names unchanged: `.shared`, `adversarial-plan-review-codex`, `deep-planning-codex`, `docx-win`, `grill-me-codex`, `grill-with-docs-codex`, `handoff-codex`, `pptx-win`, `repo-map-codex`, `ultraplan-codex`, `verification-plan-codex`, and `xlsx-win`.
-4. Use the skill by name from Codex, for example `$deep-planning-codex`, `$repo-map-codex`, `$verification-plan-codex`, `$adversarial-plan-review-codex`, `$docx-win`, `$grill-me-codex`, `$grill-with-docs-codex`, `$handoff-codex`, `$pptx-win`, `$ultraplan-codex`, or `$xlsx-win`.
+3. Keep the directory names unchanged: `.shared`, `adversarial-plan-review-codex`, `artifact-runtime-codex`, `canvas-design-codex`, `deep-planning-codex`, `docx-win`, `frontend-design-codex`, `grill-me-codex`, `grill-with-docs-codex`, `handoff-codex`, `pptx-win`, `repo-map-codex`, `theme-factory-codex`, `ultraplan-codex`, `verification-plan-codex`, `web-artifacts-builder-codex`, and `xlsx-win`.
+4. Use the skill by name from Codex, for example `$deep-planning-codex`, `$repo-map-codex`, `$verification-plan-codex`, `$adversarial-plan-review-codex`, `$artifact-runtime-codex`, `$canvas-design-codex`, `$docx-win`, `$frontend-design-codex`, `$grill-me-codex`, `$grill-with-docs-codex`, `$handoff-codex`, `$pptx-win`, `$theme-factory-codex`, `$ultraplan-codex`, `$web-artifacts-builder-codex`, or `$xlsx-win`.
 5. Before relying on Excel, PowerPoint, or Word COM from a new machine or session, run the shared preflight from a signed-in desktop-user PowerShell window:
 
    ```powershell
@@ -130,6 +137,7 @@ python .\tools\generate_alignment_report.py --json .\.upstream\reports\latest-dr
 python .\tools\test_deep_planning_validator.py
 python .\tools\test_office_com_contract.py
 python .\tools\test_visual_runtime_contract.py
+python .\tools\test_visual_skills_contract.py
 Push-Location .shared\visual-runtime
 npm ci --ignore-scripts
 npm run check
@@ -147,16 +155,21 @@ python -m compileall -q @compilePaths
 - [`.shared/office-com/`](./.shared/office-com): shared Office COM preflight and guard runtime used by Excel, PowerPoint, and Word wrappers
 - [`.shared/visual-runtime/`](./.shared/visual-runtime): shared Playwright and image utilities for browser screenshot evidence, visual lint, PDF export, image bounds, and contact sheets
 - [`adversarial-plan-review-codex/`](./adversarial-plan-review-codex): Codex hostile review skill for execution plans
+- [`artifact-runtime-codex/`](./artifact-runtime-codex): runtime and evidence handoff skill for browser visual artifacts
+- [`canvas-design-codex/`](./canvas-design-codex): drawn-visual QA skill for canvas, SVG, WebGL, and pixel evidence
 - [`deep-planning-codex/`](./deep-planning-codex): master Codex deep planning workflow skill
 - [`docx-win/`](./docx-win): Word skill, scripts, no-template document quality references, and agent metadata
+- [`frontend-design-codex/`](./frontend-design-codex): frontend UI design skill using screenshots, visual lint, and responsive QA
 - [`grill-me-codex/`](./grill-me-codex): read-only plan and design grilling interview skill adapted from `mattpocock/skills`
 - [`grill-with-docs-codex/`](./grill-with-docs-codex): docs-backed plan grilling skill with context and ADR references adapted from `mattpocock/skills`
 - [`handoff-codex/`](./handoff-codex): redacted continuation handoff skill adapted from `mattpocock/skills`
 - [`pptx-win/`](./pptx-win): PowerPoint skill, scripts, references, fallback OOXML utilities, and agent metadata
 - [`pptx-win/tests/fixtures/`](./pptx-win/tests/fixtures): no-template deck briefs and expected visual QA notes for non-COM agent rehearsal
 - [`repo-map-codex/`](./repo-map-codex): Codex project map and evidence catalog skill
+- [`theme-factory-codex/`](./theme-factory-codex): theme and design-token skill for no-template visual systems
 - [`ultraplan-codex/`](./ultraplan-codex): Codex-native deep implementation planning skill adapted from `6missedcalls/ultraplan`
 - [`verification-plan-codex/`](./verification-plan-codex): Codex proof criteria and rollback planning skill
+- [`web-artifacts-builder-codex/`](./web-artifacts-builder-codex): standalone web artifact creation and evidence packaging skill
 - [`xlsx-win/`](./xlsx-win): Excel skill, scripts, workbook reliability references, and agent metadata
 - [`.github/workflows/`](./.github/workflows): hosted validation and self-hosted Office smoke workflows
 - [`tools/`](./tools): repository validation helpers used by CI and local contributors
@@ -188,13 +201,18 @@ Current upstream provenance:
 | Skill | Upstream repo | Source folder | Source branch | Port depth |
 | --- | --- | --- | --- | --- |
 | `adversarial-plan-review-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
+| `artifact-runtime-codex` | `dachent/skills` | `artifact-runtime-codex` | repo-owned original | Original Codex visual design skill |
+| `canvas-design-codex` | `dachent/skills` | `canvas-design-codex` | repo-owned original | Original Codex visual design skill |
 | `deep-planning-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
 | `docx-win` | `https://github.com/anthropics/skills` | `skills/docx` | `main` pinned at `57546260929473d4e0d1c1bb75297be2fdfa1949` (`2026-06-15`) | Windows COM adaptation |
+| `frontend-design-codex` | `dachent/skills` | `frontend-design-codex` | repo-owned original | Original Codex visual design skill |
 | `grill-me-codex` | `https://github.com/mattpocock/skills` | `skills/productivity/grill-me` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Light Codex adaptation |
 | `grill-with-docs-codex` | `https://github.com/mattpocock/skills` | `skills/engineering/grill-with-docs` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Medium Codex adaptation |
 | `handoff-codex` | `https://github.com/mattpocock/skills` | `skills/productivity/handoff` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Light Codex adaptation |
 | `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` pinned at `57546260929473d4e0d1c1bb75297be2fdfa1949` (`2026-06-15`) | Windows COM adaptation |
 | `repo-map-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
+| `theme-factory-codex` | `dachent/skills` | `theme-factory-codex` | repo-owned original | Original Codex visual design skill |
 | `ultraplan-codex` | `https://github.com/6missedcalls/ultraplan` | `.` | `main` at `06779940475f9c52b4d3b546d309b2c31ebbf8ea` (`2026-03-31T21:48:42Z`) | Heavy Codex adaptation |
 | `verification-plan-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
+| `web-artifacts-builder-codex` | `dachent/skills` | `web-artifacts-builder-codex` | repo-owned original | Original Codex visual design skill |
 | `xlsx-win` | `https://github.com/anthropics/skills` | `skills/xlsx` | `main` pinned at `57546260929473d4e0d1c1bb75297be2fdfa1949` (`2026-06-15`) | Heavy Windows COM adaptation |

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Canvas Design Codex"
+  short_description: "Canvas, SVG, and WebGL visual QA"
+  default_prompt: "Use $canvas-design-codex to build or verify drawn browser visuals with screenshot, pixel, and image bounds evidence."

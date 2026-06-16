@@ -1,0 +1,4 @@
+interface:
+  display_name: "Artifact Runtime Codex"
+  short_description: "Runtime and evidence handoff for visual artifacts"
+  default_prompt: "Use $artifact-runtime-codex to run, package, and verify a browser visual artifact with a local server and evidence bundle."
