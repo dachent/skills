@@ -48,6 +48,19 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 - For `handoff-codex`: permission to write a redacted continuation document to the operating system temporary directory
 - For the Codex deep planning suite: permission to create or update `.deep-planning/` planning artifacts in the target project, and optionally `.ultraplan/plan.md` when `ultraplan-codex` is part of the selected workflow
 
+## Design Upskill Provenance
+
+The Office skills are the first foundation for upskilling Codex on no-template design work. Before adding stronger deck, document, spreadsheet, and visual artifact behavior, the repository pins the upstream source used for each Office-derived skill and documents why the local Windows/Codex implementation intentionally diverges.
+
+This matters because no-template design quality depends on more than attractive output. Codex needs traceable guidance for:
+
+- which upstream skill behavior is being adapted;
+- why local Windows Office COM automation is the fidelity path;
+- which changes are meant to improve layout, rendering, screenshot review, and repair loops;
+- which checks can run in normal Codex execution and which checks require a desktop-user or elevated Office COM context.
+
+The lock file is `.upstream/anthropic-skills.lock.json`. Each in-scope Office skill has a `PROVENANCE.md` file with source, port classification, intentional divergences, design-upskill contribution, and COM boundary notes.
+
 ## Installation
 
 ### Codex
@@ -101,6 +114,9 @@ Local validation commands:
 ```powershell
 pwsh -NoLogo -NoProfile -File .\tools\validate_repo.ps1
 pwsh -NoLogo -NoProfile -File .\tools\validate_powershell.ps1 -SettingsPath .github\PSScriptAnalyzerSettings.psd1
+python .\tools\validate_provenance.py
+python .\tools\check_upstream_drift.py --json .\.upstream\reports\latest-drift.json
+python .\tools\generate_alignment_report.py --json .\.upstream\reports\latest-drift.json --markdown .\.upstream\reports\latest-alignment-report.md
 python .\tools\test_deep_planning_validator.py
 $compilePaths = @('.\tools')
 $compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts | ForEach-Object { $_.FullName }
@@ -109,6 +125,7 @@ python -m compileall -q @compilePaths
 
 ## Repo Layout
 
+- [`.upstream/`](./.upstream): pinned upstream source metadata, Office skill snapshots, and generated alignment reports
 - [`.shared/office-com/`](./.shared/office-com): shared Office COM preflight and guard runtime used by Excel, PowerPoint, and Word wrappers
 - [`adversarial-plan-review-codex/`](./adversarial-plan-review-codex): Codex hostile review skill for execution plans
 - [`deep-planning-codex/`](./deep-planning-codex): master Codex deep planning workflow skill
@@ -143,18 +160,20 @@ This repository records provenance for each skill but does not currently publish
 
 Before redistributing or repackaging this repository, review the upstream provenance and decide on an explicit licensing policy for the repo as a whole.
 
+Current Anthropic-derived Office provenance is pinned in `.upstream/anthropic-skills.lock.json`. Snapshot folders under `.upstream/anthropic-skills/57546260929473d4e0d1c1bb75297be2fdfa1949/` preserve upstream comparison baselines and `LICENSE.txt` files. Upstream drift is reported by `.github/workflows/upstream-drift.yml`; invalid provenance fails validation.
+
 Current upstream provenance:
 
 | Skill | Upstream repo | Source folder | Source branch | Port depth |
 | --- | --- | --- | --- | --- |
 | `adversarial-plan-review-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
 | `deep-planning-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
-| `docx-win` | `https://github.com/anthropics/skills` | `skills/docx` | `main` | Light port |
+| `docx-win` | `https://github.com/anthropics/skills` | `skills/docx` | `main` pinned at `57546260929473d4e0d1c1bb75297be2fdfa1949` (`2026-06-15`) | Windows COM adaptation |
 | `grill-me-codex` | `https://github.com/mattpocock/skills` | `skills/productivity/grill-me` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Light Codex adaptation |
 | `grill-with-docs-codex` | `https://github.com/mattpocock/skills` | `skills/engineering/grill-with-docs` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Medium Codex adaptation |
 | `handoff-codex` | `https://github.com/mattpocock/skills` | `skills/productivity/handoff` | `main` at `694fa30311e02c2639942308513555e61ee84a6f` (`2026-06-10 16:01:44 +0100`) | Light Codex adaptation |
-| `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` | Light port |
+| `pptx-win` | `https://github.com/anthropics/skills` | `skills/pptx` | `main` pinned at `57546260929473d4e0d1c1bb75297be2fdfa1949` (`2026-06-15`) | Windows COM adaptation |
 | `repo-map-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
 | `ultraplan-codex` | `https://github.com/6missedcalls/ultraplan` | `.` | `main` at `06779940475f9c52b4d3b546d309b2c31ebbf8ea` (`2026-03-31T21:48:42Z`) | Heavy Codex adaptation |
 | `verification-plan-codex` | `https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96` | `deep_planning.txt` | HEAD at `6ea4c02e5aa60c9991e1e4d1c50089c01cd6ec83` | New Codex-native derivative |
-| `xlsx-win` | `https://github.com/anthropics/skills` | `skills/xlsx` | `main` | Heavy adaptation |
+| `xlsx-win` | `https://github.com/anthropics/skills` | `skills/xlsx` | `main` pinned at `57546260929473d4e0d1c1bb75297be2fdfa1949` (`2026-06-15`) | Heavy Windows COM adaptation |

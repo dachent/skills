@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-15",
+  "upstreams": {
+    "anthropic-skills": {
+      "repo": "https://github.com/anthropics/skills",
+      "commit": "57546260929473d4e0d1c1bb75297be2fdfa1949",
+      "branch_at_fetch": "main",
+      "fetched_at": "2026-06-15",
+      "license_note": "Snapshot folders preserve upstream LICENSE.txt files. Review Anthropic skill licensing before redistributing repackaged upstream content."
+    }
+  },
+  "skills": {
+    "docx-win": {
+      "source": "anthropic-skills",
+      "upstream_path": "skills/docx",
+      "local_path": "docx-win",
+      "port_depth": "windows-com-adaptation",
+      "alignment_owner": "manual-review-required",
+      "snapshot": true
+    },
+    "pptx-win": {
+      "source": "anthropic-skills",
+      "upstream_path": "skills/pptx",
+      "local_path": "pptx-win",
+      "port_depth": "windows-com-adaptation",
+      "alignment_owner": "manual-review-required",
+      "snapshot": true
+    },
+    "xlsx-win": {
+      "source": "anthropic-skills",
+      "upstream_path": "skills/xlsx",
+      "local_path": "xlsx-win",
+      "port_depth": "heavy-windows-com-adaptation",
+      "alignment_owner": "manual-review-required",
+      "snapshot": true
+    }
+  },
+  "candidate_upstream_skills": {
+    "frontend-design-codex": {
+      "source": "anthropic-skills",
+      "upstream_path": "skills/frontend-design",
+      "planned_local_path": "frontend-design-codex",
+      "snapshot": false,
+      "reason": "Candidate for later Codex-native visual skill plan."
+    },
+    "web-artifacts-builder-codex": {
+      "source": "anthropic-skills",
+      "upstream_path": "skills/web-artifacts-builder",
+      "planned_local_path": "web-artifacts-builder-codex",
+      "snapshot": false,
+      "reason": "Candidate for later Codex-native artifact skill plan."
+    },
+    "theme-factory-codex": {
+      "source": "anthropic-skills",
+      "upstream_path": "skills/theme-factory",
+      "planned_local_path": "theme-factory-codex",
+      "snapshot": false,
+      "reason": "Candidate for later Codex-native theme system plan."
+    },
+    "canvas-design-codex": {
+      "source": "anthropic-skills",
+      "upstream_path": "skills/canvas-design",
+      "planned_local_path": "canvas-design-codex",
+      "snapshot": false,
+      "reason": "Candidate for later Codex-native static canvas plan."
+    }
+  }
+}
