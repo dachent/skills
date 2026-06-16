@@ -21,6 +21,11 @@ $cli = (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache" -Recurse -Filter 
   Select-Object -First 1).FullName
 
 if (-not $cli) {
+  $cli = (Get-ChildItem "$env:USERPROFILE\.claude\skills" -Recurse -Filter "cli.mjs" -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match [regex]::Escape("document-handoff\scripts") } |
+    Select-Object -First 1).FullName
+}
+if (-not $cli) {
   # Fallback: check Codex and OpenCode plugin caches
   $cli = (Get-ChildItem "$env:USERPROFILE\.codex\plugins" -Recurse -Filter "cli.mjs" -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -match [regex]::Escape("document-handoff\scripts") } |
