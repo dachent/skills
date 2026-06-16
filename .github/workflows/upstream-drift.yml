@@ -1,0 +1,56 @@
+name: Upstream Drift
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 12 * * 1"
+  pull_request:
+    paths:
+      - ".upstream/**"
+      - ".shared/**"
+      - "docx-win/**"
+      - "pptx-win/**"
+      - "xlsx-win/**"
+      - "tools/**"
+      - ".github/workflows/upstream-drift.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate provenance
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          python .\tools\validate_provenance.py
+
+      - name: Check upstream drift
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          python .\tools\check_upstream_drift.py --json .\.upstream\reports\latest-drift.json
+          python .\tools\generate_alignment_report.py --json .\.upstream\reports\latest-drift.json --markdown .\.upstream\reports\latest-alignment-report.md
+
+      - name: Upload alignment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-alignment-report
+          path: |
+            .upstream/reports/latest-drift.json
+            .upstream/reports/latest-alignment-report.md
+          if-no-files-found: error

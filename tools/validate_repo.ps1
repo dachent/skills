@@ -177,9 +177,20 @@ foreach ($skillFile in $skillFiles) {
     }
 }
 
+$provenanceValidator = Join-Path $repositoryRoot 'tools\validate_provenance.py'
+if (-not (Test-Path -LiteralPath $provenanceValidator)) {
+    Add-Failure -Failures $failures -Message 'tools/validate_provenance.py is missing.'
+}
+else {
+    $pythonOutput = & python $provenanceValidator 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) {
+        Add-Failure -Failures $failures -Message ("Provenance validation failed:{0}{1}" -f [Environment]::NewLine, $pythonOutput.Trim())
+    }
+}
+
 if ($failures.Count -gt 0) {
     $message = @('Repository metadata validation failed:') + $failures
     throw ($message -join [Environment]::NewLine)
 }
 
-Write-Output ('Validated {0} agent metadata files and {1} skill files.' -f $agentFiles.Count, $skillFiles.Count)
+Write-Output ('Validated {0} agent metadata files, {1} skill files, and provenance metadata.' -f $agentFiles.Count, $skillFiles.Count)
