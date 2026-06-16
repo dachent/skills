@@ -77,6 +77,8 @@ The lock file is `.upstream/anthropic-skills.lock.json`. Each in-scope Office sk
 
 Codex visual skills now consume that runtime directly. `frontend-design-codex`, `web-artifacts-builder-codex`, `theme-factory-codex`, `canvas-design-codex`, and `artifact-runtime-codex` each document what they teach Codex, why the lesson matters when no template exists, how `.shared\visual-runtime` supplies screenshot/visual-lint/evidence loops, and how users or agents should verify the result. These skills are browser-first and do not require Office COM.
 
+`.codex/agents` and `.codex/hooks.json` add warning-only reminders for visual QA, PowerPoint rendering evidence, provenance review, accessibility checks, and Office COM boundary honesty. They help Codex avoid skipping no-template visual QA and provenance review. The Office COM validator agent reviews COM logs and artifacts; it does not instantiate Office.
+
 ## Installation
 
 ### Codex
@@ -112,6 +114,7 @@ Hosted validation runs in GitHub Actions on `windows-latest`:
 - PowerShell parser checks plus `PSScriptAnalyzer` with a repo-owned rule set
 - Python syntax compilation for the bundled `.py` files
 - shared visual runtime contract validation plus JavaScript syntax checks through npm
+- warning-only Codex hook and agent validation through `tools/validate_codex_hooks.py`
 
 Office runtime validation is separate because GitHub-hosted runners do not provide reliable Microsoft Office COM automation:
 - `.github/workflows/office-smoke.yml` is designed for a self-hosted Windows runner labeled `office`
@@ -138,6 +141,7 @@ python .\tools\test_deep_planning_validator.py
 python .\tools\test_office_com_contract.py
 python .\tools\test_visual_runtime_contract.py
 python .\tools\test_visual_skills_contract.py
+python .\tools\validate_codex_hooks.py
 Push-Location .shared\visual-runtime
 npm ci --ignore-scripts
 npm run check
@@ -154,6 +158,8 @@ python -m compileall -q @compilePaths
 - [`.upstream/`](./.upstream): pinned upstream source metadata, Office skill snapshots, and generated alignment reports
 - [`.shared/office-com/`](./.shared/office-com): shared Office COM preflight and guard runtime used by Excel, PowerPoint, and Word wrappers
 - [`.shared/visual-runtime/`](./.shared/visual-runtime): shared Playwright and image utilities for browser screenshot evidence, visual lint, PDF export, image bounds, and contact sheets
+- [`.codex/agents/`](./.codex/agents): reviewer, builder, packager, accessibility, and Office COM evidence-review agent prompts for no-template design work
+- [`.codex/hooks.json`](./.codex/hooks.json): warning-only reminders for visual QA, PowerPoint rendering, provenance review, accessibility, and COM boundary checks
 - [`adversarial-plan-review-codex/`](./adversarial-plan-review-codex): Codex hostile review skill for execution plans
 - [`artifact-runtime-codex/`](./artifact-runtime-codex): runtime and evidence handoff skill for browser visual artifacts
 - [`canvas-design-codex/`](./canvas-design-codex): drawn-visual QA skill for canvas, SVG, WebGL, and pixel evidence

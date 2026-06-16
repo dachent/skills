@@ -94,3 +94,10 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           python .\tools\test_visual_skills_contract.py
+
+      - name: Validate Codex hooks and agents
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          python .\tools\validate_codex_hooks.py
