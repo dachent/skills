@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Artifacts Builder Codex"
+  short_description: "Standalone web artifact builder"
+  default_prompt: "Use $web-artifacts-builder-codex to build and verify a standalone web artifact with screenshots, console capture, and package evidence."
