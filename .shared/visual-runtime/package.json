@@ -1,0 +1,13 @@
+{
+  "name": "@dachent/skills-visual-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Playwright utilities for no-template visual design evidence in Codex skills.",
+  "type": "module",
+  "scripts": {
+    "check": "node --check scripts/capture_page.mjs && node --check scripts/export_pdf.mjs && node --check scripts/visual_lint.mjs && python -m compileall -q scripts"
+  },
+  "devDependencies": {
+    "playwright": "1.61.0"
+  }
+}

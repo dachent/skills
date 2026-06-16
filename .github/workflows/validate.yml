@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
@@ -53,7 +58,9 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           $compilePaths = @('tools')
-          $compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts | ForEach-Object { $_.FullName }
+          $compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts |
+            Where-Object { $_.FullName -notmatch '\\node_modules\\' } |
+            ForEach-Object { $_.FullName }
           python -m compileall -q @compilePaths
 
       - name: Validate provenance metadata
@@ -69,3 +76,14 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           python .\tools\test_office_com_contract.py
+
+      - name: Validate shared visual runtime
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          python .\tools\test_visual_runtime_contract.py
+          Push-Location .shared\visual-runtime
+          npm ci --ignore-scripts
+          npm run check
+          Pop-Location

@@ -19,6 +19,8 @@ For the Office skills, the core design choice remains deliberate: prefer local M
 
 The Office COM entrypoints now share a common runtime for session preflight, input-desktop checks, and normalized reroute behavior when COM is unavailable from a sandboxed or non-interactive shell.
 
+The shared visual runtime gives future Codex visual skills a browser and image evidence layer for no-template design work. It is separate from Office COM and supports a render-inspect-lint-revise loop with screenshots, console capture, PDF export, image bounds, and contact sheets.
+
 ## Skill Catalog
 
 | Skill | Engine | Upstream source | Smoke test |
@@ -42,6 +44,7 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 - For `docx-win`, `pptx-win`, and `xlsx-win`: Microsoft 365 desktop apps installed for the relevant skill
 - PowerShell for the Office automation entrypoints and repo validation scripts
 - Python 3 for the bundled Python helpers and repo tooling
+- Node.js and npm for `.shared/visual-runtime` Playwright helper validation
 - For `ultraplan-codex`: a Codex session that can read the target codebase and write `.ultraplan/plan.md`
 - For `grill-me-codex`: a Codex session that can read the target codebase or artifacts before asking the user discoverable questions
 - For `grill-with-docs-codex`: permission to update project documentation such as `CONTEXT.md` and accepted ADRs
@@ -65,12 +68,14 @@ The lock file is `.upstream/anthropic-skills.lock.json`. Each in-scope Office sk
 
 `docx-win` and `xlsx-win` now extend that design-upskill foundation beyond decks. `docx-win` documents how Word styles, sections, tables, review markup, field refresh, and PDF evidence contribute to polished no-template documents. `xlsx-win` documents how calculation correctness, Power Query load behavior, formula-error checks, and chart-ready output tables contribute to trustworthy no-template visuals. Both skills explicitly split normal Codex preparation from true Office COM work that may need desktop-user or elevated PowerShell.
 
+`.shared/visual-runtime` is the browser-native layer for future visual skills. It gives Codex reusable scripts and references for screenshot capture, console capture, visual lint, PDF export, image bounds inspection, contact sheets, accessibility checks, and design-token discipline. This phase requires no Office COM: browser rendering and image inspection can run in normal Codex execution, while later Office embedding or export still belongs to the Office COM skills.
+
 ## Installation
 
 ### Codex
 
 1. Clone this repository locally.
-2. Copy the shared runtime folder `.shared\office-com` and the skill folders you want to use into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
+2. Copy the shared runtime folders `.shared\office-com` and `.shared\visual-runtime`, plus the skill folders you want to use, into your Codex skills directory, for example `%USERPROFILE%\.codex\skills\`.
 3. Keep the directory names unchanged: `.shared`, `adversarial-plan-review-codex`, `deep-planning-codex`, `docx-win`, `grill-me-codex`, `grill-with-docs-codex`, `handoff-codex`, `pptx-win`, `repo-map-codex`, `ultraplan-codex`, `verification-plan-codex`, and `xlsx-win`.
 4. Use the skill by name from Codex, for example `$deep-planning-codex`, `$repo-map-codex`, `$verification-plan-codex`, `$adversarial-plan-review-codex`, `$docx-win`, `$grill-me-codex`, `$grill-with-docs-codex`, `$handoff-codex`, `$pptx-win`, `$ultraplan-codex`, or `$xlsx-win`.
 5. Before relying on Excel, PowerPoint, or Word COM from a new machine or session, run the shared preflight from a signed-in desktop-user PowerShell window:
@@ -85,7 +90,7 @@ The lock file is `.upstream/anthropic-skills.lock.json`. Each in-scope Office sk
 
 1. Clone this repository locally.
 2. In your project's `.claude/skills/` directory, copy or symlink the desired subdirectories from `.claude/skills/` in this repository: `docx-win`, `pptx-win`, and `xlsx-win`.
-3. If you plan to use the Office skills, also copy the shared runtime folder `.shared\office-com` from this repository into `.claude\skills\.shared\office-com` so the skill wrappers can resolve their shared preflight module.
+3. If you plan to use the Office skills, also copy the shared runtime folder `.shared\office-com` from this repository into `.claude\skills\.shared\office-com` so the skill wrappers can resolve their shared preflight module. If you plan to use browser visual QA helpers, copy `.shared\visual-runtime` as well.
 4. Keep the directory names unchanged.
 5. Reference each skill from a `CLAUDE.md` or system prompt by its name, for example `docx-win`, `pptx-win`, or `xlsx-win`.
 6. Run the relevant smoke test or live validation before relying on a new machine or session.
@@ -99,6 +104,7 @@ Hosted validation runs in GitHub Actions on `windows-latest`:
 - `SKILL.md` front matter and internal `scripts/...` and `references/...` path validation
 - PowerShell parser checks plus `PSScriptAnalyzer` with a repo-owned rule set
 - Python syntax compilation for the bundled `.py` files
+- shared visual runtime contract validation plus JavaScript syntax checks through npm
 
 Office runtime validation is separate because GitHub-hosted runners do not provide reliable Microsoft Office COM automation:
 - `.github/workflows/office-smoke.yml` is designed for a self-hosted Windows runner labeled `office`
@@ -123,8 +129,15 @@ python .\tools\check_upstream_drift.py --json .\.upstream\reports\latest-drift.j
 python .\tools\generate_alignment_report.py --json .\.upstream\reports\latest-drift.json --markdown .\.upstream\reports\latest-alignment-report.md
 python .\tools\test_deep_planning_validator.py
 python .\tools\test_office_com_contract.py
+python .\tools\test_visual_runtime_contract.py
+Push-Location .shared\visual-runtime
+npm ci --ignore-scripts
+npm run check
+Pop-Location
 $compilePaths = @('.\tools')
-$compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts | ForEach-Object { $_.FullName }
+$compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts |
+  Where-Object { $_.FullName -notmatch '\\node_modules\\' } |
+  ForEach-Object { $_.FullName }
 python -m compileall -q @compilePaths
 ```
 
@@ -132,6 +145,7 @@ python -m compileall -q @compilePaths
 
 - [`.upstream/`](./.upstream): pinned upstream source metadata, Office skill snapshots, and generated alignment reports
 - [`.shared/office-com/`](./.shared/office-com): shared Office COM preflight and guard runtime used by Excel, PowerPoint, and Word wrappers
+- [`.shared/visual-runtime/`](./.shared/visual-runtime): shared Playwright and image utilities for browser screenshot evidence, visual lint, PDF export, image bounds, and contact sheets
 - [`adversarial-plan-review-codex/`](./adversarial-plan-review-codex): Codex hostile review skill for execution plans
 - [`deep-planning-codex/`](./deep-planning-codex): master Codex deep planning workflow skill
 - [`docx-win/`](./docx-win): Word skill, scripts, no-template document quality references, and agent metadata
