@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "mode": "warning-only",
+  "hooks": [
+    {
+      "id": "visual-qa-evidence-reminder",
+      "event": "before_final_response",
+      "severity": "warning",
+      "blocking": false,
+      "message": "Before claiming visual design work is complete, confirm screenshot evidence and visual lint status.",
+      "reminder": "For no-template visual work, preserve screenshots, console/request logs, visual-lint findings, and any accepted tradeoffs."
+    },
+    {
+      "id": "powerpoint-render-evidence-reminder",
+      "event": "before_final_response",
+      "severity": "warning",
+      "blocking": false,
+      "message": "PowerPoint design claims need either rendered slide evidence or an explicit COM runner/session blocker.",
+      "reminder": "If PowerPoint COM is unavailable, keep static reports and rerun only rendering/export from desktop-user or Office runner context."
+    },
+    {
+      "id": "provenance-review-reminder",
+      "event": "before_commit",
+      "severity": "warning",
+      "blocking": false,
+      "message": "Design-upskill changes should document what changed, why it matters, and how evidence verifies it.",
+      "reminder": "Check impacted SKILL.md, PROVENANCE.md when applicable, README, and contract tests before committing."
+    },
+    {
+      "id": "office-com-boundary-reminder",
+      "event": "before_final_response",
+      "severity": "warning",
+      "blocking": false,
+      "message": "Do not report COM-dependent validation as complete unless it actually ran in a COM-capable session.",
+      "reminder": "Wrong-session/access errors such as 0x80070520 are environment failures; rerun in desktop/elevated PowerShell or the Office runner."
+    },
+    {
+      "id": "accessibility-check-reminder",
+      "event": "before_final_response",
+      "severity": "warning",
+      "blocking": false,
+      "message": "No-template visual artifacts need at least a basic accessibility check.",
+      "reminder": "Review contrast, text size, image alt text, focus/labels when relevant, mobile tap spacing, and chart labels."
+    }
+  ]
+}
