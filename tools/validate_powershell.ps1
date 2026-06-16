@@ -23,6 +23,27 @@ function Format-Record {
     return '{0}:{1}: {2}' -f $File, $Line, $Message
 }
 
+function Test-IsGeneratedPath {
+    param(
+        [Parameter(Mandatory)] [string]$RepositoryRoot,
+        [Parameter(Mandatory)] [string]$Path
+    )
+
+    $relativePath = [System.IO.Path]::GetRelativePath($RepositoryRoot, $Path).Replace('\', '/')
+    $generatedPrefixes = @(
+        '.shared/visual-runtime/node_modules/',
+        '.shared/visual-runtime/out/'
+    )
+
+    foreach ($prefix in $generatedPrefixes) {
+        if ($relativePath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 $repositoryRoot = Get-RepositoryRoot
 $resolvedSettingsPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $SettingsPath))
 
@@ -36,6 +57,7 @@ if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
 
 $powerShellFiles = Get-ChildItem -Path $repositoryRoot -Recurse -File |
     Where-Object { $_.Extension -in '.ps1', '.psm1' } |
+    Where-Object { -not (Test-IsGeneratedPath -RepositoryRoot $repositoryRoot -Path $_.FullName) } |
     Sort-Object FullName
 
 $parseFailures = New-Object System.Collections.Generic.List[string]
@@ -55,7 +77,8 @@ if ($parseFailures.Count -gt 0) {
 }
 
 $analysisResults = @(
-    Invoke-ScriptAnalyzer -Path $repositoryRoot -Recurse -Settings $resolvedSettingsPath |
+    $powerShellFiles |
+        ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Settings $resolvedSettingsPath } |
         Sort-Object ScriptName, Line, RuleName
 )
 
