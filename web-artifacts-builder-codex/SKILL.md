@@ -46,6 +46,31 @@ Before completion:
 - preserve screenshot, manifest, console, request-failure, and optional PDF evidence;
 - confirm the evidence bundle can be understood without hidden conversation context.
 
+## Example Prompts
+
+### HTML Memo And Dashboard
+
+```text
+Use $web-artifacts-builder-codex, $frontend-design-codex, $theme-factory-codex, and $artifact-runtime-codex.
+
+Create a polished HTML memo and dashboard from the materials in:
+[PASTE FOLDER OR FILE PATHS]
+
+Objective:
+Build an executive-ready HTML artifact that explains [TOPIC / DECISION / ANALYSIS] and includes both a written memo and an interactive dashboard.
+
+Requirements:
+- Do not use a template. Derive the visual system from the subject matter and source content.
+- Include an executive summary, key findings, supporting analysis, risks/limitations, and recommended next steps.
+- Include dashboard sections with KPI cards, charts, tables, filters or segmented views where useful.
+- Make it responsive for desktop and mobile.
+- Use the shared visual runtime for browser screenshots, PDF export, image bounds checks, and visual linting.
+- Run accessibility and visual QA checks.
+- Provide evidence artifacts: screenshots, PDF export, visual lint output, and a short QA note.
+- Do not use Office COM unless exporting into an Office file becomes explicitly necessary.
+- Save all outputs under: [OUTPUT FOLDER]
+```
+
 ## Common Mistakes
 
 - Shipping an artifact that only works from a dev server when the user needed a portable folder.
