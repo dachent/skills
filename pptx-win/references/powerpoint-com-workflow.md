@@ -15,17 +15,20 @@ PowerPoint COM uses the same rendering and save engine that the user will open l
 ## Standard sequence
 
 1. Run the smoke test once on a new machine or repo checkout.
-2. Inspect the source deck with `presentation_report.ps1`.
-3. Export slide images with `export_slides.ps1`.
-4. Make the smallest edit that satisfies the task.
-5. Save to a new output path.
-6. Re-export slides and inspect again.
-7. Re-open the saved file in read-only mode to verify it is healthy.
+2. Inspect the package without COM using `inspect_metadata.py` and `check_text_overflow.py`.
+3. Inspect the source deck with `presentation_report.ps1`.
+4. Export slide images with `export_slides.ps1`.
+5. Make the smallest edit that satisfies the task.
+6. Save to a new output path.
+7. Re-run static checks, re-export slides, and inspect again.
+8. Re-open the saved file in read-only mode to verify it is healthy.
 
 ## Script selection
 
 ### Inspect
 ```bash
+python scripts/inspect_metadata.py input.pptx --format markdown --output metadata.md
+python scripts/check_text_overflow.py input.pptx --format markdown --output text-risk.md
 powershell -ExecutionPolicy Bypass -File scripts/presentation_report.ps1 -InputPath input.pptx -OutputPath report.json -Format json
 ```
 
@@ -91,3 +94,5 @@ Always do both:
 
 - content verification from the saved file after reopening it
 - visual verification from exported slide images
+
+For no-template decks, also review `references/no-template-deck-design.md`, `references/slide-layout-patterns.md`, and `references/visual-qa-rubric.md` so the deck is judged against an explicit concept, reusable layout system, and screenshot repair rubric.
