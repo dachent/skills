@@ -1,6 +1,6 @@
 ---
 name: pptx-win
-description: windows powerpoint automation for .pptx files in codex app or other local windows environments with microsoft 365 installed. use when chatgpt needs to open, inspect, edit, create, render, export, or qa powerpoint presentations on windows, especially existing decks, template-based edits, speaker notes, slide images, pdf export, placeholder replacement, or smoke testing via native powerpoint com automation. prefer this skill over libreoffice-based flows when powerpoint desktop is available.
+description: windows powerpoint automation and no-template deck design support for .pptx files in codex app or other local windows environments with microsoft 365 installed. use when chatgpt needs to open, inspect, edit, create, render, export, or qa powerpoint presentations on windows, especially new decks without a template, existing deck edits, speaker notes, slide images, pdf export, placeholder replacement, visual QA, or smoke testing via native powerpoint com automation. prefer this skill over libreoffice-based flows when powerpoint desktop is available.
 ---
 
 # Pptx Win
@@ -15,10 +15,15 @@ description: windows powerpoint automation for .pptx files in codex app or other
 
 ### Porting Notes
 
-- This is a light Windows-specific port of Anthropic's `pptx` skill for Codex.
+- This is a Windows COM adaptation of Anthropic's `pptx` skill for Codex.
 - The upstream skill centers on unpack/XML workflows, template editing guidance, and non-COM presentation tooling.
 - This port changes the preferred execution path to PowerShell wrappers around Microsoft PowerPoint COM for inspection, export, placeholder replacement, rendering, and targeted edits, while preserving OOXML utilities as fallback tools.
-- It remains Windows-only because the preferred workflow depends on a local Microsoft PowerPoint desktop installation and COM automation.
+- It adds no-template design guidance so Codex can choose layout systems, palettes, visual motifs, screenshot review criteria, and repair loops when a user does not provide a template.
+- It remains Windows-only for high-fidelity rendering because the preferred workflow depends on a local Microsoft PowerPoint desktop installation and COM automation.
+
+### Design Upskill Contribution
+
+This skill now teaches Codex how to build and review decks when no template exists. The added guidance makes Codex name the deck job, choose a visual concept, reuse a small set of slide patterns, apply a restrained palette and type rhythm, run static package checks, export screenshots, and repair visible defects. This matters because no-template deck quality depends on design judgment plus rendered evidence, not only successful `.pptx` file creation.
 
 Use native Microsoft PowerPoint COM automation first, but only after the helper preflight confirms the current shell is the signed-in desktop user session.
 
@@ -40,25 +45,35 @@ If preflight reports `can_use_com = false`, do not create `PowerPoint.Applicatio
    powershell -ExecutionPolicy Bypass -File scripts/smoke_test.ps1
    ```
 
-2. **Need to inspect an existing deck?**
+2. **Need to create a deck without a template?**
+   Read `references/no-template-deck-design.md`, choose layout patterns from `references/slide-layout-patterns.md`, and write down the concept, palette, type rhythm, and slide pattern set before creating slides. For static package checks after a draft exists, run:
+   ```bash
+   python scripts/inspect_metadata.py deck.pptx --format markdown --output deck.metadata.md
+   python scripts/check_text_overflow.py deck.pptx --format markdown --output deck.text-risk.md
+   ```
+   Then export slide screenshots with PowerPoint COM and use `references/visual-qa-rubric.md` for the repair loop.
+
+3. **Need to inspect an existing deck?**
    Run:
    ```bash
    powershell -ExecutionPolicy Bypass -File scripts/presentation_report.ps1 -InputPath deck.pptx -OutputPath deck.report.json -Format json
    powershell -ExecutionPolicy Bypass -File scripts/export_slides.ps1 -InputPath deck.pptx -OutputDir rendered
+   python scripts/inspect_metadata.py deck.pptx --format markdown --output deck.metadata.md
+   python scripts/check_text_overflow.py deck.pptx --format markdown --output deck.text-risk.md
    ```
-   Use the JSON report for text, notes, and shape inventory. Use the exported slide images for visual QA.
+   Use the JSON report for text, notes, and shape inventory. Use the metadata and text-risk reports for non-COM review signals. Use the exported slide images for visual QA.
 
-3. **Need to update placeholder text or perform broad find/replace edits?**
+4. **Need to update placeholder text or perform broad find/replace edits?**
    Create a JSON mapping file, then run:
    ```bash
    powershell -ExecutionPolicy Bypass -File scripts/replace_text.ps1 -InputPath template.pptx -OutputPath draft.pptx -MapPath replacements.json
    ```
    Use this first for template adaptation before writing a custom script.
 
-4. **Need to create or heavily restructure slides?**
+5. **Need to create or heavily restructure slides?**
    Write a task-specific PowerShell script that imports `scripts/pptx_com.psm1` and uses PowerPoint COM directly, but only from the desktop-user PowerShell window after preflight passes. Use `scripts/smoke_test.ps1` as a working starter example.
 
-5. **Need low-level OOXML surgery that COM cannot express safely?**
+6. **Need low-level OOXML surgery that COM cannot express safely?**
    Read `references/ooxml-fallback.md` and use the bundled Python utilities in `scripts/office/` plus `scripts/clean.py` and `scripts/add_slide.py`.
    If the Python imports are missing, install the bundled requirements first:
    ```bash
@@ -84,6 +99,8 @@ From the skill-local desktop-user wrapper, the equivalent command is:
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/presentation_report.ps1 -InputPath input.pptx -OutputPath input.report.md -Format markdown
 powershell -ExecutionPolicy Bypass -File scripts/export_slides.ps1 -InputPath input.pptx -OutputDir input-slides
+python scripts/inspect_metadata.py input.pptx --format markdown --output input.metadata.md
+python scripts/check_text_overflow.py input.pptx --format markdown --output input.text-risk.md
 ```
 
 ### Replace placeholders
@@ -106,22 +123,26 @@ powershell -ExecutionPolicy Bypass -File scripts/export_pdf.ps1 -InputPath outpu
 
 ## Operating Rules
 
+- For a no-template deck, define the visual concept, palette, type rhythm, and reusable slide patterns before writing automation.
 - Open presentations with `WithWindow` disabled unless a visible window is required for debugging.
 - Save edited output to a new path unless the user explicitly wants in-place edits.
 - Close every presentation and quit the PowerPoint application in `finally` blocks. Release COM objects after use.
 - Never call `New-Object -ComObject PowerPoint.Application` directly from the Codex sandbox. Use the shared preflight and then run COM work from the signed-in desktop user session through `scripts/invoke-pptx-win.ps1` or a task-specific script.
 - Export slide images after every material change and inspect them before declaring success.
+- Treat `scripts/check_text_overflow.py` as a static risk signal only. True text bounds require PowerPoint COM rendering and screenshot inspection.
 - Prefer PowerPoint's own PDF and image export over any alternate renderer.
 - Treat modal dialogs, Protected View, missing fonts, and file locks as likely failure modes on Windows.
 - Keep speaker notes and comments unless the user explicitly asks to remove them.
 
 ## Reading And Analysis Workflow
 
-1. Generate a structured report with `scripts/presentation_report.ps1`.
-2. Export slides to PNG with `scripts/export_slides.ps1`.
-3. Review text, notes, titles, and hidden-slide status from the report.
-4. Review visual layout from the PNGs.
-5. If the task is text-only, avoid OOXML unpacking.
+1. Generate non-COM package metadata with `scripts/inspect_metadata.py`.
+2. Run static text-density risk checks with `scripts/check_text_overflow.py`.
+3. Generate a COM structured report with `scripts/presentation_report.ps1` when PowerPoint COM is available.
+4. Export slides to PNG with `scripts/export_slides.ps1`.
+5. Review text, notes, titles, and hidden-slide status from the report.
+6. Review visual layout from the PNGs with `references/visual-qa-rubric.md`.
+7. If the task is text-only, avoid OOXML unpacking.
 
 ## Editing Workflow
 
@@ -137,20 +158,23 @@ powershell -ExecutionPolicy Bypass -File scripts/export_pdf.ps1 -InputPath outpu
 ## Creation Workflow
 
 1. Start from an existing branded template whenever available.
-2. If no template exists, create a new presentation with PowerPoint COM and add slides, text boxes, pictures, charts, and notes directly, but do it from the desktop-user PowerShell window after preflight succeeds.
-3. Use points for coordinates because the COM object model expects them.
-4. Save early, then export PNGs and iterate.
-5. Use the smoke test script as starter code for new COM-driven generators.
+2. If no template exists, read `references/no-template-deck-design.md` and select a visual concept, palette, type rhythm, and two or three patterns from `references/slide-layout-patterns.md`.
+3. Create a new presentation with PowerPoint COM and add slides, text boxes, pictures, charts, and notes directly, but do it from the desktop-user PowerShell window after preflight succeeds.
+4. Use points for coordinates because the COM object model expects them.
+5. Save early, run the static metadata and text-risk scripts, then export PNGs and iterate.
+6. Use the smoke test script as starter code for new COM-driven generators.
 
 ## QA Loop
 
 After every non-trivial edit:
 
-1. Export slide PNGs.
-2. Inspect for overflow, overlap, alignment drift, missing assets, and low-contrast text.
-3. Re-open the saved presentation in read-only mode.
-4. Confirm slide count and titles.
-5. Export PDF if the user needs a shareable review artifact.
+1. Run `scripts/inspect_metadata.py` to confirm package-level shape, media, chart, notes, and slide counts.
+2. Run `scripts/check_text_overflow.py` to identify static text-density risk.
+3. Export slide PNGs.
+4. Inspect for message clarity, hierarchy, overflow, overlap, alignment drift, missing assets, chart readability, and low-contrast text using `references/visual-qa-rubric.md`.
+5. Re-open the saved presentation in read-only mode.
+6. Confirm slide count and titles.
+7. Export PDF if the user needs a shareable review artifact.
 
 Do not declare success until the output deck has been reopened successfully and the rendered PNGs have been checked.
 
@@ -158,12 +182,18 @@ If PowerPoint COM throws `0x80070520`, treat that as a wrong-session problem, no
 
 ## Resources
 
+- `references/no-template-deck-design.md`: how to create and repair decks when no template exists.
+- `references/slide-layout-patterns.md`: reusable patterns for no-template deck composition.
+- `references/visual-qa-rubric.md`: screenshot inspection and repair criteria.
+- `references/render-inspect-guidance.md`: how to combine non-COM package checks with COM render evidence.
 - `references/powerpoint-com-workflow.md`: recommended COM-first workflow and script usage.
 - `references/troubleshooting.md`: common Windows and Office failure modes.
 - `references/ooxml-fallback.md`: when and how to drop to OOXML utilities.
 - `scripts/pptx_com.psm1`: shared COM helper functions.
 - `scripts/smoke_test.ps1`: local environment verification and starter example.
 - `scripts/presentation_report.ps1`: report titles, text, notes, and optional shape inventory.
+- `scripts/inspect_metadata.py`: non-COM `.pptx` package metadata report.
+- `scripts/check_text_overflow.py`: non-COM static text-density risk checker. Use screenshots for final text-fit judgment.
 - `scripts/export_slides.ps1`: render a deck to per-slide PNG or JPG files.
 - `scripts/export_pdf.ps1`: export a deck to PDF with PowerPoint.
 - `scripts/replace_text.ps1`: apply literal replacements across slides, tables, and notes.

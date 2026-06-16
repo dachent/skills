@@ -29,7 +29,7 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 | [`grill-me-codex`](./grill-me-codex) | Codex read-only design interview | `mattpocock/skills` -> `skills/productivity/grill-me` | Live interview scenario tests plus repo metadata validation |
 | [`grill-with-docs-codex`](./grill-with-docs-codex) | Codex docs-backed design interview | `mattpocock/skills` -> `skills/engineering/grill-with-docs` | Live docs fixture tests plus repo metadata validation |
 | [`handoff-codex`](./handoff-codex) | Codex continuation document workflow | `mattpocock/skills` -> `skills/productivity/handoff` | Temp-file handoff scenario plus repo metadata validation |
-| [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + PowerShell, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
+| [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + no-template deck design, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
 | [`repo-map-codex`](./repo-map-codex) | Codex project and evidence mapping | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live mixed-project fixture plus repo metadata validation |
 | [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + PowerShell, Python helpers | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
 | [`ultraplan-codex`](./ultraplan-codex) | Codex-native deep implementation planning workflow | `6missedcalls/ultraplan` -> `.` | Live subagent forward-tests plus repo metadata validation |
@@ -60,6 +60,8 @@ This matters because no-template design quality depends on more than attractive 
 - which checks can run in normal Codex execution and which checks require a desktop-user or elevated Office COM context.
 
 The lock file is `.upstream/anthropic-skills.lock.json`. Each in-scope Office skill has a `PROVENANCE.md` file with source, port classification, intentional divergences, design-upskill contribution, and COM boundary notes.
+
+`pptx-win` is the first Office skill to add a no-template visual design layer on top of provenance: it now includes deck concepting guidance, reusable layout patterns, a screenshot QA rubric, render/inspect guidance, non-COM metadata inspection, static text-density risk checks, and visual QA fixtures. True rendering, PDF export, and text-bound verification still require PowerPoint COM from a desktop-user/elevated session or the Office runner.
 
 ## Installation
 
@@ -134,6 +136,7 @@ python -m compileall -q @compilePaths
 - [`grill-with-docs-codex/`](./grill-with-docs-codex): docs-backed plan grilling skill with context and ADR references adapted from `mattpocock/skills`
 - [`handoff-codex/`](./handoff-codex): redacted continuation handoff skill adapted from `mattpocock/skills`
 - [`pptx-win/`](./pptx-win): PowerPoint skill, scripts, references, fallback OOXML utilities, and agent metadata
+- [`pptx-win/tests/fixtures/`](./pptx-win/tests/fixtures): no-template deck briefs and expected visual QA notes for non-COM agent rehearsal
 - [`repo-map-codex/`](./repo-map-codex): Codex project map and evidence catalog skill
 - [`ultraplan-codex/`](./ultraplan-codex): Codex-native deep implementation planning skill adapted from `6missedcalls/ultraplan`
 - [`verification-plan-codex/`](./verification-plan-codex): Codex proof criteria and rollback planning skill
@@ -151,6 +154,7 @@ Contributions should preserve each skill's documented contract:
 - keep planning workflow skills strict about `.deep-planning/` write scopes, proceed gates, and evidence-backed validation
 - update `agents/openai.yaml` together with any skill behavior changes
 - keep `SKILL.md` examples and referenced scripts in sync
+- document no-template design changes with what changed, why it improves Codex's judgment, and how rendered evidence or static risk reports verify the output
 - run the hosted validation commands locally before opening a PR
 - request the Office smoke workflow when a change affects runtime Office automation behavior
 

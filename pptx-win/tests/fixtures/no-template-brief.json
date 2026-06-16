@@ -1,0 +1,29 @@
+{
+  "audience": "executive operating review",
+  "deck_job": "decision update",
+  "template_available": false,
+  "constraints": {
+    "slide_count": 6,
+    "format": "16:9",
+    "tone": "clear, restrained, decision-oriented"
+  },
+  "content_signals": [
+    "one KPI moved off track",
+    "two root causes are likely",
+    "one decision is needed this week",
+    "backup evidence should move to appendix"
+  ],
+  "expected_patterns": [
+    "title and thesis",
+    "executive summary strip",
+    "evidence with takeaway",
+    "comparison matrix",
+    "appendix detail"
+  ],
+  "qa_focus": [
+    "message clarity",
+    "text fit",
+    "chart readability",
+    "deck rhythm"
+  ]
+}
