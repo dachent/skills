@@ -109,10 +109,23 @@ function Get-SkillReferenceMatches {
     return [regex]::Matches($Content, '(?:scripts|references)/[A-Za-z0-9._/\-]+/?')
 }
 
+function Test-IsGeneratedValidationPath {
+    param(
+        [Parameter(Mandatory)] [string]$Path
+    )
+
+    $normalized = $Path -replace '/', '\'
+    return (
+        $normalized -match '\\node_modules\\' -or
+        $normalized -match '\\\.shared\\visual-runtime\\out\\'
+    )
+}
+
 $repositoryRoot = Get-RepositoryRoot
 $failures = New-Object System.Collections.Generic.List[string]
 
 $agentFiles = Get-ChildItem -Path $repositoryRoot -Recurse -File -Filter 'openai.yaml' |
+    Where-Object { -not (Test-IsGeneratedValidationPath -Path $_.FullName) } |
     Where-Object { $_.Directory.Name -eq 'agents' } |
     Sort-Object FullName
 
@@ -137,6 +150,7 @@ foreach ($agentFile in $agentFiles) {
 }
 
 $skillFiles = Get-ChildItem -Path $repositoryRoot -Recurse -File -Filter 'SKILL.md' |
+    Where-Object { -not (Test-IsGeneratedValidationPath -Path $_.FullName) } |
     Where-Object { $_.FullName -notmatch [regex]::Escape([System.IO.Path]::Combine($repositoryRoot, '.claude') + [System.IO.Path]::DirectorySeparatorChar) } |
     Sort-Object FullName
 foreach ($skillFile in $skillFiles) {

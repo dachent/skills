@@ -1,0 +1,16 @@
+{
+  "name": "visual-runtime-fixture",
+  "purpose": "Exercise shared visual-runtime capture, PDF, lint, image bounds, and contact sheet workflows without Office COM.",
+  "viewports": [
+    "1440x900",
+    "390x844"
+  ],
+  "expected_evidence": [
+    "screenshot PNG",
+    "console-events.json",
+    "request-failures.json",
+    "visual-lint.json",
+    "contact-sheet.html"
+  ],
+  "com_required": false
+}
