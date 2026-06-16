@@ -17,7 +17,7 @@ export async function run(statePath) {
   for (const e of entries) {
     e.dest_rel_path = strategy === 'flat'
       ? `${e.bucket}/${e.basename}`
-      : `${e.bucket}/${e.rel_path}`
+      : e.rel_path
     if (!e.is_binary && e.size_bytes < MAX_SCAN) {
       const content = await readFile(join(src, e.rel_path), 'utf8').catch(() => '')
       e.risk_flags = scanRisks(e.rel_path, content)

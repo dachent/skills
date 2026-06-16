@@ -83,8 +83,10 @@ export async function run(statePath, agentFn) {
   // Stage 3: Visual (only if QC passed)
   if (result.qc.passed && memo_path) {
     const html = await readFile(memo_path, 'utf8').catch(() => '')
-    const navLinks = [...html.matchAll(/href="#([^"]+)"/g)].map(m => m[1])
-    const sectionIds = [...html.matchAll(/id="([^"]+)"/g)].map(m => m[1])
+    // Strip script content before regex to avoid matching template literals inside inlined JS
+    const htmlNoScript = html.replace(/<script[\s\S]*?<\/script>/gi, '')
+    const navLinks = [...htmlNoScript.matchAll(/href="#([^"]+)"/g)].map(m => m[1])
+    const sectionIds = [...htmlNoScript.matchAll(/id="([^"]+)"/g)].map(m => m[1])
     const broken = navLinks.filter(id => !sectionIds.includes(id))
     if (broken.length) {
       result.visual.passed = false

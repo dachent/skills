@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"build the feature","cwd":"C:/dev/sample-project"}}
+{"type":"assistant","message":{"role":"assistant","content":"Starting implementation..."}}

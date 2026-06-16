@@ -1,0 +1,3 @@
+database:
+  url: postgresql://user:fakepass@host/db
+  pool_size: 5
