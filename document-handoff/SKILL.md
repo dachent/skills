@@ -1,205 +1,152 @@
 ---
 name: document-handoff
-description: Use when a project is complete and you need to produce a structured handoff package — an organized workfolder plus a browsable HTML memo — so any future agent or human can reconstruct the project cold. Use when: concluding a multi-session AI or dev project, archiving Claude Code or Codex sessions, preparing knowledge transfer documentation, parking a project long-term.
+description: Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from any Claude Code, Codex, or OpenCode project. Run at any project milestone.
 ---
 
-# Document Handoff
+# document-handoff
 
-Produce a structured workfolder and browsable dark-mode HTML memo for a completed project.
+Produce a self-contained handoff package: a curated workfolder copy of project files plus a dark-mode HTML memo covering 16 structured sections. Enables any agent to cold-start on the project without re-reading sessions.
 
-Follow these phases in exact order. **Never skip a phase. Never auto-advance past a GATE.**
+**Announce at start:** "I'm using the document-handoff skill to create a project handoff package."
+
+---
+
+## Prerequisites
+
+Resolve the CLI path once at session start:
+
+```powershell
+$cli = (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache" -Recurse -Filter "cli.mjs" -ErrorAction SilentlyContinue |
+  Where-Object { $_.FullName -match [regex]::Escape("document-handoff\scripts") } |
+  Select-Object -First 1).FullName
+
+if (-not $cli) {
+  # Fallback: check Codex and OpenCode plugin caches
+  $cli = (Get-ChildItem "$env:USERPROFILE\.codex\plugins" -Recurse -Filter "cli.mjs" -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match [regex]::Escape("document-handoff\scripts") } |
+    Select-Object -First 1).FullName
+}
+if (-not $cli) { Write-Error "document-handoff cli.mjs not found in plugin cache"; return }
+```
 
 ---
 
 ## Collect Inputs
 
-Ask the user for all three before doing anything else:
+Ask the user (or infer from context):
 
-1. **Project slug** — short identifier, prefix for all output files (e.g. `weekly-emr-extract`). Lowercase, hyphens only.
-2. **Source root** — full path to directory with original session files, code, artifacts, plans.
-3. **Output directory** — full path where the workfolder should be written.
+1. **Project slug** — short name used in output file names (e.g. `my-project`)
+2. **Source root** — absolute path to the project directory to archive
+3. **Output directory** — where to write the workfolder and memo (default: `<source_root>\.handoff-output`)
+4. **Fresh or resume?** — `--fresh` overwrites existing state; `--resume` continues from last completed phase
 
----
-
-## Check for Existing Run
-
-Before starting, check for `{output_dir}\.handoff\state.json`.
-
-If it **exists**: read it and show the user:
-```
-Project: {project}
-Phases completed: {phases_completed}
-Created: {created_at}
-```
-Ask: **Resume** (skip completed phases) or **Fresh** (delete `.handoff\` and rebuild)?
-
-If Fresh:
-```powershell
-Remove-Item -Path "{output_dir}\.handoff" -Recurse -Force
-```
-
----
-
-## Create Workfolder Structure
-
-Initializes the capsule directory tree. All project files are copied here in Phase 1.5 — the workfolder is the self-contained record. Run once (skip if resuming and dirs already exist):
+**Provider detection note:** The skill auto-detects whether you are running under Claude Code, Codex, or OpenCode via environment variables. No user action needed.
 
 ```powershell
-$base = "{output_dir}"
-@('code\src','code\tests','code\config','artifacts','logs\codex','logs\claude',
-  'plans','memory','inputs','deprecated','.handoff\tmp') | ForEach-Object {
-  New-Item -ItemType Directory -Path (Join-Path $base $_) -Force | Out-Null
-}
-```
-
-Write `{output_dir}\.handoff\state.json` (replace placeholders with actual values):
-```json
-{
-  "project": "{slug}",
-  "source_root": "{source_root}",
-  "output_dir": "{output_dir}",
-  "created_at": "{ISO-8601-timestamp}",
-  "phases_completed": [],
-  "file_inventory": [],
-  "catalog_path": "",
-  "digests_path": "",
-  "synthesis_path": "",
-  "approved_sections": [],
-  "memo_path": "",
-  "verified": false
-}
-```
-
-Write `{output_dir}\deprecated\_excluded.md`:
-```markdown
-# Excluded Files
-
-No deprecated files identified during this handoff run.
+$slug = "<project-slug>"
+$sourceRoot = "<absolute-path-to-project>"
+$outputDir = "$sourceRoot\.handoff-output"
+$statePath = "$outputDir\.handoff\state.json"
 ```
 
 ---
 
-## Phase 1 — Discovery
+## Phase 0 — Initialize
 
-Skip if `phases_completed` contains `"discovery"`.
-
-```
-Workflow({ scriptPath: "C:\\Users\\BorisVaisman\\.claude\\skills\\document-handoff\\scripts\\01-discovery.js", args: { project: "{slug}", source_root: "{source_root}", output_dir: "{output_dir}" } })
-```
-
-After completion, update `state.json`: set `catalog_path`, `file_inventory`, append `"discovery"` to `phases_completed`.
-
-Show the user:
-- Total files found
-- Breakdown by directory (name, file count, size)
-- Path to `{project}-catalog.html`
-
-**GATE:** Ask: "Does this catalog look correct? Reply 'yes' to proceed to population, or describe what's missing." Do not proceed until explicit approval.
-
----
-
-## Phase 1.5 — Population
-
-Skip if `phases_completed` contains `"population"`.
-
-```
-Workflow({ scriptPath: "C:\\Users\\BorisVaisman\\.claude\\skills\\document-handoff\\scripts\\03-population.js", args: { project: "{slug}", source_root: "{source_root}", output_dir: "{output_dir}", state: {state_object} } })
-```
-
-After completion, update `state.json`: set `references_path` = `{output_dir}\inputs\REFERENCES.md`, append `"population"` to `phases_completed`.
-
-Show the user:
-- Files copied into workfolder: {files_copied}
-- Baseline inputs referenced (not copied): {files_referenced}
-- Reference manifest: `{output_dir}\inputs\REFERENCES.md`
-
----
-
-## Phase 2 — Synthesis
-
-Skip if `phases_completed` contains `"synthesis"`.
-
-When `"population"` is in `phases_completed`, synthesis reads files from the workfolder capsule instead of `source_root`.
-
-```
-Workflow({ scriptPath: "C:\\Users\\BorisVaisman\\.claude\\skills\\document-handoff\\scripts\\02-synthesis.js", args: { project: "{slug}", source_root: "{source_root}", output_dir: "{output_dir}", state: {state_object} } })
-```
-
-After completion, update `state.json`: set `digests_path`, `synthesis_path`, append `"synthesis"` to `phases_completed`.
-
-Show the user:
-- Session logs digested / doc files digested
-- Key decisions count
-- Challenges count (SEEDED vs DISCOVERED breakdown)
-- Path to `{project}-synthesis.md`
-
-**GATE:** Ask: "Does this synthesis look complete? Reply 'yes' to proceed to section planning, or describe gaps." Do not proceed until explicit approval.
-
----
-
-## Phase 3 — Section Recommendation
-
-Skip if `phases_completed` contains `"sections"`.
-
-Read `{synthesis_path}` and `{digests_path}`.
-
-**Baseline sections** (always start from this list):
-`#overview`, `#flow`, `#scope`, `#state`, `#runbook`, `#modules`, `#tests`, `#decisions`, `#missed`, `#challenges`, `#config`, `#improvements`, `#productionize`, `#catalog`
-
-Compare project content against baseline. Recommend:
-- **Add** sections with rationale (e.g. project has a database schema → add `#schema`)
-- **Remove or mark N/A** with rationale (e.g. no test suite → note `#tests` will document the gap, not be omitted)
-- **Keep** all others
-
-Present recommendation. Wait for user to approve final section list.
-
-After approval, update `state.json`: set `approved_sections`, append `"sections"` to `phases_completed`.
-
----
-
-## Phase 4 — Memo Generation
-
-Skip if `phases_completed` contains `"memo"`.
-
-Run section writers:
-```
-Workflow({ scriptPath: "C:\\Users\\BorisVaisman\\.claude\\skills\\document-handoff\\scripts\\04-section-writers.js", args: { project: "{slug}", output_dir: "{output_dir}", state: {state_object} } })
-```
-
-After all agents complete, assemble fragments:
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\Users\BorisVaisman\.claude\skills\document-handoff\scripts\assemble-memo.ps1" -ProjectSlug "{slug}" -OutputDir "{output_dir}"
+node --no-warnings $cli init --project $slug --source-root $sourceRoot --output-dir $outputDir --fresh
 ```
-
-Update `state.json`: set `memo_path` = `{output_dir}\{slug}-memo.html`, append `"memo"` to `phases_completed`.
 
 ---
 
-## Phase 5 — Verification
+## Phase 1 — Discover
 
-```
-Workflow({ scriptPath: "C:\\Users\\BorisVaisman\\.claude\\skills\\document-handoff\\scripts\\05-verification.js", args: { project: "{slug}", output_dir: "{output_dir}", state: {state_object} } })
-```
-
-Interpret results:
-- `stage: 1, passed: false` → Show exact failing check. Stop. Ask how to fix.
-- `stage: 2, passed: false` → Show each QC failure (section + axis + specific issue). Stop. Ask how to fix.
-- QC warnings → Surface to user. Let user decide to fix or accept.
-- `stage: 3` blockers → Stop. Show visual issues.
-- `stage: 3` warnings → Surface. User decides.
-
-If all clear, open memo in browser:
-```
-mcp__Claude_in_Chrome__navigate({ url: "file:///{memo_path_forward_slashes}" })
+```powershell
+node --no-warnings $cli discover --state $statePath
 ```
 
-Tell the user: "The memo is open in your browser. Please review it and reply 'approved' when satisfied."
+**GATE:** Review `$outputDir\.handoff\catalog.html` in a browser. For each high-risk file listed as excluded:
+- If you need it: open `$outputDir\.handoff\catalog.json`, set `"action": "copy"` on that entry, save.
+- If excluded files are correct: proceed.
 
-**GATE:** Wait for explicit user approval. After approval:
-- Update `state.json`: set `verified: true`, append `"verification"` to `phases_completed`
+Type **PROCEED** to continue.
 
-Summarize deliverables:
-- `{slug}-catalog.html` — file inventory
-- `{slug}-digests.json` — structured session digests
-- `{slug}-synthesis.md` — narrative synthesis
-- `{slug}-memo.html` — primary handoff document ✓ verified
+---
+
+## Phase 2 — Populate
+
+```powershell
+node --no-warnings $cli populate --state $statePath
+```
+
+---
+
+## Phase 3 — Extract Sessions
+
+```powershell
+node --no-warnings $cli extract-sessions --state $statePath
+```
+
+**GATE:** Review the sessions listed above. Confirm these are the right sessions for this project.
+
+If sessions are missing: they may not have a matching `cwd` in their metadata. You can manually add session entries to `$statePath` under `sessions_found`.
+
+Type **PROCEED** and set `sessions_validated: true` in state, or edit state manually.
+
+---
+
+## Phase 4 — Synthesize
+
+```powershell
+node --no-warnings $cli synthesize --state $statePath
+```
+
+---
+
+## Phase 5 — Sections (GATE — no script)
+
+Review `$outputDir\.handoff\synthesis.md`. The skill will write these 16 sections:
+
+bootstrap, executive-summary, deliverables, current-state, technical-decisions, challenges-blockers, next-steps, context-sources, open-questions, dependencies, environment, testing, architecture, data-flow, changelog
+
+Plus `privacy-security` if any risk-flagged files were found.
+
+**GATE:** Confirm the section list or remove any sections you don't need.
+
+Type **PROCEED** to render.
+
+---
+
+## Phase 6 — Render Memo
+
+```powershell
+node --no-warnings $cli render-memo --state $statePath
+```
+
+Open `$outputDir\$slug-memo.html` in a browser to preview.
+
+---
+
+## Phase 7 — Verify
+
+```powershell
+node --no-warnings $cli verify --state $statePath
+```
+
+Review `$outputDir\.handoff\verification.json`. If `overall: false`, fix the reported issues and re-run this phase.
+
+---
+
+## Outputs
+
+| File | Description |
+|---|---|
+| `$outputDir\$slug-memo.html` | Dark-mode HTML handoff memo (16 sections) |
+| `$outputDir\$slug-agent-context.json` | Agent cold-start context with citation index |
+| `$outputDir\.handoff\catalog.json` | Full file inventory with risk flags |
+| `$outputDir\.handoff\catalog.html` | Visual catalog browser |
+| `$outputDir\.handoff\digests.json` | Session digests |
+| `$outputDir\.handoff\synthesis.md` | Synthesis narrative |
+| `$outputDir\.handoff\verification.json` | Verification results |
+| `$outputDir\.handoff\{slug}-citation-index.json` | Citation graph |
+| `$outputDir\plans\`, `code\`, `artifacts\`, `inputs\` | Curated workfolder |

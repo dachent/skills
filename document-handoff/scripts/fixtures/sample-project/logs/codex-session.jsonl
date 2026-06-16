@@ -1,0 +1,2 @@
+{"timestamp":"2026-01-01T00:00:00Z","type":"response_item","payload":{"role":"user","content":[{"type":"input_text","text":"implement the auth flow"}]}}
+{"timestamp":"2026-01-01T00:01:00Z","type":"response_item","payload":{"role":"assistant","content":[{"type":"output_text","text":"I'll implement auth..."}]}}
