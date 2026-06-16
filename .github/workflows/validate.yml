@@ -62,3 +62,10 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           python .\tools\validate_provenance.py
+
+      - name: Validate Office COM contract
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          python .\tools\test_office_com_contract.py

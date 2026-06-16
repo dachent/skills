@@ -1,4 +1,4 @@
 interface:
   display_name: "DOCX Win"
-  short_description: "native microsoft word automation for windows docx workflows"
-  default_prompt: "Use $docx-win to automate a local Word document on Windows with Microsoft Word COM for creation, editing, review, conversion, and PDF export."
+  short_description: "native microsoft word automation and no-template document polish"
+  default_prompt: "Use $docx-win to automate a local Word document on Windows with Microsoft Word COM for creation, editing, review, conversion, PDF export, and no-template document quality checks."

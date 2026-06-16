@@ -1,6 +1,6 @@
 ---
 name: xlsx-win
-description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.
+description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.
 ---
 
 # XLSX Win
@@ -19,6 +19,17 @@ description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xl
 - The upstream skill centered on general spreadsheet editing guidance plus LibreOffice-backed recalculation.
 - This port replaces that model with native Excel Desktop COM refresh and recalculation, explicit Power Query and `Workbook.Queries` handling, `power_query_excel.ps1`, formula validation, self-test coverage, and Windows-specific macro and session policy guidance.
 - It remains Windows-only because the intended behavior depends on Excel Desktop fidelity and COM refresh semantics rather than file-only spreadsheet editing.
+
+## Design Upskill Contribution
+
+Use `xlsx-win` to teach Codex that no-template design depends on reliable workbook data before it depends on visual polish. The skill contributes:
+
+- calculation correctness through native Excel refresh and formula-error validation,
+- Power Query and connection discipline so loaded data can be trusted,
+- chart-ready data guidance for downstream decks, reports, dashboards, and workbook visuals,
+- a clear non-COM versus COM split so Codex can prepare workbook structure safely and hand true refresh/recalculation to Excel when required.
+
+Read `references/workbook-quality-map.md` when a task asks for a polished workbook, dashboard source table, analysis pack, model, chart-ready dataset, or spreadsheet that will feed a no-template visual artifact.
 
 Use this skill only for Codex local execution on Windows machines with Microsoft 365 Excel desktop installed.
 
@@ -41,6 +52,7 @@ If preflight reports `can_use_com = false`, do not create `Excel.Application` fr
 - Expect Excel COM refresh to require an interactive Windows desktop session. A Codex sandbox may block COM even when Excel is installed.
 - Never call `New-Object -ComObject Excel.Application` directly from the Codex sandbox. Use the shared preflight first, then run COM work from the signed-in desktop user session through `scripts/invoke-xlsx-win.ps1` or a task-specific script.
 - Disable macros by default during automation. Only enable them when the user explicitly requests macro-dependent refresh or workbook automation.
+- For no-template spreadsheet deliverables, use `references/workbook-quality-map.md` to separate raw data, cleaned tables, assumptions, calculations, and outputs before adding visual polish.
 
 ## Tool selection
 
@@ -52,6 +64,7 @@ Choose the lightest tool that preserves workbook fidelity.
 - Use `openpyxl` for formulas, formatting, comments, workbook-safe edits, widths, fills, defined names, and Excel-specific structure.
 - Use `openpyxl` rather than pandas whenever formulas, comments, styles, merged cells, multiple sheets, or workbook conventions matter.
 - After any change that introduces or depends on formulas, workbook connections, Power Query, PivotTables, or cached values in an OOXML workbook, run `scripts/refresh_excel.ps1` and then `scripts/check_formula_errors.ps1`.
+- Use `references/workbook-quality-map.md` before building downstream charts or report tables so labels, units, denominators, grain, and calculation evidence are explicit.
 
 ## Power Query / M
 
@@ -124,26 +137,27 @@ Examples:
 1. Inspect the source file and decide whether the task is primarily analysis, data cleanup, workbook editing, Power Query M work, conversion, or Excel-native refresh.
 2. Run the shared Office preflight in the desktop-user PowerShell window before any Excel COM step.
 3. Choose `pandas`, `openpyxl`, `scripts/power_query_excel.ps1`, or direct Excel COM based on fidelity and Power Query needs.
-4. Make the workbook edits.
-5. Save the workbook.
-6. If the task changes `Workbook.Queries` or query load targets, prefer `scripts/power_query_excel.ps1` and pass `-MFormulaPath` for nontrivial M definitions.
-7. If Codex is in the sandbox and preflight fails there, keep Codex on non-COM prep work and hand the COM step to the desktop-user shell through `invoke-xlsx-win.ps1`.
-8. If the output is `.xlsx` or `.xlsm` and formulas, refreshable objects, or cached values matter, run:
+4. For no-template outputs, apply `references/workbook-quality-map.md` to plan source data, assumptions, calculations, chart-ready outputs, and validation evidence.
+5. Make the workbook edits.
+6. Save the workbook.
+7. If the task changes `Workbook.Queries` or query load targets, prefer `scripts/power_query_excel.ps1` and pass `-MFormulaPath` for nontrivial M definitions.
+8. If Codex is in the sandbox and preflight fails there, keep Codex on non-COM prep work and hand the COM step to the desktop-user shell through `invoke-xlsx-win.ps1`.
+9. If the output is `.xlsx` or `.xlsm` and formulas, refreshable objects, or cached values matter, run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\refresh_excel.ps1 -WorkbookPath .\output.xlsx
 ```
 
-9. Validate OOXML workbooks with:
+10. Validate OOXML workbooks with:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check_formula_errors.ps1 -WorkbookPath .\output.xlsx
 ```
 
-10. If the source is `.xls`, convert it to `.xlsx` before formula validation.
-11. If the source is `.csv` or `.tsv`, skip formula validation unless you export it to an OOXML Excel workbook first.
-12. If validation reports errors, fix the workbook and rerun refresh plus validation until clean.
-13. If Excel COM or Power Query behavior is in doubt for the current machine, run `scripts/self_test_xlsx_win.ps1`.
+11. If the source is `.xls`, convert it to `.xlsx` before formula validation.
+12. If the source is `.csv` or `.tsv`, skip formula validation unless you export it to an OOXML Excel workbook first.
+13. If validation reports errors, fix the workbook and rerun refresh plus validation until clean.
+14. If Excel COM or Power Query behavior is in doubt for the current machine, run `scripts/self_test_xlsx_win.ps1`.
 
 ## Refresh workflow
 
@@ -212,6 +226,7 @@ Apply these standards unless the workbook already has established conventions th
 - Document important hardcodes, assumptions, and data sources.
 
 For financial models and formatting conventions, see `references/spreadsheet-standards.md`.
+For no-template workbook structure, chart-ready data, and calculation evidence, see `references/workbook-quality-map.md`.
 
 ## Verification checklist
 
@@ -226,6 +241,7 @@ Before returning a workbook that contains formulas or model logic, verify the fo
 - ensure there are no unintended circular references
 - for Power Query changes, verify the intended worksheet or Data Model load target still exists after refresh
 - for worksheet query loads, confirm the loaded table exists in the requested location and the row counts look reasonable
+- for chart-ready outputs, confirm labels, units, time periods, denominators, and grain are explicit
 - rerun refresh and validation after structural edits or Power Query changes
 
 ## Library-specific guidance

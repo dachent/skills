@@ -29,11 +29,12 @@ Documentation, static validation, Python helper checks, and provenance checks ca
 | --- | --- | --- | --- |
 | General spreadsheet skill behavior in `skills/xlsx` | Windows Excel COM-first workflow in `xlsx-win` | Excel desktop COM provides native recalculation, Power Query, cached values, PivotTable, and workbook connection fidelity | `xlsx-win/scripts/self_test_xlsx_win.ps1`, `xlsx-win/scripts/check_formula_errors.ps1`; hosted syntax validation |
 | Upstream implementation choices may use non-COM tooling | Local wrappers route COM work through shared preflight and desktop-user guidance | Codex sandbox sessions can be the wrong Windows logon context for Office COM | `.shared/office-com/scripts/office_com_preflight.ps1`; Office smoke workflow |
+| Upstream guidance does not define a no-template chart-data reliability rubric | Local `references/workbook-quality-map.md` adds a workbook-quality behavior map for source data, formulas, refresh, Power Query, and chart-ready outputs | Codex needs explicit data reliability judgment before it builds no-template charts, dashboards, decks, or reports | `tools/test_office_com_contract.py`; hosted reference validation |
 
 ## Last Alignment Review
 
-- Reviewed date: 2026-06-15
-- Reviewer: Codex Phase 1 provenance pass
+- Reviewed date: 2026-06-16
+- Reviewer: Codex Phase 3 Office runtime alignment pass
 - Upstream commit compared: `57546260929473d4e0d1c1bb75297be2fdfa1949`
-- Local commit reviewed: `76567c666c081b92d652eee6f5ecff843c9fe1c4`
-- Result: provenance pinned; behavior alignment requires follow-on review.
+- Local commit reviewed: `74c04d0d16156e28f158d83aa38617e329cc1927`
+- Result: workbook-quality behavior map added; non-COM workbook preparation and static contract checks are separated from Excel COM refresh, recalculation, Power Query, and cached-value validation that may require desktop-user or elevated PowerShell.

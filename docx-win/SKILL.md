@@ -1,6 +1,6 @@
 ---
 name: docx-win
-description: native microsoft word automation for windows .docx workflows. use when chatgpt or codex is running on windows with microsoft word installed and needs to create, edit, review, convert, or verify word documents through word com automation. trigger for .docx or .doc requests, professional word deliverables, tracked changes, comments, find and replace, table of contents, headers and footers, page numbering, layout-sensitive edits, or exporting a word document to pdf for review. prefer this skill over libreoffice-based document workflows when word is available.
+description: native microsoft word automation for windows .docx workflows. use when chatgpt or codex is running on windows with microsoft word installed and needs to create, edit, review, convert, or verify word documents through word com automation. trigger for .docx or .doc requests, professional word deliverables, no-template document polish, tracked changes, comments, find and replace, table of contents, headers and footers, page numbering, layout-sensitive edits, or exporting a word document to pdf for review. prefer this skill over libreoffice-based document workflows when word is available.
 ---
 
 # DOCX Win
@@ -15,10 +15,21 @@ description: native microsoft word automation for windows .docx workflows. use w
 
 ### Porting Notes
 
-- This is a light Windows-specific port of Anthropic's `docx` skill for Codex.
+- This is a Windows COM adaptation of Anthropic's `docx` skill for Codex.
 - The upstream skill centers on OOXML unpack/edit flows plus LibreOffice-backed conversion and accept-changes helpers.
 - This port changes the default execution path to PowerShell wrappers around Microsoft Word COM so Word handles create, edit, review, comments, revisions, fields, pagination, and PDF export directly.
 - It remains Windows-only because reliable execution depends on a local Microsoft Word desktop installation and COM automation.
+
+## Design Upskill Contribution
+
+Use `docx-win` to teach Codex how to turn an untemplated brief into a Word document that is structured, reviewable, and render-verified. The skill contributes:
+
+- Word-native style and section discipline instead of manual font-only formatting,
+- layout fidelity through Word pagination, field refresh, and PDF evidence,
+- review-state handling through comments and tracked changes,
+- a clear non-COM versus COM split so Codex can prepare content safely and hand true rendering to Word when required.
+
+Read `references/document-quality-map.md` when a task asks for a polished document, executive memo, report, proposal, or other no-template Word deliverable.
 
 Use Microsoft Word COM automation on Windows as the default engine for `.docx` work.
 Do not use LibreOffice when Word is installed.
@@ -33,6 +44,8 @@ Do not edit OOXML directly unless Word automation fails and the task truly requi
 5. Update fields, pagination, and table of contents before final save.
 6. Export to PDF when layout matters.
 7. Close Word cleanly and release COM objects.
+
+For no-template document creation or major restyling, use `references/document-quality-map.md` before writing automation so the structure, styles, page system, tables, review state, and PDF proof are planned together.
 
 ## Preflight
 
@@ -68,6 +81,7 @@ If the smoke test fails, stop and fix the local Word/Office environment before a
 - Save output as `.docx` unless the user explicitly requests another format.
 - For legacy `.doc`, convert to `.docx` first.
 - For layout-sensitive work, export a PDF after meaningful changes and inspect that PDF.
+- For no-template deliverables, use Word styles, sections, fields, tables, and inline shapes as design structures rather than only changing visible text formatting.
 - Before final delivery, update all fields and tables of contents, then save again.
 - Always close the document and quit Word in `finally` blocks.
 - Always release COM objects. Orphaned `WINWORD.EXE` processes are a reliability bug.
@@ -121,6 +135,7 @@ After creating content:
 5. export a PDF when layout matters.
 
 Use `references/word-com-recipes.md` for common construction patterns.
+Use `references/document-quality-map.md` to decide the document structure, page system, visual evidence, and verification loop when no template exists.
 
 ### Editing an existing document
 
@@ -166,6 +181,8 @@ For final delivery:
 4. save the document,
 5. export a PDF companion when useful.
 
+For no-template deliverables, also verify the relevant dimensions in `references/document-quality-map.md`: style hierarchy, page system, tables, figures, review artifacts, field behavior, and PDF evidence.
+
 ## Word COM patterns and references
 
 Load `references/word-com-recipes.md` when you need examples for:
@@ -179,6 +196,13 @@ Load `references/word-com-recipes.md` when you need examples for:
 - field and TOC refresh,
 - PDF export,
 - COM cleanup.
+
+Load `references/document-quality-map.md` when the task requires:
+- no-template document design,
+- executive-report or proposal polish,
+- style hierarchy decisions,
+- table and figure layout checks,
+- a clear non-COM versus Word COM verification split.
 
 ## Bundled scripts
 

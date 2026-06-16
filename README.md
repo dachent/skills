@@ -25,13 +25,13 @@ The Office COM entrypoints now share a common runtime for session preflight, inp
 | --- | --- | --- | --- |
 | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | Codex hostile plan review | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live flawed-plan fixture plus repo metadata validation |
 | [`deep-planning-codex`](./deep-planning-codex) | Codex-native gated planning workflow | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live subagent forward-tests plus artifact validator |
-| [`docx-win`](./docx-win) | Microsoft Word COM + PowerShell | `anthropics/skills` -> `skills/docx` | `powershell -ExecutionPolicy Bypass -File .\docx-win\scripts\smoke-test.ps1` |
+| [`docx-win`](./docx-win) | Microsoft Word COM + no-template document polish | `anthropics/skills` -> `skills/docx` | `powershell -ExecutionPolicy Bypass -File .\docx-win\scripts\smoke-test.ps1` |
 | [`grill-me-codex`](./grill-me-codex) | Codex read-only design interview | `mattpocock/skills` -> `skills/productivity/grill-me` | Live interview scenario tests plus repo metadata validation |
 | [`grill-with-docs-codex`](./grill-with-docs-codex) | Codex docs-backed design interview | `mattpocock/skills` -> `skills/engineering/grill-with-docs` | Live docs fixture tests plus repo metadata validation |
 | [`handoff-codex`](./handoff-codex) | Codex continuation document workflow | `mattpocock/skills` -> `skills/productivity/handoff` | Temp-file handoff scenario plus repo metadata validation |
 | [`pptx-win`](./pptx-win) | Microsoft PowerPoint COM + no-template deck design, OOXML fallback | `anthropics/skills` -> `skills/pptx` | `powershell -ExecutionPolicy Bypass -File .\pptx-win\scripts\smoke_test.ps1` |
 | [`repo-map-codex`](./repo-map-codex) | Codex project and evidence mapping | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live mixed-project fixture plus repo metadata validation |
-| [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + PowerShell, Python helpers | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
+| [`xlsx-win`](./xlsx-win) | Microsoft Excel COM + chart-ready workbook reliability | `anthropics/skills` -> `skills/xlsx` | `powershell -ExecutionPolicy Bypass -File .\xlsx-win\scripts\self_test_xlsx_win.ps1` |
 | [`ultraplan-codex`](./ultraplan-codex) | Codex-native deep implementation planning workflow | `6missedcalls/ultraplan` -> `.` | Live subagent forward-tests plus repo metadata validation |
 | [`verification-plan-codex`](./verification-plan-codex) | Codex proof and rollback planning | `dachent/cdc05151d047708c290bd4da0aaeed96` -> `deep_planning.txt` | Live verification fixture plus Python artifact validation |
 
@@ -62,6 +62,8 @@ This matters because no-template design quality depends on more than attractive 
 The lock file is `.upstream/anthropic-skills.lock.json`. Each in-scope Office skill has a `PROVENANCE.md` file with source, port classification, intentional divergences, design-upskill contribution, and COM boundary notes.
 
 `pptx-win` is the first Office skill to add a no-template visual design layer on top of provenance: it now includes deck concepting guidance, reusable layout patterns, a screenshot QA rubric, render/inspect guidance, non-COM metadata inspection, static text-density risk checks, and visual QA fixtures. True rendering, PDF export, and text-bound verification still require PowerPoint COM from a desktop-user/elevated session or the Office runner.
+
+`docx-win` and `xlsx-win` now extend that design-upskill foundation beyond decks. `docx-win` documents how Word styles, sections, tables, review markup, field refresh, and PDF evidence contribute to polished no-template documents. `xlsx-win` documents how calculation correctness, Power Query load behavior, formula-error checks, and chart-ready output tables contribute to trustworthy no-template visuals. Both skills explicitly split normal Codex preparation from true Office COM work that may need desktop-user or elevated PowerShell.
 
 ## Installation
 
@@ -120,6 +122,7 @@ python .\tools\validate_provenance.py
 python .\tools\check_upstream_drift.py --json .\.upstream\reports\latest-drift.json
 python .\tools\generate_alignment_report.py --json .\.upstream\reports\latest-drift.json --markdown .\.upstream\reports\latest-alignment-report.md
 python .\tools\test_deep_planning_validator.py
+python .\tools\test_office_com_contract.py
 $compilePaths = @('.\tools')
 $compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts | ForEach-Object { $_.FullName }
 python -m compileall -q @compilePaths
@@ -131,7 +134,7 @@ python -m compileall -q @compilePaths
 - [`.shared/office-com/`](./.shared/office-com): shared Office COM preflight and guard runtime used by Excel, PowerPoint, and Word wrappers
 - [`adversarial-plan-review-codex/`](./adversarial-plan-review-codex): Codex hostile review skill for execution plans
 - [`deep-planning-codex/`](./deep-planning-codex): master Codex deep planning workflow skill
-- [`docx-win/`](./docx-win): Word skill, scripts, references, and agent metadata
+- [`docx-win/`](./docx-win): Word skill, scripts, no-template document quality references, and agent metadata
 - [`grill-me-codex/`](./grill-me-codex): read-only plan and design grilling interview skill adapted from `mattpocock/skills`
 - [`grill-with-docs-codex/`](./grill-with-docs-codex): docs-backed plan grilling skill with context and ADR references adapted from `mattpocock/skills`
 - [`handoff-codex/`](./handoff-codex): redacted continuation handoff skill adapted from `mattpocock/skills`
@@ -140,7 +143,7 @@ python -m compileall -q @compilePaths
 - [`repo-map-codex/`](./repo-map-codex): Codex project map and evidence catalog skill
 - [`ultraplan-codex/`](./ultraplan-codex): Codex-native deep implementation planning skill adapted from `6missedcalls/ultraplan`
 - [`verification-plan-codex/`](./verification-plan-codex): Codex proof criteria and rollback planning skill
-- [`xlsx-win/`](./xlsx-win): Excel skill, scripts, references, and agent metadata
+- [`xlsx-win/`](./xlsx-win): Excel skill, scripts, workbook reliability references, and agent metadata
 - [`.github/workflows/`](./.github/workflows): hosted validation and self-hosted Office smoke workflows
 - [`tools/`](./tools): repository validation helpers used by CI and local contributors
 

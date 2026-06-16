@@ -26,6 +26,27 @@ No-template design work needs rendered evidence. Word documents, PowerPoint deck
 
 Normal Codex execution can perform documentation edits, static PowerShell parsing, Python/Node checks, and non-instantiating contract tests. True Office open/save/render/recalculate/export validation belongs in desktop-user or elevated PowerShell, or in the self-hosted `office` runner.
 
+### Non-COM work
+
+Codex can safely do these tasks without creating Office COM objects:
+
+- edit skill documentation, reference maps, provenance files, and workflow YAML;
+- parse PowerShell and Python helper scripts;
+- inspect OOXML package structure with file libraries;
+- prepare source text, tables, images, formulas, M definitions, and test fixtures;
+- run `tools/test_office_com_contract.py` to check that the shared runtime contract is still documented and wired into CI.
+
+### COM-required work
+
+Move these tasks to the signed-in desktop-user PowerShell session, an elevated PowerShell session when the environment requires it, or the self-hosted Office runner:
+
+- Word open/save, tracked changes, comments, field refresh, pagination, legacy conversion, and PDF export;
+- PowerPoint render, screenshot, PDF export, text-bound checks, and animation/media smoke tests;
+- Excel refresh, full calculation rebuild, async Power Query completion, Data Model or PivotTable state, and saved cached-value verification;
+- cleanup verification for orphaned Office processes after a failed automation run.
+
+The split is intentional: it lets Codex keep reasoning and static validation in the normal sandbox while reserving fidelity claims for real desktop Office.
+
 ## Consumers
 
 - `docx-win`
@@ -35,5 +56,6 @@ Normal Codex execution can perform documentation edits, static PowerShell parsin
 ## Validation
 
 - Hosted CI parses PowerShell and validates referenced paths.
+- Hosted CI runs `tools/test_office_com_contract.py`, which does not instantiate Office.
 - Self-hosted `office` runner runs true Word, PowerPoint, and Excel smoke tests.
 - Future compatibility tests should cover preflight JSON shape, sandbox-user detection, wrong-session handling, timeout behavior, and cleanup guidance.

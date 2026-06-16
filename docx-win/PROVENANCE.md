@@ -29,11 +29,12 @@ Documentation, static validation, and provenance checks can run in normal Codex 
 | --- | --- | --- | --- |
 | General document skill behavior in `skills/docx` | Windows Word COM-first workflow in `docx-win` | Word desktop COM provides higher fidelity for pagination, fields, comments, tracked changes, and PDF export on Windows | `docx-win/scripts/smoke-test.ps1`; hosted syntax validation |
 | Upstream implementation choices may use non-COM tooling | Local wrappers route COM work through shared preflight and desktop-user guidance | Codex sandbox sessions can be the wrong Windows logon context for Office COM | `.shared/office-com/scripts/office_com_preflight.ps1`; Office smoke workflow |
+| Upstream guidance does not define a no-template Word design rubric | Local `references/document-quality-map.md` adds a document-quality behavior map for structure, styles, page system, review state, and PDF evidence | Codex needs explicit design judgment when there is no user template to copy | `tools/test_office_com_contract.py`; hosted reference validation |
 
 ## Last Alignment Review
 
-- Reviewed date: 2026-06-15
-- Reviewer: Codex Phase 1 provenance pass
+- Reviewed date: 2026-06-16
+- Reviewer: Codex Phase 3 Office runtime alignment pass
 - Upstream commit compared: `57546260929473d4e0d1c1bb75297be2fdfa1949`
-- Local commit reviewed: `76567c666c081b92d652eee6f5ecff843c9fe1c4`
-- Result: provenance pinned; behavior alignment requires follow-on review.
+- Local commit reviewed: `74c04d0d16156e28f158d83aa38617e329cc1927`
+- Result: document-quality behavior map added; non-COM documentation and static contract checks are separated from Word COM operations that may require desktop-user or elevated PowerShell.
