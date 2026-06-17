@@ -13,14 +13,9 @@ export async function run(statePath, agentFn) {
   const state = await readState(statePath)
   const { output_dir: out, project, memo_path, agent_context_path } = state
 
-  if (!agentFn) {
-    const { agent } = await import('@anthropic-ai/claude-code')
-    agentFn = (prompt, opts) => agent(prompt, opts)
-  }
-
   const result = {
     structural: { passed: true, checks: [] },
-    qc: { passed: true, issues: [] },
+    qc: { passed: true, issues: [], skipped: !agentFn },
     visual: { passed: true, issues: [] },
     additional: {
       bootstrap_present: false,
@@ -31,7 +26,7 @@ export async function run(statePath, agentFn) {
     overall: false
   }
 
-  // Stage 1: Structural
+  // Stage 1: Structural (always runs — no SDK needed)
   const REQUIRED_SECTIONS = ['bootstrap','executive-summary','deliverables','current-state',
     'technical-decisions','challenges-blockers','next-steps','context-sources',
     'open-questions','dependencies','environment','testing','architecture','data-flow','changelog']
@@ -54,12 +49,12 @@ export async function run(statePath, agentFn) {
     result.structural.checks.push(`Cannot read memo: ${e.message}`)
   }
 
-  // Additional checks
+  // Additional checks (always run — no SDK needed)
   result.additional.agent_context_exists = await stat(agent_context_path).then(() => true).catch(() => false)
   const citationPath = join(out, '.handoff', `${project}-citation-index.json`)
   result.additional.citation_index_exists = await stat(citationPath).then(() => true).catch(() => false)
 
-  // Catalog copy integrity
+  // Catalog copy integrity (always runs — no SDK needed)
   for (const e of (state.file_inventory || []).filter(x => x.action === 'copy' && x.sha256)) {
     try {
       const dest = join(out, e.dest_rel_path)
@@ -72,18 +67,17 @@ export async function run(statePath, agentFn) {
     } catch {}
   }
 
-  // Stage 2: QC (only if structural passed)
-  if (result.structural.passed && memo_path) {
+  // Stage 2: QC — requires agentFn; skipped in no-SDK / checkpoint mode
+  if (agentFn && result.structural.passed && memo_path) {
     const html = await readFile(memo_path, 'utf8').catch(() => '')
     const qcPrompt = `Review this handoff memo for quality. Check: coherence, completeness, that all sections have meaningful content (not just headers), and that next-steps are actionable. Return JSON.\n\nMemo (first 15000 chars):\n${html.slice(0, 15000)}`
-    const qc = await agentFn(qcPrompt, { schema: CHECK_SCHEMA })
-    if (qc) { result.qc = qc }
+    const qc = await agentFn(qcPrompt, { schema: CHECK_SCHEMA, label: 'verify-qc' })
+    if (qc) { result.qc = { ...qc, skipped: false } }
   }
 
-  // Stage 3: Visual (only if QC passed)
+  // Stage 3: Visual link check (always runs — no SDK needed)
   if (result.qc.passed && memo_path) {
     const html = await readFile(memo_path, 'utf8').catch(() => '')
-    // Strip script content before regex to avoid matching template literals inside inlined JS
     const htmlNoScript = html.replace(/<script[\s\S]*?<\/script>/gi, '')
     const navLinks = [...htmlNoScript.matchAll(/href="#([^"]+)"/g)].map(m => m[1])
     const sectionIds = [...htmlNoScript.matchAll(/id="([^"]+)"/g)].map(m => m[1])
@@ -106,7 +100,7 @@ export async function run(statePath, agentFn) {
   state.verified = result.overall
   state.phases_completed.push('verify')
   await writeState(statePath, state)
-  console.log(`✓ Verification: ${result.overall ? 'PASSED' : 'FAILED'}`)
+  console.log(`✓ Verification: ${result.overall ? 'PASSED' : 'FAILED'}${result.qc.skipped ? ' (QC skipped — no SDK)' : ''}`)
   if (!result.overall) {
     if (!result.structural.passed) result.structural.checks.forEach(c => console.log(`  ✗ ${c}`))
     if (!result.qc.passed) result.qc.issues.forEach(i => console.log(`  QC: ${i}`))
