@@ -26,12 +26,19 @@ if (-not $cli) {
     Select-Object -First 1).FullName
 }
 if (-not $cli) {
-  # Fallback: check Codex and OpenCode plugin caches
+  # Codex skill install: respects CODEX_HOME env var
+  $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { "$env:USERPROFILE\.codex" }
+  $cli = (Get-ChildItem "$codexHome\skills" -Recurse -Filter "cli.mjs" -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match [regex]::Escape("document-handoff\scripts") } |
+    Select-Object -First 1).FullName
+}
+if (-not $cli) {
+  # Legacy: Codex plugin cache
   $cli = (Get-ChildItem "$env:USERPROFILE\.codex\plugins" -Recurse -Filter "cli.mjs" -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -match [regex]::Escape("document-handoff\scripts") } |
     Select-Object -First 1).FullName
 }
-if (-not $cli) { Write-Error "document-handoff cli.mjs not found in plugin cache"; return }
+if (-not $cli) { Write-Error "document-handoff cli.mjs not found. Install via: claude skills install / codex skills install"; return }
 ```
 
 ---

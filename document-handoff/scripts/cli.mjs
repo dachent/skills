@@ -1,6 +1,9 @@
 import { argv, exit } from 'node:process'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { join, dirname } from 'node:path'
 
 const PHASES = new Set(['init','discover','populate','extract-sessions','synthesize','render-memo','verify'])
+const AI_PHASES = new Set(['synthesize','render-memo','verify'])
 
 function parseArgs(args) {
   const flags = {}
@@ -11,6 +14,34 @@ function parseArgs(args) {
     }
   }
   return flags
+}
+
+function makeNoSdkAgentFn(checkpointDir) {
+  return async function noSdkAgent(prompt, opts = {}) {
+    const label = (opts.label || 'item').replace(/[^a-z0-9_-]/gi, '-')
+    const responseFile = join(checkpointDir, `${label}.response.json`)
+    try { return JSON.parse(await readFile(responseFile, 'utf8')) } catch {}
+    const schemaHint = opts.schema
+      ? `\n\n---\nRequired JSON schema:\n${JSON.stringify(opts.schema, null, 2)}`
+      : ''
+    await writeFile(join(checkpointDir, `${label}.prompt.txt`), prompt + schemaHint)
+    console.log(`  ► checkpoint: ${label}.prompt.txt`)
+    return null
+  }
+}
+
+async function createAgentFn(handoffDir) {
+  try {
+    const { agent } = await import('@anthropic-ai/claude-code')
+    return (prompt, opts) => agent(prompt, opts)
+  } catch {
+    const checkpointDir = join(handoffDir, 'checkpoints')
+    await mkdir(checkpointDir, { recursive: true })
+    console.log(`  ℹ Claude Code SDK not available — checkpoint mode.`)
+    console.log(`  ℹ Prompts written to: ${checkpointDir}`)
+    console.log(`  ℹ Write <label>.response.json beside each prompt file, then re-run.`)
+    return makeNoSdkAgentFn(checkpointDir)
+  }
 }
 
 const [,, phase, ...rest] = argv
@@ -42,5 +73,12 @@ if (phase === 'init') {
 
 const statePath = flags.state
 if (!statePath) { console.error('--state required'); exit(1) }
+
 const mod = await import(`./phases/${phase}.mjs`)
-await mod.run(statePath)
+
+if (AI_PHASES.has(phase)) {
+  const agentFn = await createAgentFn(dirname(statePath))
+  await mod.run(statePath, agentFn)
+} else {
+  await mod.run(statePath)
+}

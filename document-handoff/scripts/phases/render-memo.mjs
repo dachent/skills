@@ -22,13 +22,9 @@ const SECTION_SCHEMA = {
 }
 
 export async function run(statePath, agentFn) {
+  if (!agentFn) throw new Error('render-memo requires agentFn — must be invoked via cli.mjs')
   const state = await readState(statePath)
   const { output_dir: out, project } = state
-
-  if (!agentFn) {
-    const { agent } = await import('@anthropic-ai/claude-code')
-    agentFn = (prompt, opts) => agent(prompt, opts)
-  }
 
   const digests = state.digests_path
     ? JSON.parse(await readFile(state.digests_path, 'utf8'))
@@ -41,11 +37,21 @@ export async function run(statePath, agentFn) {
   if (state.risk_flags_count > 0) activeSections.push('privacy-security')
 
   const sectionMap = {}
+  let checkpointsWritten = 0
   await Promise.all(activeSections.map(async id => {
     const prompt = buildSectionPrompt(id, synthesis, digests, state)
-    const sec = await agentFn(prompt, { schema: SECTION_SCHEMA })
-    if (sec) sectionMap[id] = sec
+    const sec = await agentFn(prompt, { schema: SECTION_SCHEMA, label: `section-${id}` })
+    if (sec) {
+      sectionMap[id] = sec
+    } else {
+      checkpointsWritten++
+    }
   }))
+
+  if (checkpointsWritten > 0 && Object.keys(sectionMap).length === 0) {
+    console.log(`  ℹ ${checkpointsWritten} checkpoint(s) written. Fill response JSON files then re-run render-memo.`)
+    return
+  }
 
   const catalog = state.file_inventory || []
   const sectionCitations = {}
