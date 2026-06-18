@@ -180,6 +180,31 @@ Do not declare success until the output deck has been reopened successfully and 
 
 If PowerPoint COM throws `0x80070520`, treat that as a wrong-session problem, not as a deck problem. Move the COM step to the signed-in desktop user session and rerun it there.
 
+## Example Prompts
+
+### Executive Presentation
+
+```text
+Use $pptx-win and $theme-factory-codex.
+
+Create an executive PowerPoint presentation from:
+[PASTE SOURCE FILES OR FOLDER]
+
+Objective:
+Build a polished presentation for [AUDIENCE] about [TOPIC / DECISION / RECOMMENDATION].
+
+Requirements:
+- Do not use a template unless one is provided. Create the design system from the content.
+- Produce a clear narrative arc: context, problem, evidence, options, recommendation, next steps.
+- Use strong slide hierarchy, concise titles, clean layouts, and chart-ready visuals.
+- Include speaker notes where useful.
+- Use PowerPoint COM for actual deck creation, rendering, PDF export, and validation.
+- Run the Office COM preflight first. If COM is available, the agent should run the full smoke/validation path itself.
+- Export slide PNGs and a PDF for QA.
+- Inspect rendered slides for overflow, overlap, missing assets, and poor contrast before calling it done.
+- Save the final `.pptx`, rendered PNGs, PDF, and QA notes under: [OUTPUT FOLDER]
+```
+
 ## Resources
 
 - `references/no-template-deck-design.md`: how to create and repair decks when no template exists.
