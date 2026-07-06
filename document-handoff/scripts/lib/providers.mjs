@@ -103,8 +103,9 @@ export async function findCodexSessions(sourceRoot) {
     try { files = await readdir(sessionDir) } catch { continue }
     for (const f of files) {
       if (!f.endsWith('.jsonl')) continue
-      // If sqlite gave us thread IDs, filter; otherwise include all
-      const matchesThread = threadIds.size === 0 || [...threadIds].some(id => f.includes(id))
+      // Only include files whose thread id was confirmed to match sourceRoot.
+      // threadIds.size === 0 must mean "no matches", never "include everything".
+      const matchesThread = [...threadIds].some(id => f.includes(id))
       if (matchesThread) {
         const fPath = join(sessionDir, f)
         if (!found.some(x => x.path === fPath)) {
