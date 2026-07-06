@@ -158,6 +158,7 @@ Review `$outputDir\.handoff\verification.json`. If `overall: false`, fix the rep
 | `$outputDir\.handoff\catalog.json` | Full file inventory with risk flags |
 | `$outputDir\.handoff\catalog.html` | Visual catalog browser |
 | `$outputDir\.handoff\digests.json` | Session digests |
+| `$outputDir\.handoff\sessions\{name}.jsonl`, `{name}_extract.txt` | Raw session log + normalized full-text extract, one pair per session — the un-summarized source material behind the digests |
 | `$outputDir\.handoff\synthesis.md` | Synthesis narrative |
 | `$outputDir\.handoff\verification.json` | Verification results |
 | `$outputDir\.handoff\{slug}-citation-index.json` | Citation graph |
