@@ -1,11 +1,12 @@
 /**
- * @name Local artifact argument flow
- * @description Finds local sources that flow into common Python file/data access arguments.
+ * @name Local artifact value and taint flow
+ * @description Finds function parameters that flow into or influence common Python artifact sink arguments.
  * @kind table
  * @id code-mapper/local-artifact-flow
  */
 import python
 import semmle.python.dataflow.new.DataFlow
+import semmle.python.dataflow.new.TaintTracking
 import semmle.python.ApiGraphs
 
 predicate artifactArgument(DataFlow::CallCfgNode call, DataFlow::Node argument, string kind) {
@@ -23,8 +24,25 @@ predicate artifactArgument(DataFlow::CallCfgNode call, DataFlow::Node argument, 
   or
   call = API::moduleImport("pandas").getMember("read_excel").getACall() and
   argument = call.getArg(0) and kind = "pandas-read-excel"
+  or
+  call = API::moduleImport("subprocess").getMember("run").getACall() and
+  argument = call.getArg(0) and kind = "subprocess-run"
 }
 
-from DataFlow::CallCfgNode call, DataFlow::LocalSourceNode source, DataFlow::Node argument, string kind
-where artifactArgument(call, argument, kind) and source.flowsTo(argument)
-select call, kind, source, argument
+from DataFlow::CallCfgNode call, DataFlow::ParameterNode source,
+     DataFlow::Node argument, string kind, string flowKind
+where
+  artifactArgument(call, argument, kind) and
+  (
+    flowKind = "value" and DataFlow::localFlow(source, argument)
+    or
+    flowKind = "taint" and TaintTracking::localTaint(source, argument) and
+      not DataFlow::localFlow(source, argument)
+  )
+select
+  kind,
+  flowKind,
+  source,
+  call,
+  call.getLocation().getFile().getRelativePath(),
+  call.getLocation().getStartLine()

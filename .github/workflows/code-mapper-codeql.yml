@@ -1,0 +1,61 @@
+name: Code Mapper CodeQL
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'code-mapper-skill/**'
+      - '.github/workflows/code-mapper-codeql.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install mapper dependencies
+        shell: pwsh
+        run: python -m pip install -r .\code-mapper-skill\scripts\requirements.txt
+      - name: Compile mapper
+        shell: pwsh
+        run: python -m compileall -q .\code-mapper-skill\scripts
+      - name: Scanner, canonical CLI, policy, and lifecycle tests
+        shell: pwsh
+        run: |
+          Push-Location .\code-mapper-skill\scripts
+          python -m unittest -v smoke_test test_codeql_policy test_codeql_runtime test_codeql_cli
+          Pop-Location
+      - name: CodeQL overhead benchmark gate
+        shell: pwsh
+        run: |
+          Push-Location .\code-mapper-skill\scripts
+          python .\benchmark_codeql_overhead.py --runs 15 --max-delta-percent 10
+          Pop-Location
+      - name: Set up official CodeQL CLI
+        id: setup-codeql
+        uses: github/codeql-action/setup-codeql@v3
+        with:
+          languages: python
+      - name: Run real CodeQL build-query-decode smoke test
+        shell: pwsh
+        env:
+          CODEQL_CLI: ${{ steps.setup-codeql.outputs.codeql-path }}
+        run: |
+          Push-Location .\code-mapper-skill\scripts
+          python -m unittest -v test_codeql_live
+          Pop-Location
+      - name: Upload CodeQL live diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-live-diagnostic
+          path: code-mapper-skill/scripts/codeql-live-diagnostic.json
+          if-no-files-found: warn
