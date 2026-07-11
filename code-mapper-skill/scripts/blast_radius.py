@@ -1,127 +1,115 @@
-"""Orchestrator: one merged markdown "what breaks if I edit this" report.
+"""Canonical local code mapper: imports, references, artifacts, contracts, lineage, and CodeQL."""
+from __future__ import annotations
 
-Combines the grimp import-graph layer (module-level blast radius, cycles) with the
-jedi symbol layer (call-site references for a specific function/class), for a local
-path or a git URL target.
-"""
 import argparse
-import re
-from datetime import datetime
+import contextlib
+import io
+import json
 from pathlib import Path
-
-import jedi
+from typing import Any
 
 import bootstrap_env
-import find_references as fr
 import resolve_target
+from _codeql_cli import add_codeql_arguments, budget_overrides
+from _codeql_pack import ensure_query_pack
+from _codeql_runtime import enrich_with_codeql
 from _graph import build, find_cycles
-from _paths import JEDI_CACHE_DIR, target_cache_dir
-from _relationships import render_relationships, scan_repository
+from _paths import target_cache_dir
+from _references import find_symbol_references
+from _relationships import scan_repository
 
 
-def module_dotted_for_file(package_dir: Path, package: str, file_rel: str) -> str:
-    rel = Path(file_rel)
-    parts = list(rel.with_suffix("").parts)
+def module_dotted_for_file(package: str, file_rel: str) -> str:
+    parts = list(Path(file_rel).with_suffix("").parts)
     if parts and parts[-1] == "__init__":
-        parts = parts[:-1]
+        parts.pop()
     return ".".join([package, *parts]) if parts else package
 
 
-def render_report(target, file_rel, module_dotted, upstream, downstream, cycles, refs_section) -> str:
-    lines = [
-        f"# Blast radius report: `{file_rel}` (`{module_dotted}`)",
-        "",
-        f"- Target: `{target}`",
-        f"- Generated: {datetime.now().isoformat(timespec='seconds')}",
-        "",
-        f"## Downstream (blast radius, transitive) - what imports `{module_dotted}`, directly or via a chain ({len(downstream)})",
-        "",
-    ]
-    if not downstream:
-        lines.append("_none_")
-    else:
-        lines.extend(f"- `{m}`" for m in sorted(downstream))
-    lines += [
-        "",
-        f"## Upstream - what `{module_dotted}` imports ({len(upstream)})",
-        "",
-    ]
-    if not upstream:
-        lines.append("_none_")
-    else:
-        lines.extend(f"- `{m}`" for m in sorted(upstream))
-
-    relevant_cycles = [c for c in cycles if module_dotted in c]
-    lines += ["", f"## Cycles involving `{module_dotted}` ({len(relevant_cycles)})", ""]
-    if not relevant_cycles:
-        lines.append("_none_")
-    else:
-        for i, cyc in enumerate(relevant_cycles, 1):
-            lines.append(f"{i}. " + " <-> ".join(f"`{m}`" for m in cyc))
-
-    if refs_section is not None:
-        lines += ["", refs_section]
-
-    return "\n".join(lines)
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Map structural, artifact, contract, lineage, and semantic relationships.")
+    parser.add_argument("target", help="local path or git URL to analyze")
+    parser.add_argument("file", help="Python file relative to the package directory")
+    parser.add_argument("--package", default=None, help="dotted package name; defaults to the package directory name")
+    parser.add_argument("--subdir", default=None, help="package directory relative to the repository root")
+    parser.add_argument("--function", default=None, help="function or class in the target file for Jedi reference extraction")
+    add_codeql_arguments(parser)
+    return parser
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("target", help="local path or git URL to analyze")
-    ap.add_argument("file", help="file path relative to the package directory, e.g. b.py or sub/mod.py")
-    ap.add_argument("--package", default=None, help="dotted package name (default: package dir name)")
-    ap.add_argument("--subdir", default=None, help="package dir relative to target, if target isn't the package dir itself")
-    ap.add_argument("--function", default=None, help="function/class name (defined in `file`) to also find call sites for")
-    ap.add_argument(
-        "--skip-relationships",
-        action="store_true",
-        help="skip the default local artifact/contract/catalog scan",
-    )
-    args = ap.parse_args()
+def _validate_target_file(package_dir: Path, file_rel: str) -> Path:
+    file_path = (package_dir / file_rel).resolve()
+    try:
+        file_path.relative_to(package_dir)
+    except ValueError as exc:
+        raise ValueError(f"target file escapes package directory: {file_rel}") from exc
+    if not file_path.is_file():
+        raise FileNotFoundError(file_path)
+    return file_path
 
-    bootstrap_env.main()
 
-    resolved = resolve_target.resolve(args.target)
-    package_dir = (resolved / args.subdir).resolve() if args.subdir else resolved
+def _structural_map(import_graph: Any, module: str, references: list[dict[str, Any]]) -> dict[str, Any]:
+    cycles = [cycle for cycle in find_cycles(import_graph) if module in cycle]
+    return {
+        "module": module,
+        "imports": {
+            "upstream": sorted(import_graph.find_upstream_modules(module)),
+            "downstream": sorted(import_graph.find_downstream_modules(module)),
+            "cycles": cycles,
+        },
+        "references": references,
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    with contextlib.redirect_stdout(io.StringIO()):
+        bootstrap_env.main()
+
+    repo_root = resolve_target.resolve(args.target)
+    package_dir = (repo_root / args.subdir).resolve() if args.subdir else repo_root.resolve()
     package = args.package or package_dir.name
+    file_path = _validate_target_file(package_dir, args.file)
+    module = module_dotted_for_file(package, args.file)
 
-    graph = build(package_dir, package)
-    module_dotted = module_dotted_for_file(package_dir, package, args.file)
-
-    upstream = graph.find_upstream_modules(module_dotted)
-    downstream = graph.find_downstream_modules(module_dotted)
-    cycles = find_cycles(graph)
-
-    refs_section = None
-    if args.function:
-        JEDI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        jedi.settings.cache_directory = str(JEDI_CACHE_DIR)
-        file_path = package_dir / args.file
-        line, col = fr.find_definition_position(file_path, args.function)
-        project = jedi.Project(str(package_dir.parent))
-        script = jedi.Script(path=str(file_path), project=project)
-        refs = script.get_references(line=line, column=col)
-        refs_section = fr.render_references(f"{module_dotted}.{args.function}", refs)
+    import_graph = build(package_dir, package)
+    references = (
+        find_symbol_references(package_dir, file_path, module, args.function)
+        if args.function
+        else []
+    )
 
     cache_dir = target_cache_dir(package_dir)
-    relationship_section = None
-    if not args.skip_relationships:
-        relationship_graph = scan_repository(resolved, package_dir, package, cache_dir)
-        relationship_section = render_relationships(module_dotted, relationship_graph)
+    graph = scan_repository(repo_root, package_dir, package, cache_dir)
+    ensure_query_pack(cache_dir)
+    graph, decision = enrich_with_codeql(
+        repo_root=repo_root,
+        cache_dir=cache_dir,
+        graph=graph,
+        mode=args.codeql,
+        intent=args.codeql_intent,
+        budget_overrides=budget_overrides(args),
+    )
 
-    report = render_report(resolved, args.file, module_dotted, upstream, downstream, cycles, refs_section)
-    if relationship_section:
-        report += "\n\n" + relationship_section
+    graph["structural"] = _structural_map(import_graph, module, references)
+    graph["stats"] = dict(graph.get("stats", {}))
+    graph["stats"].update(
+        {
+            "importModules": len(import_graph.modules),
+            "references": len(references),
+            "semanticEdges": len(graph.get("semanticEdges", [])),
+        }
+    )
+    graph["codeql"]["decisionSummary"] = {
+        "action": decision.action,
+        "reason": decision.reason,
+    }
 
-    out_dir = cache_dir / "reports"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{args.file}-{args.function or ''}")
-    out_file = out_dir / f"{datetime.now().strftime('%Y%m%dT%H%M%S')}-{slug}.md"
-    out_file.write_text(report, encoding="utf-8")
-
-    print(report)
-    print(f"\n(saved to {out_file})")
+    output = cache_dir / "code-map.json"
+    output.write_text(json.dumps(graph, indent=2, sort_keys=True), encoding="utf-8")
+    print(json.dumps(graph, indent=2, sort_keys=True))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

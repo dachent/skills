@@ -1,0 +1,4 @@
+name: code-mapper/local-flow
+version: 0.0.0
+dependencies:
+  codeql/python-all: "*"
