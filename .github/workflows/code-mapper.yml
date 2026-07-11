@@ -1,0 +1,34 @@
+name: Code Mapper
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'code-mapper-skill/**'
+      - '.github/workflows/code-mapper.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile
+        run: python -m compileall -q .\code-mapper-skill\scripts .\code-mapper-skill\tests
+      - name: Unit and integration tests
+        run: python -m unittest discover -v .\code-mapper-skill\tests -p 'test_code_mapper.py'
+      - name: Set up official CodeQL CLI
+        id: setup-codeql
+        uses: github/codeql-action/setup-codeql@v3
+        with:
+          languages: python
+      - name: Real CodeQL build/query/decode
+        env:
+          CODEQL_CLI: ${{ steps.setup-codeql.outputs.codeql-path }}
+        run: python -m unittest discover -v .\code-mapper-skill\tests -p 'test_codeql_live.py'
