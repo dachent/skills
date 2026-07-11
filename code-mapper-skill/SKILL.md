@@ -1,81 +1,140 @@
 ---
 name: code-mapper-skill
-description: Maps import graphs and call-site references across a Python codebase (grimp for module-level import/dependency graphs, jedi for symbol-level call-site references) so you can see what depends on a file/function/class before changing it. Use when the user asks what breaks if they change, refactor, or delete a function or module; wants to find all callers, usages, or references of a symbol; wants a dependency/import map, blast-radius report, or impact analysis before editing unfamiliar Python code; or wants to know what else touches a module before they change it. Works on a local path or a GitHub/GitLab URL. Trigger phrases include blast radius, impact analysis, who calls/imports/uses this, find all callers/usages/references, map dependencies, is it safe to edit this.
+description: Maps import graphs, symbol references, local artifact use, contracts, and catalog relationships across a Python codebase so you can see what depends on a file/function/class before changing it. Use when the user asks what breaks if they change, refactor, or delete a function or module; wants callers, usages, references, input/output artifacts, API/schema contracts, Backstage relationships, a dependency map, blast-radius report, or impact analysis before editing unfamiliar Python code. Works on a local path or a GitHub/GitLab URL.
 ---
 
 # code-mapper-skill
 
-Python-only. Two static-analysis engines, both offline, both work on modern syntax:
+Python-only, offline, static analysis. The default path remains local and fast:
 
-- **grimp** — module-level import graph. "Downstream" = what imports this module
-  (blast radius — what could break). "Upstream" = what this module imports.
-- **jedi** — symbol-level references. Finds every call site of a specific
-  function/class across the project. Static analysis: it will miss fully dynamic
-  dispatch (`getattr(obj, name)()`-style calls) — a known limitation, not a bug.
+- **grimp** — module-level import graph. Downstream is blast radius; upstream is dependencies.
+- **jedi** — symbol-level references for a requested function/class.
+- **standard-library AST scanner** — file, table, model, config, endpoint, and event use.
+- **contract parsers** — OpenAPI/Swagger, AsyncAPI, GraphQL, Protobuf, JSON Schema, Avro, and Pact files.
+- **Backstage parser** — catalog entities and `providesApis`, `consumesApis`, `dependsOn`, ownership, system/domain, and referenced definitions.
+- **OpenLineage-compatible static output** — design-time `JobEvent` records for detected input/output datasets.
 
-All scripts live in `scripts/` and are run with `python scripts/<name>.py ...` from
-the `code-mapper-skill` directory, using whatever `python`/`pip` is ambient on `PATH` —
-no venv, no isolated install. `blast_radius.py` calls `bootstrap_env.py`
-implicitly on every run; the other scripts assume grimp/jedi are already
-importable (run `bootstrap_env.py` once yourself first if calling them directly).
+The default scanner does not execute target code, import target modules, contact a service, or require a lineage server. It uses a per-file content-hash cache and a metadata fast path. CodeQL is explicit-only and is never installed or invoked by the normal commands.
+
+All scripts live in `scripts/` and run with the ambient `python`/`pip` on `PATH`. `blast_radius.py` calls `bootstrap_env.py`; the relationship scanner itself has no third-party dependencies.
 
 ## Commands
 
-**Bootstrap** (idempotent — installs pinned grimp/jedi via `pip install -r
-requirements.txt` into the ambient environment, only if `import grimp`/`import
-jedi` doesn't already work):
-```
+### Bootstrap
+
+```text
 python scripts/bootstrap_env.py
 ```
 
-**One-shot blast radius report** (the one you usually want):
-```
-python scripts/blast_radius.py <target-path-or-git-url> <file.py> [--function NAME] [--package NAME] [--subdir DIR]
-```
-- `target` — a local directory (the package dir itself, e.g. `...\code\src`), or a
-  git URL (github.com/gitlab.com/self-hosted) — clones via the centralized git
-  tooling into `C:\Dev\analysis-clones\`.
-- `file.py` — path relative to the package dir, e.g. `b.py` or `sub/mod.py`.
-- `--function NAME` — also find every call site of this function/class (defined in
-  `file.py`) across the whole project.
-- `--subdir DIR` — if `target` isn't the package dir itself (e.g. a freshly cloned
-  repo where the package lives under `src/`), point at it here.
-- `--package NAME` — dotted package name, default is the package dir's folder name.
+Installs the pinned `grimp` and `jedi` versions only when they are not already importable.
 
-Prints the merged markdown report to stdout and saves a copy under
-`<repo>/.dep-map-cache/<target>-<hash>/reports/`.
+### One-shot blast-radius report
 
-**Narrower module-level queries** (import graph only, no jedi):
+```text
+python scripts/blast_radius.py <target-path-or-git-url> <file.py> [--function NAME] [--package NAME] [--subdir DIR] [--skip-relationships]
 ```
+
+- `target` — local directory or git URL.
+- `file.py` — path relative to the package directory.
+- `--function NAME` — add Jedi references for the named function/class.
+- `--subdir DIR` — package directory relative to the repository root.
+- `--package NAME` — dotted package name; defaults to the package directory name.
+- `--skip-relationships` — diagnostic escape hatch that preserves the original Grimp/Jedi-only path.
+
+The command prints the existing import/reference report plus additive artifact/contract sections. It writes reports and graph outputs under `.dep-map-cache/`, never inside the target repository.
+
+### Build only the artifact/contract/catalog graph
+
+```text
+python scripts/scan_relationships.py <target-path-or-git-url> [--package NAME] [--subdir DIR]
+```
+
+Outputs:
+
+- `relationships.json` — evidence-backed relationship edges and contract/catalog records.
+- `openlineage-job-events.json` — OpenLineage-compatible static `JobEvent` objects.
+- `relationship-cache.json` — per-file cache keyed by size, mtime, and SHA-256 content hash.
+
+Relationship types include:
+
+```text
+READS_FILE, WRITES_FILE, READS_TABLE, WRITES_TABLE,
+LOADS_MODEL, SAVES_MODEL, READS_CONFIG,
+IMPLEMENTS_ENDPOINT, CONSUMES_ENDPOINT,
+PRODUCES_EVENT, CONSUMES_EVENT,
+DEFINES_ENDPOINT, DEFINES_SCHEMA, DEFINES_RPC,
+PROVIDES_API, CONSUMES_API, DEPENDS_ON, OWNED_BY, PART_OF
+```
+
+Every edge includes source, target, relationship, confidence, file, line, symbol where available, and extractor.
+
+### Existing narrow queries
+
+```text
 python scripts/query_imports.py <target-path> --module DOTTED.NAME [--direction upstream|downstream|both] [--find-cycles] [--shortest-chain OTHER.MODULE]
-```
-
-**Narrower symbol-level query** (jedi only, no import graph):
-```
 python scripts/find_references.py <target-path> --symbol MODULE.QUALNAME
-```
-e.g. `--symbol src.branch_residual.scrub_patient_name`.
-
-**Just build/refresh the cached import graph**:
-```
 python scripts/build_graph.py <target-path> [--package NAME]
 ```
 
+### Optional CodeQL local flow
+
+```text
+python scripts/codeql_local_flow.py <existing-codeql-database> [--output results.csv]
+```
+
+This command is manual-only. It requires a locally installed `codeql` CLI and an existing local Python CodeQL database. It does not download CodeQL, create a database, use the network, or run during `blast_radius.py`.
+
+Use it only when intra-function value flow into common file/data access arguments is materially useful and the normal AST/Jedi map is insufficient.
+
+## Performance validation
+
+Run the smoke suite:
+
+```text
+python scripts/smoke_test.py
+```
+
+Compare a baseline checkout and candidate checkout with full CLI subprocess timing:
+
+```text
+python scripts/benchmark_runtime.py <baseline-skill-root> <candidate-skill-root> <target> <file.py> \
+  --subdir <package-dir> --package <package> --runs 7 --warmups 2 \
+  --max-median-delta-percent 10 --max-median-delta-seconds 0.25
+```
+
+Add `--cold` to clear each checkout's code-mapper caches before every run. See `references/benchmark-results.md` for the implementation benchmark.
+
+## Agent/runtime compatibility
+
+The command contract is deliberately shell- and agent-neutral:
+
+- existing positional arguments and flags are unchanged;
+- stdout remains Markdown plus the existing saved-report line;
+- new report sections are additive;
+- outputs are ordinary UTF-8 JSON/Markdown files;
+- no MCP, Claude-, Codex-, or Hermes-specific API is required;
+- no target code is executed or imported;
+- no network is used for local targets;
+- CodeQL absence cannot affect the default path.
+
+Claude Code, Codex, and Hermes can continue invoking the scripts as ordinary local Python commands. `--skip-relationships` provides a compatibility fallback if a downstream parser requires byte-for-byte legacy report structure.
+
 ## Write-location guardrail
 
-Every write lands in exactly one of: `code-mapper-skill/` itself (source), this
-repo's `.dep-map-cache/` (graph cache + reports, gitignored), `C:\Dev\
-bootstrap-state\code-mapper-skill-jedi-cache` (jedi's own parse cache — kept off OneDrive on purpose,
-see `references/engine-notes.md`; grimp/jedi themselves install into the
-ambient Python environment via normal `pip`, wherever that already is), or
-`C:\Dev\analysis-clones\` (only if a git URL target is used). **Never** the
-target codebase being analyzed — both engines are pure static analysis, no
-execution, no `__pycache__` side effects in the target.
+Writes are limited to:
+
+- this skill directory when its source is being edited;
+- the repository's `.dep-map-cache/` for reports, relationship graphs, and caches;
+- `C:\Dev\bootstrap-state\code-mapper-skill-jedi-cache`;
+- `C:\Dev\bootstrap-state\code-mapper-skill-grimp-cache`;
+- `C:\Dev\analysis-clones\` when a git URL is explicitly supplied.
+
+The target repository remains read-only.
 
 ## Known limitations
 
-- Python-only. A non-Python target needs a different engine entirely (this is
-  intentional — no multi-language plugin layer here, YAGNI until it's needed).
-- jedi's `get_references` is static; dynamic dispatch (`getattr`) won't be found.
-- grimp has no single "list every cycle" call — `query_imports.py --find-cycles`
-  runs a small hand-rolled Tarjan's SCC pass instead (see `scripts/_graph.py`).
+- Python-only for code analysis; contract files may describe non-Python interfaces.
+- Static analysis cannot fully resolve reflection, dynamic dispatch, generated paths, or runtime-selected dependencies.
+- Inferred paths use placeholders such as `${name}` and are marked `inferred`.
+- The dependency-free YAML readers intentionally support common OpenAPI/AsyncAPI/Backstage structures, not every YAML feature or custom tag.
+- CodeQL local flow is intra-function and requires a separately prepared local database.
