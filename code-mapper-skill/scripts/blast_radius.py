@@ -16,6 +16,7 @@ import find_references as fr
 import resolve_target
 from _graph import build, find_cycles
 from _paths import JEDI_CACHE_DIR, target_cache_dir
+from _relationships import render_relationships, scan_repository
 
 
 def module_dotted_for_file(package_dir: Path, package: str, file_rel: str) -> str:
@@ -71,6 +72,11 @@ def main():
     ap.add_argument("--package", default=None, help="dotted package name (default: package dir name)")
     ap.add_argument("--subdir", default=None, help="package dir relative to target, if target isn't the package dir itself")
     ap.add_argument("--function", default=None, help="function/class name (defined in `file`) to also find call sites for")
+    ap.add_argument(
+        "--skip-relationships",
+        action="store_true",
+        help="skip the default local artifact/contract/catalog scan",
+    )
     args = ap.parse_args()
 
     bootstrap_env.main()
@@ -97,9 +103,17 @@ def main():
         refs = script.get_references(line=line, column=col)
         refs_section = fr.render_references(f"{module_dotted}.{args.function}", refs)
 
-    report = render_report(resolved, args.file, module_dotted, upstream, downstream, cycles, refs_section)
+    cache_dir = target_cache_dir(package_dir)
+    relationship_section = None
+    if not args.skip_relationships:
+        relationship_graph = scan_repository(resolved, package_dir, package, cache_dir)
+        relationship_section = render_relationships(module_dotted, relationship_graph)
 
-    out_dir = target_cache_dir(package_dir) / "reports"
+    report = render_report(resolved, args.file, module_dotted, upstream, downstream, cycles, refs_section)
+    if relationship_section:
+        report += "\n\n" + relationship_section
+
+    out_dir = cache_dir / "reports"
     out_dir.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{args.file}-{args.function or ''}")
     out_file = out_dir / f"{datetime.now().strftime('%Y%m%dT%H%M%S')}-{slug}.md"

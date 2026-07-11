@@ -58,3 +58,24 @@ reference search can see sibling modules.
 1-indexed, `column` is 0-indexed, pointing at any character of the identifier.
 Returns `Name` objects; filter out `r.is_definition()` to get only call sites, not
 the definition itself.
+
+## Fast relationship scanner
+
+`_relationships.py` uses only the Python standard library. It scans Python ASTs and a bounded set of contract/catalog filename patterns, skips VCS/dependency/build/cache directories, and does not import target modules.
+
+The cache has two levels:
+
+1. per-file results keyed by kind, size, mtime, and SHA-256 content hash;
+2. an aggregate graph fast path returned when the candidate set and file metadata are unchanged.
+
+The warm path still stats candidate files so edits are detected, but it does not reconstruct or rewrite unchanged JSON outputs. This reduced the direct warm scan of 608 candidate files from about 149 ms to about 70 ms in the implementation benchmark.
+
+The YAML support is intentionally dependency-free and targeted. It recognizes common OpenAPI, AsyncAPI, and Backstage indentation/list patterns. It does not claim to be a general YAML implementation.
+
+## OpenLineage output
+
+The scanner emits design-time `JobEvent` objects rather than runtime `RunEvent` objects. Each event contains `eventTime`, `producer`, `schemaURL`, `job`, `inputs`, and `outputs`, and intentionally has no `run` field. The schema URL is `https://openlineage.io/spec/2-0-2/OpenLineage.json`.
+
+## Optional CodeQL boundary
+
+`codeql_local_flow.py` is an explicit wrapper over an existing local CodeQL database. The default scanner never imports, installs, downloads, or invokes CodeQL. The bundled query uses CodeQL's Python modular local-data-flow API and common API graph nodes for file/data access arguments.
