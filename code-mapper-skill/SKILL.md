@@ -1,140 +1,96 @@
 ---
 name: code-mapper-skill
-description: Maps import graphs, symbol references, local artifact use, contracts, and catalog relationships across a Python codebase so you can see what depends on a file/function/class before changing it. Use when the user asks what breaks if they change, refactor, or delete a function or module; wants callers, usages, references, input/output artifacts, API/schema contracts, Backstage relationships, a dependency map, blast-radius report, or impact analysis before editing unfamiliar Python code. Works on a local path or a GitHub/GitLab URL.
+description: Maps Python imports, symbol references, artifact use, contracts, catalog relationships, and selectively triggered local value/taint flow for blast-radius and input-to-sink analysis. Use for dependency maps, callers, inputs/outputs, APIs/schemas, Backstage relationships, and semantic tracing. Works on a local path or Git URL.
 ---
 
 # code-mapper-skill
 
-Python-only, offline, static analysis. The default path remains local and fast:
+Local, read-only Python analysis:
 
-- **grimp** — module-level import graph. Downstream is blast radius; upstream is dependencies.
-- **jedi** — symbol-level references for a requested function/class.
-- **standard-library AST scanner** — file, table, model, config, endpoint, and event use.
-- **contract parsers** — OpenAPI/Swagger, AsyncAPI, GraphQL, Protobuf, JSON Schema, Avro, and Pact files.
-- **Backstage parser** — catalog entities and `providesApis`, `consumesApis`, `dependsOn`, ownership, system/domain, and referenced definitions.
-- **OpenLineage-compatible static output** — design-time `JobEvent` records for detected input/output datasets.
+- **grimp:** module imports, transitive blast radius, and cycles.
+- **jedi:** references for a requested function/class.
+- **AST scanner:** files, tables, models, config, HTTP, events, processes, and semantic-trigger evidence.
+- **contract parsers:** OpenAPI/Swagger, AsyncAPI, GraphQL, Protobuf, JSON Schema, Avro, Pact, and Backstage.
+- **OpenLineage-compatible output:** static job inputs/outputs.
+- **optional CodeQL:** AST-targeted local value and local taint flow.
 
-The default scanner does not execute target code, import target modules, contact a service, or require a lineage server. It uses a per-file content-hash cache and a metadata fast path. CodeQL is explicit-only and is never installed or invoked by the normal commands.
+The skill never installs/downloads CodeQL, imports target modules, or executes target code. Python database creation requires CodeQL 2.16.4+ and `--build-mode=none`.
 
-All scripts live in `scripts/` and run with the ambient `python`/`pip` on `PATH`. `blast_radius.py` calls `bootstrap_env.py`; the relationship scanner itself has no third-party dependencies.
-
-## Commands
-
-### Bootstrap
+## Main command
 
 ```text
-python scripts/bootstrap_env.py
+python scripts/blast_radius.py <target> <file.py> \
+  [--function NAME] [--package NAME] [--subdir DIR] \
+  [--codeql off|existing|auto|build] \
+  [--codeql-intent mapping|value-flow|security|deep] \
+  [--skip-relationships]
 ```
 
-Installs the pinned `grimp` and `jedi` versions only when they are not already importable.
+Existing arguments remain valid. `--skip-relationships` restores the original Grimp/Jedi-only path.
 
-### One-shot blast-radius report
+## Relationship graph
 
 ```text
-python scripts/blast_radius.py <target-path-or-git-url> <file.py> [--function NAME] [--package NAME] [--subdir DIR] [--skip-relationships]
+python scripts/scan_relationships.py <target> [--package NAME] [--subdir DIR] \
+  [--codeql off|existing|auto|build] \
+  [--codeql-intent mapping|value-flow|security|deep]
 ```
 
-- `target` — local directory or git URL.
-- `file.py` — path relative to the package directory.
-- `--function NAME` — add Jedi references for the named function/class.
-- `--subdir DIR` — package directory relative to the repository root.
-- `--package NAME` — dotted package name; defaults to the package directory name.
-- `--skip-relationships` — diagnostic escape hatch that preserves the original Grimp/Jedi-only path.
+Outputs under `.dep-map-cache/`: relationship graph/cache, OpenLineage events, reports, and optional CodeQL database/results/history.
 
-The command prints the existing import/reference report plus additive artifact/contract sections. It writes reports and graph outputs under `.dep-map-cache/`, never inside the target repository.
+## CodeQL modes
 
-### Build only the artifact/contract/catalog graph
+| Mode | Behavior |
+| --- | --- |
+| `off` | Never inspect or invoke CodeQL. |
+| `existing` | Default. Use current results/database; never build. Without either, do not probe the CLI. |
+| `auto` | Build only when semantic need, reuse, safe version, and budgets pass. |
+| `build` | Explicit build/query request, still constrained by safety and budgets. |
+
+Repository size alone never builds. Query and database-build scores are separate.
+
+Semantic triggers include unresolved/transformed sink arguments, parameters reaching sinks, ambiguous file modes, dynamic SQL, unresolved config, complex sink functions, high-value unresolved sinks, and explicit semantic intent.
+
+Build selection additionally considers parameterized high-value sinks, repeated analyses, existing CodeQL configuration, temporary-repository status, prior failures/invalidation, projected time, and projected storage.
 
 ```text
-python scripts/scan_relationships.py <target-path-or-git-url> [--package NAME] [--subdir DIR]
+--codeql-max-build-seconds N
+--codeql-max-db-mb N
+--codeql-max-query-seconds N
 ```
 
-Outputs:
+Defaults: 60 seconds, 1 GB, and 5 seconds. Failures/timeouts preserve the base map.
 
-- `relationships.json` — evidence-backed relationship edges and contract/catalog records.
-- `openlineage-job-events.json` — OpenLineage-compatible static `JobEvent` objects.
-- `relationship-cache.json` — per-file cache keyed by size, mtime, and SHA-256 content hash.
+## Engine responsibilities
 
-Relationship types include:
+| Engine | Purpose |
+| --- | --- |
+| Grimp | structural module dependencies |
+| Jedi | arbitrary symbol references |
+| AST/contracts | fast discovery, literals/inference, contracts, and CodeQL targeting |
+| CodeQL local flow | value-preserving propagation within one callable |
+| CodeQL local taint | transformed influence within one callable |
+
+CodeQL augments rather than replaces the other engines. Global flow is out of scope.
+
+## Manual query
 
 ```text
-READS_FILE, WRITES_FILE, READS_TABLE, WRITES_TABLE,
-LOADS_MODEL, SAVES_MODEL, READS_CONFIG,
-IMPLEMENTS_ENDPOINT, CONSUMES_ENDPOINT,
-PRODUCES_EVENT, CONSUMES_EVENT,
-DEFINES_ENDPOINT, DEFINES_SCHEMA, DEFINES_RPC,
-PROVIDES_API, CONSUMES_API, DEPENDS_ON, OWNED_BY, PART_OF
+python scripts/codeql_local_flow.py <existing-database> [--output results.csv]
 ```
 
-Every edge includes source, target, relationship, confidence, file, line, symbol where available, and extractor.
-
-### Existing narrow queries
-
-```text
-python scripts/query_imports.py <target-path> --module DOTTED.NAME [--direction upstream|downstream|both] [--find-cycles] [--shortest-chain OTHER.MODULE]
-python scripts/find_references.py <target-path> --symbol MODULE.QUALNAME
-python scripts/build_graph.py <target-path> [--package NAME]
-```
-
-### Optional CodeQL local flow
-
-```text
-python scripts/codeql_local_flow.py <existing-codeql-database> [--output results.csv]
-```
-
-This command is manual-only. It requires a locally installed `codeql` CLI and an existing local Python CodeQL database. It does not download CodeQL, create a database, use the network, or run during `blast_radius.py`.
-
-Use it only when intra-function value flow into common file/data access arguments is materially useful and the normal AST/Jedi map is insufficient.
-
-## Performance validation
-
-Run the smoke suite:
+## Testing
 
 ```text
 python scripts/smoke_test.py
+python -m unittest -v test_codeql_policy test_codeql_runtime test_codeql_cli test_codeql_live
+python scripts/benchmark_codeql_overhead.py --runs 15
 ```
 
-Compare a baseline checkout and candidate checkout with full CLI subprocess timing:
+The live test skips without CodeQL; CI installs the official CLI and runs it.
 
-```text
-python scripts/benchmark_runtime.py <baseline-skill-root> <candidate-skill-root> <target> <file.py> \
-  --subdir <package-dir> --package <package> --runs 7 --warmups 2 \
-  --max-median-delta-percent 10 --max-median-delta-seconds 0.25
-```
+See `references/codeql-adversarial-review.md`, `references/codeql-verification.md`, and `references/codeql-benchmark-results.md`.
 
-Add `--cold` to clear each checkout's code-mapper caches before every run. See `references/benchmark-results.md` for the implementation benchmark.
+## Compatibility and writes
 
-## Agent/runtime compatibility
-
-The command contract is deliberately shell- and agent-neutral:
-
-- existing positional arguments and flags are unchanged;
-- stdout remains Markdown plus the existing saved-report line;
-- new report sections are additive;
-- outputs are ordinary UTF-8 JSON/Markdown files;
-- no MCP, Claude-, Codex-, or Hermes-specific API is required;
-- no target code is executed or imported;
-- no network is used for local targets;
-- CodeQL absence cannot affect the default path.
-
-Claude Code, Codex, and Hermes can continue invoking the scripts as ordinary local Python commands. `--skip-relationships` provides a compatibility fallback if a downstream parser requires byte-for-byte legacy report structure.
-
-## Write-location guardrail
-
-Writes are limited to:
-
-- this skill directory when its source is being edited;
-- the repository's `.dep-map-cache/` for reports, relationship graphs, and caches;
-- `C:\Dev\bootstrap-state\code-mapper-skill-jedi-cache`;
-- `C:\Dev\bootstrap-state\code-mapper-skill-grimp-cache`;
-- `C:\Dev\analysis-clones\` when a git URL is explicitly supplied.
-
-The target repository remains read-only.
-
-## Known limitations
-
-- Python-only for code analysis; contract files may describe non-Python interfaces.
-- Static analysis cannot fully resolve reflection, dynamic dispatch, generated paths, or runtime-selected dependencies.
-- Inferred paths use placeholders such as `${name}` and are marked `inferred`.
-- The dependency-free YAML readers intentionally support common OpenAPI/AsyncAPI/Backstage structures, not every YAML feature or custom tag.
-- CodeQL local flow is intra-function and requires a separately prepared local database.
+The interface remains ordinary Python CLI plus UTF-8 Markdown/JSON/CSV, with no Claude-, Codex-, Hermes-, or MCP-specific dependency. Writes remain limited to the skill, `.dep-map-cache`, existing Grimp/Jedi cache locations, and the centralized clone directory. The target repository remains read-only.
