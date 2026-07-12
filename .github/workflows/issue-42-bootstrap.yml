@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/issue-42-generated-repository-artifacts
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
