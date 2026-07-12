@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Intelligence"
+  short_description: "Route repository questions to the right code-analysis provider"
+  default_prompt: "Use $code-intelligence to select the lowest-cost reliable code-intelligence workflow, establish graph freshness when relevant, preserve provider evidence, and verify material conclusions against source and tests."
