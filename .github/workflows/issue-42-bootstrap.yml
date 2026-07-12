@@ -1,0 +1,20 @@
+name: Issue 42 Bootstrap
+
+on:
+  push:
+    branches:
+      - agent/issue-42-generated-repository-artifacts
+
+permissions:
+  contents: read
+
+jobs:
+  dump-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Print manifest
+        run: python -m json.tool skills-manifest.json
