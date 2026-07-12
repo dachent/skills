@@ -19,9 +19,9 @@ The Office skills remain intentionally Windows-specific and environment-dependen
 | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | Planning | Hostile review of plans before implementation | Deep-planning validator |
 | [`artifact-runtime-codex`](./artifact-runtime-codex) | Visual | Runtime and evidence handoff for browser artifacts | Visual-skill contracts |
 | [`canvas-design-codex`](./canvas-design-codex) | Visual | Canvas, SVG, WebGL, and pixel-evidence QA | Visual-skill contracts |
-| [`code-mapper-skill`](./code-mapper-skill) | Code analysis | Python dependency, symbol, artifact, and contract mapping | Self-test and smoke suite |
+| [`code-mapper-skill`](./code-mapper-skill) | Code analysis | Python dependency, symbol, artifact, and contract mapping | Dedicated Code Mapper workflow |
 | [`deep-planning-codex`](./deep-planning-codex) | Planning | Gated, evidence-backed implementation planning | Deep-planning validator |
-| [`document-handoff`](./document-handoff) | Handoff | Curated project workfolder and browsable HTML memo | Provider and extraction tests |
+| [`document-handoff`](./document-handoff) | Handoff | Curated project workfolder and browsable HTML memo | Canonical Node test suite |
 | [`docx-win`](./docx-win) | Office | Word COM automation and no-template document polish | Static contract plus Office smoke |
 | [`frontend-design-codex`](./frontend-design-codex) | Visual | Responsive frontend design with screenshot QA | Visual-skill contracts |
 | [`grill-me-codex`](./grill-me-codex) | Interview | Read-only design and plan interrogation | Scenario validation |
@@ -75,7 +75,11 @@ Hosted validation fans out into three independently visible jobs:
 
 - **Repository integrity**: canonical inventory, metadata and path references, provenance, hooks, and agent definitions;
 - **Static and contract checks**: PowerShell analysis, Python compilation, Office boundaries, and visual-runtime contracts;
-- **Behavioral tests**: code-mapper self-tests and smoke tests, document-handoff provider tests, and deep-planning validation.
+- **Behavioral tests**: the canonical Document Handoff suite and deep-planning validation.
+
+Code Mapper behavior, policy, benchmark, lifecycle, and live CodeQL validation remain authoritative in `.github/workflows/code-mapper-codeql.yml`.
+
+Codex visual skills are validated by `tools/test_visual_skills_contract.py`, which checks their metadata, shared-runtime guidance, verification requirements, README registration, and CI invocation.
 
 A stable **Required** aggregation job is intended for branch protection. Pull-request runs use concurrency cancellation so superseded commits do not consume validation capacity.
 
@@ -97,9 +101,11 @@ python .\tools\test_visual_runtime_contract.py
 python .\tools\test_visual_skills_contract.py
 python .\tools\validate_codex_hooks.py
 python -m pip install -r .\code-mapper-skill\scripts\requirements.txt
-python .\code-mapper-skill\tests\selftest.py
-python .\code-mapper-skill\scripts\smoke_test.py
-node --test document-handoff/tests/providers.test.mjs
+Push-Location .\code-mapper-skill\scripts
+python -m unittest -v smoke_test test_codeql_policy test_codeql_runtime test_codeql_cli
+Pop-Location
+$handoffTests = Get-ChildItem .\document-handoff\scripts\tests -Filter *.test.mjs | ForEach-Object FullName
+node --test @handoffTests
 ```
 
 ## Repository layout
