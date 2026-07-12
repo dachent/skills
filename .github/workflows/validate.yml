@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-issue-42:
+  diagnose-issue-42:
     if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -22,17 +22,34 @@ jobs:
           ref: agent/issue-42-generated-repository-artifacts
           fetch-depth: 0
           show-progress: false
-      - name: Apply implementation
+      - name: Diagnose patch bundle
         shell: bash
         run: |
-          set -euxo pipefail
-          cat .issue-42-patch/final0{0..7} > /tmp/issue-42.b64
-          echo "a5d3c32532e02babd338353260e3540b641fb75318438ab66386e806cdf122a7  /tmp/issue-42.b64" | sha256sum --check
-          base64 --decode /tmp/issue-42.b64 | gzip --decompress > /tmp/issue-42.patch
-          git apply --exclude=.github/workflows/validate.yml --exclude=.github/workflows/issue-42-bootstrap.yml /tmp/issue-42.patch
-          rm -rf .issue-42-patch .github/workflows/issue-42-bootstrap.yml
+          set +e
+          {
+            echo '== chunks =='
+            wc -c .issue-42-patch/final0{0..7}
+            sha256sum .issue-42-patch/final0{0..7}
+            cat .issue-42-patch/final0{0..7} > /tmp/issue-42.b64
+            echo '== concatenated base64 =='
+            wc -c /tmp/issue-42.b64
+            sha256sum /tmp/issue-42.b64
+            base64 --decode /tmp/issue-42.b64 > /tmp/issue-42.patch.gz
+            echo "base64_status=$?"
+            wc -c /tmp/issue-42.patch.gz
+            sha256sum /tmp/issue-42.patch.gz
+            gzip --test /tmp/issue-42.patch.gz
+            echo "gzip_status=$?"
+            gzip --decompress --stdout /tmp/issue-42.patch.gz > /tmp/issue-42.patch
+            echo "gunzip_status=$?"
+            wc -c /tmp/issue-42.patch
+            sha256sum /tmp/issue-42.patch
+            echo '== apply check =='
+            git apply --check --exclude=.github/workflows/validate.yml --exclude=.github/workflows/issue-42-bootstrap.yml /tmp/issue-42.patch
+            echo "apply_status=$?"
+          } > .issue-42-diagnostic.txt 2>&1
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add --all
-          git commit -m "Implement manifest-generated repository artifacts"
+          git add .issue-42-diagnostic.txt
+          git commit -m "Diagnose issue 42 patch application"
           git push origin HEAD:agent/issue-42-generated-repository-artifacts
