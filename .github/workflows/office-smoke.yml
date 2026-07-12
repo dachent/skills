@@ -31,7 +31,7 @@ jobs:
     steps:
       - name: Resolve trigger
         id: resolve
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             if (context.eventName === 'workflow_dispatch') {
@@ -64,7 +64,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ${{ needs.authorize.outputs.checkout_repository }}
           ref: ${{ needs.authorize.outputs.checkout_ref }}
@@ -100,7 +100,7 @@ jobs:
           if (-not $summary.all_passed) { throw (($results | Where-Object { $_.exit_code -ne 0 } | ForEach-Object { '{0} exited {1}' -f $_.name, $_.exit_code }) -join [Environment]::NewLine) }
       - name: Upload smoke test artifacts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: office-smoke-artifacts
           path: ${{ runner.temp }}/office-smoke
