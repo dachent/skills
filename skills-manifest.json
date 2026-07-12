@@ -128,6 +128,7 @@
         "classification": "repo-owned-original"
       },
       "validation": {
+        "ci_enabled": true,
         "hosted_commands": [
           "python .\\agent-project-orchestrator\\scripts\\test_doctor.py",
           "python .\\agent-project-orchestrator\\scripts\\doctor.py --root .\\agent-project-orchestrator"
@@ -431,7 +432,7 @@
       },
       "source": {
         "classification": "medium-adaptation",
-        "repository": "mattpocock/skills",
+        "repository": "mattpocock/skils",
         "path": "skills/engineering/grill-with-docs",
         "provenance_status": "revision-unresolved"
       },
@@ -464,7 +465,7 @@
       },
       "source": {
         "classification": "medium-adaptation",
-        "repository": "mattpocock/skills",
+        "repository": "mattpocock/skils",
         "path": "skills/productivity/handoff",
         "provenance_status": "revision-unresolved"
       },
@@ -689,7 +690,7 @@
       "family": "office",
       "catalog_group": "native-extensions",
       "status": "supported",
-      "description": "Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.",
+      "description": "Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xlsb`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.",
       "platforms": [
         "windows"
       ],

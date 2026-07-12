@@ -41,6 +41,32 @@ class CiMatrixTests(unittest.TestCase):
                     },
                 },
                 {
+                    "name": "experimental-enabled",
+                    "path": "experimental-enabled",
+                    "status": "experimental",
+                    "platforms": ["linux"],
+                    "packaging": {
+                        "skill_file": "experimental-enabled/SKILL.md",
+                        "agent_metadata": "experimental-enabled/agents/openai.yaml",
+                    },
+                    "validation": {
+                        "ci_enabled": True,
+                        "hosted_commands": [],
+                        "environment_dependent_commands": [],
+                    },
+                },
+                {
+                    "name": "experimental-disabled",
+                    "path": "experimental-disabled",
+                    "status": "experimental",
+                    "platforms": ["linux"],
+                    "packaging": {},
+                    "validation": {
+                        "hosted_commands": [],
+                        "environment_dependent_commands": [],
+                    },
+                },
+                {
                     "name": "old",
                     "path": "old",
                     "status": "archived",
@@ -76,10 +102,26 @@ class CiMatrixTests(unittest.TestCase):
             ["alpha", "beta"],
         )
 
-    def test_full_excludes_archived(self) -> None:
+    def test_full_includes_opted_in_experimental_and_excludes_others(self) -> None:
         self.assertEqual(
             ci_matrix.affected_skill_names(self.manifest, [], full=True),
-            ["alpha", "beta"],
+            ["alpha", "beta", "experimental-enabled"],
+        )
+
+    def test_experimental_skill_requires_explicit_ci_opt_in(self) -> None:
+        self.assertEqual(
+            ci_matrix.affected_skill_names(
+                self.manifest, ["experimental-disabled/SKILL.md"]
+            ),
+            [],
+        )
+
+    def test_experimental_skill_with_ci_opt_in_is_selected(self) -> None:
+        self.assertEqual(
+            ci_matrix.affected_skill_names(
+                self.manifest, ["experimental-enabled/SKILL.md"]
+            ),
+            ["experimental-enabled"],
         )
 
     def test_cross_platform_expands_approved_runners(self) -> None:
@@ -89,10 +131,10 @@ class CiMatrixTests(unittest.TestCase):
             ["ubuntu-latest", "windows-latest", "macos-latest"],
         )
 
-    def test_control_file_selects_all_supported(self) -> None:
+    def test_control_file_selects_all_ci_enabled(self) -> None:
         self.assertEqual(
             ci_matrix.affected_skill_names(self.manifest, ["tools/ci_matrix.py"]),
-            ["alpha", "beta"],
+            ["alpha", "beta", "experimental-enabled"],
         )
 
 
@@ -133,12 +175,13 @@ class SkillRunnerTests(unittest.TestCase):
 
 
 class RepositoryManifestIntegrationTests(unittest.TestCase):
-    def test_full_matrix_covers_every_supported_skill(self) -> None:
+    def test_full_matrix_covers_every_ci_enabled_skill(self) -> None:
         manifest = ci_matrix.load_manifest()
         expected = sorted(
             skill["name"]
             for skill in manifest["skills"]
             if skill.get("status") == "supported"
+            or skill.get("validation", {}).get("ci_enabled") is True
         )
         plan = ci_matrix.build_plan(manifest, [], full=True)
         self.assertEqual(plan["selected_skills"], expected)
