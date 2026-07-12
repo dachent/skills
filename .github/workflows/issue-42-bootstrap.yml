@@ -19,5 +19,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Print manifest
-        run: python -m json.tool skills-manifest.json
+      - name: Upload repository inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-42-inputs
+          path: |
+            skills-manifest.json
+            README.md
+          if-no-files-found: error
