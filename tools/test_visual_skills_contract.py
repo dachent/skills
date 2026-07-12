@@ -39,6 +39,10 @@ def read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
+def normalize_workflow_text(text: str) -> str:
+    return text.replace("\\", "/")
+
+
 def require_file(relative_path: str, failures: list[str]) -> None:
     if not (REPO_ROOT / relative_path).is_file():
         failures.append(f"missing file: {relative_path}")
@@ -85,13 +89,13 @@ def validate_skill(skill_name: str, required_terms: list[str], failures: list[st
 
 def validate_readme_and_ci(failures: list[str]) -> None:
     readme = read("README.md")
-    workflow = read(".github/workflows/validate.yml")
+    workflow = normalize_workflow_text(read(".github/workflows/validate.yml"))
     for skill_name in VISUAL_SKILLS:
         require_contains(readme, f"[`{skill_name}`](./{skill_name})", "README.md", failures)
         require_contains(readme, skill_name, "README.md", failures)
     require_contains(readme, "Codex visual skills", "README.md", failures)
     require_contains(readme, "test_visual_skills_contract.py", "README.md", failures)
-    require_contains(workflow, "python .\\tools\\test_visual_skills_contract.py", ".github/workflows/validate.yml", failures)
+    require_contains(workflow, "python ./tools/test_visual_skills_contract.py", ".github/workflows/validate.yml", failures)
 
 
 def main() -> int:
