@@ -1,16 +1,16 @@
 name: One-time code-intelligence manifest sync
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/add-code-intelligence
+      - main
 
 permissions:
   contents: write
 
 jobs:
   sync:
-    if: github.event.head_commit.message == 'Bootstrap code-intelligence manifest sync'
+    if: github.event.pull_request.head.ref == 'agent/add-code-intelligence'
     runs-on: ubuntu-latest
     steps:
       - name: Check out branch
