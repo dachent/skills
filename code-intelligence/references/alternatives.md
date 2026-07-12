@@ -1,123 +1,66 @@
-# Alternatives and State-of-the-Art Assessment
+# Alternatives and Value Assessment
 
 Reviewed: 2026-07-12
 
 ## Conclusion
 
-The proposed `code-intelligence` architecture is a high-quality modular control-plane design, but its initial Graphify plus code-mapper provider set is not the overall state of the art in every dimension.
+The optimal current design is not the largest provider set. It is the smallest set that covers recurring needs with distinct, measurable value.
 
-No single available system dominates repository discovery, compiler-accurate navigation, cross-language refactoring, mixed-media knowledge, artifact lineage, and interprocedural data flow. The higher-quality solution is a capability-based router with interchangeable providers and benchmarked defaults.
+The active stack is direct source, Graphify, `code-mapper-skill`, mapper-owned selective CodeQL, and explicit `repo-map-codex`. Only Codebase-Memory remains a credible near-term substitution candidate, and only for Graphify's code-only discovery role.
 
-## Stronger or complementary alternatives
+## Truly high-value components
 
-### Codebase-Memory MCP
+| Component | Decision | Why it earns its cost |
+| --- | --- | --- |
+| Direct source and tests | Keep | Final authority and universal fallback; no setup or staleness risk. |
+| Graphify | Keep initially | Differentiated mixed-media and broad repeated discovery; already central to the routing problem. |
+| `code-mapper-skill` | Keep | Unique Python imports, impact, artifacts, contracts, APIs, catalogs, and lineage in one structured workflow. |
+| Selective CodeQL in code-mapper | Keep | Adds semantic value/taint paths that syntax graphs cannot provide, while remaining gated. |
+| Graph freshness preflight | Keep | Prevents stale answers and avoids loading a large graph merely to choose a route. |
+| Exact-target fast path | Keep | Protects the existing mapper's latency and deterministic behavior. |
+| `repo-map-codex` explicit route | Keep | Produces a durable planning artifact; it is not duplicated by an ad hoc graph query. |
+| Router/discovery benchmarks | Keep | Prevent provider preference from becoming opinion or permanent lock-in. |
 
-Project: https://github.com/DeusData/codebase-memory-mcp  
-Paper: https://arxiv.org/abs/2603.27277
+## Benchmark-only substitution
 
-The project reports a local static binary, persistent graph, MCP tools, incremental watcher, broad tree-sitter coverage, hybrid semantic resolution, structural and semantic search, impact analysis, cross-service links, and cross-repository support. Its paper reports 83 percent answer quality versus 92 percent for file exploration, with ten times fewer tokens and 2.1 times fewer tool calls across 31 repositories.
+### Codebase-Memory
 
-**Why it may be higher quality than Graphify for code-only work:** stronger agent-facing MCP surface, faster indexing claims, automatic freshness, semantic resolution beyond raw AST, built-in impact analysis, and a more direct code-intelligence focus.
+Codebase-Memory is the only near-term substitution worth testing. Its project reports a local persistent graph, MCP tools, incremental updates, semantic and structural search, impact analysis, and lower agent token/tool use.
 
-**Why it is not an automatic replacement:** results are recent and largely project- or paper-reported; language-depth quality can vary; it does not replace Graphify's document, PDF, image, and media corpus role; it does not replace compiler indexes or deep program analysis.
+It is not active because the evidence is recent and largely project-reported, while Graphify has a distinct mixed-media role. Benchmark it against Graphify and direct source on pinned repositories. Replace Graphify for code-only work only after a material, reproducible win and an acceptable license, privacy, freshness, and operations review.
 
-**Decision:** design an adapter and benchmark it head-to-head with Graphify before selecting a default persistent graph provider.
+## Customization without demonstrated value
 
 ### Serena
 
-Project: https://github.com/oraios/serena
-
-Serena exposes symbol-level retrieval, editing, refactoring, diagnostics, and optional debugging through MCP, backed by language servers or a JetBrains plugin. It supports precise definitions, references, implementations, and safe symbolic edits across many languages.
-
-**Strength:** stronger exact semantic navigation and refactoring than a tree-sitter knowledge graph or Python-only Jedi path.
-
-**Limitation:** not a replacement for persistent architecture graphs, mixed-media indexing, artifact and contract lineage, or deep global taint analysis.
-
-**Decision:** treat Serena or equivalent LSP tooling as the preferred exact multi-language semantic provider when configured.
-
-### SCIP and Sourcegraph Code Navigation
-
-Protocol: https://github.com/scip-code/scip  
-Sourcegraph docs: https://sourcegraph.com/docs/code-navigation
-
-SCIP is a language-agnostic indexing protocol for definitions, references, and implementations. Sourcegraph distinguishes search-based heuristics from precise code navigation using compile-time information and supports cross-repository navigation.
-
-**Strength:** compiler-accurate, durable, cross-repository symbol semantics and a stable interchange format.
-
-**Limitation:** indexer setup, build integration, storage, and enterprise operation are heavier than local ad hoc tools. Sourcegraph is a platform dependency rather than a lightweight bundled skill.
-
-**Decision:** use SCIP as the preferred future interoperability format for exact symbol evidence; use Sourcegraph where enterprise scale and cross-repository precision justify it.
-
-### CodeQL
-
-Docs: https://codeql.github.com/docs/writing-codeql-queries/about-data-flow-analysis/
-
-CodeQL models local and global data flow and taint tracking across several major languages. Global flow is more expensive but materially stronger than syntax graphs for source-to-sink reasoning.
-
-**Strength:** mature semantic flow, path queries, security analysis, and auditable query logic.
-
-**Limitation:** database creation and query design can be expensive; it is not a general repository orientation layer.
-
-**Decision:** retain as an explicit semantic-flow escalation provider. Expand beyond the current mapper's narrow local query only through separately tested query packs.
+Dropped. It may improve semantic navigation and refactoring, but adding a new agent-facing semantic-editing subsystem is outside the concrete Graphify-versus-code-mapper routing problem. Host-native IDE or language-server tools can remain available independently.
 
 ### Joern and codebadger
 
-Projects: https://github.com/joernio/joern and https://github.com/Lekssays/codebadger  
-Paper: https://arxiv.org/abs/2603.24837
+Dropped. Their code-property-graph, slicing, and vulnerability-research capabilities are real, but deployment and maintenance cost is high and the recurring requirement has not been demonstrated. Existing selective CodeQL is sufficient for the current scope.
 
-Joern's code property graph combines syntax, control flow, and data dependence. codebadger exposes higher-level MCP tools for navigation, slicing, taint, and vulnerability work. The 2026 paper reports three case studies, including vulnerability discovery and patching.
+### SCIP and Sourcegraph
 
-**Strength:** deeper program semantics and slicing than Graphify, code-mapper, or standard LSP navigation.
-
-**Limitation:** heavier deployment and resource use, language-specific front-end quality, and a security-oriented operating model.
-
-**Decision:** preferred optional provider for deep program analysis and security investigations, not the default route for ordinary code questions.
-
-### Aider repository map
-
-Project: https://github.com/Aider-AI/aider
-
-Aider extracts definitions and references with tree-sitter, caches tags by file modification time, builds a file relationship graph, applies personalized PageRank, and packs the highest-value definitions into a token budget.
-
-**Strength:** simple, efficient context selection for an editing agent.
-
-**Limitation:** not a persistent general query service, not compiler-accurate, and not designed for contracts, lineage, or taint.
-
-**Decision:** use its ranking approach as a design reference for context packing, not as the primary provider.
+Deferred. They are valuable at enterprise cross-repository scale, but require indexers, build integration, storage, and operating infrastructure not justified by the current local skill repository.
 
 ### Semgrep
 
-Docs: https://docs.semgrep.dev/semgrep-code/overview/
+Do not integrate into this router. Semgrep is useful for rule-based CI and policy checks, but it is not a general repository-understanding provider and can remain a separate workflow.
 
-Semgrep provides transparent rule-based static analysis, with intraprocedural, interprocedural, and commercial cross-file capabilities depending on edition and language.
+### Aider-style repository map
 
-**Strength:** fast, explainable pattern and security checks with strong CI integration.
+Do not integrate. Its context-ranking design is useful reference material, but a second lightweight structural map would overlap Graphify and direct source exploration without solving a distinct current problem.
 
-**Limitation:** rule-driven findings are not a general architecture or navigation system; deeper interfile analysis may require the commercial platform.
+### Generic LSP/provider framework
 
-**Decision:** use as a corroborating rule provider, especially for policy and security checks.
+Do not build. A generic registry, adapter SDK, or normalized graph schema would create a platform-maintenance burden before there are enough proven providers to justify it.
 
-## Why retain Graphify and code-mapper
+## Final selection
 
-Graphify remains differentiated by mixed code and non-code corpora, persistent project knowledge, explicit extracted versus inferred relationships, and direct graph exploration.
-
-`code-mapper-skill` remains differentiated by its compact Python-specific combination of imports, exact Jedi references, custom artifact and contract extraction, OpenLineage-compatible output, and selectively gated CodeQL.
-
-Their value is highest as specialized providers rather than as a universal stack.
-
-## Quality hierarchy by task
-
-| Task | Highest-quality likely provider class |
-| --- | --- |
-| Broad repeated code exploration | Codebase-Memory or Graphify, benchmark-dependent |
-| Code plus documents and media | Graphify |
-| Exact definitions and references | Compiler, LSP, Serena, or SCIP |
-| Cross-repository enterprise navigation | Sourcegraph with SCIP |
-| Python artifact, contract, and lineage analysis | `code-mapper-skill` |
-| Security flow and slicing | CodeQL or Joern/codebadger |
-| Rule-based policy checks | Semgrep |
-| Lightweight context packing | Aider-style repository map |
-
-## Architectural implication
-
-Do not hard-code Graphify as the router's universal discovery provider. Define a discovery-provider interface, support Graphify first, add Codebase-Memory as the first comparative adapter, and preserve exact-semantic and deep-flow provider lanes.
+```text
+Broad repeated discovery or mixed media -> fresh Graphify
+Known Python structure/impact/lineage     -> code-mapper-skill
+Python value/taint path when triggered    -> code-mapper + selective CodeQL
+Explicit durable planning deliverable     -> repo-map-codex
+Everything else or any stale state        -> current source and tests
+```
