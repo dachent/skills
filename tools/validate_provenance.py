@@ -5,144 +5,129 @@ import re
 import sys
 from pathlib import Path
 
-
-REPO_ROOT = Path(__file__).resolve().parents[1]
-LOCK_PATH = REPO_ROOT / ".upstream" / "anthropic-skills.lock.json"
+ROOT = Path(__file__).resolve().parents[1]
+REGISTRY = ROOT / ".provenance" / "source-registry.json"
+MANIFEST = ROOT / "skills-manifest.json"
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+EXTERNAL = {"local-source-import", "light-adaptation", "medium-adaptation", "heavy-adaptation", "derived-work"}
+VALID_REVIEWS = {"reviewed", "reviewed-with-boundaries", "restricted-pending-review"}
+VALID_DISTRIBUTIONS = {"MIT", "source-license-boundary", "restricted", "repository-policy"}
 
 
-def add_failure(failures: list[str], message: str) -> None:
-    failures.append(message)
-
-
-def require_text(mapping: dict, key: str, context: str, failures: list[str]) -> str:
-    value = mapping.get(key)
-    if not isinstance(value, str) or not value.strip():
-        add_failure(failures, f"{context}: missing non-empty string field '{key}'.")
-        return ""
+def load(path: Path, failures: list[str]) -> dict:
+    if not path.is_file():
+        failures.append(f"missing file: {path.relative_to(ROOT)}")
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        failures.append(f"invalid JSON in {path.relative_to(ROOT)}: {exc}")
+        return {}
+    if not isinstance(value, dict):
+        failures.append(f"{path.relative_to(ROOT)} must contain an object")
+        return {}
     return value
 
 
-def require_contains(text: str, expected: str, context: str, failures: list[str]) -> None:
-    if expected not in text:
-        add_failure(failures, f"{context}: expected text not found: {expected}")
-
-
-def validate_provenance_doc(
-    skill_name: str,
-    skill: dict,
-    upstream_commit: str,
-    failures: list[str],
-) -> None:
-    local_path = skill["local_path"]
-    provenance_path = REPO_ROOT / local_path / "PROVENANCE.md"
-    context = f"{local_path}/PROVENANCE.md"
-
-    if not provenance_path.is_file():
-        add_failure(failures, f"{skill_name}: missing provenance file: {context}")
-        return
-
-    text = provenance_path.read_text(encoding="utf-8")
-    required_sections = [
-        "# Provenance",
-        "## Source",
-        "## Port Classification",
-        "## Design Upskill Contribution",
-        "## COM Boundary",
-        "## Intentional Divergences",
-        "## Last Alignment Review",
-    ]
-    for section in required_sections:
-        require_contains(text, section, context, failures)
-
-    require_contains(text, "https://github.com/anthropics/skills", context, failures)
-    require_contains(text, skill["upstream_path"], context, failures)
-    require_contains(text, upstream_commit, context, failures)
-    require_contains(text, skill["port_depth"], context, failures)
-    require_contains(text, "License reviewed:", context, failures)
-    require_contains(text, "Design Upskill Contribution", context, failures)
-
-
-def validate_lock(lock: dict, failures: list[str]) -> None:
-    if lock.get("schema_version") != 1:
-        add_failure(failures, "lock: schema_version must be 1.")
-
-    upstreams = lock.get("upstreams")
-    if not isinstance(upstreams, dict) or "anthropic-skills" not in upstreams:
-        add_failure(failures, "lock: missing upstreams.anthropic-skills.")
-        return
-
-    anthropic = upstreams["anthropic-skills"]
-    if not isinstance(anthropic, dict):
-        add_failure(failures, "lock: upstreams.anthropic-skills must be an object.")
-        return
-
-    repo = require_text(anthropic, "repo", "upstreams.anthropic-skills", failures)
-    if repo and repo != "https://github.com/anthropics/skills":
-        add_failure(failures, "upstreams.anthropic-skills: repo must be https://github.com/anthropics/skills.")
-    commit = require_text(anthropic, "commit", "upstreams.anthropic-skills", failures)
-    if commit and not SHA_RE.match(commit):
-        add_failure(failures, "upstreams.anthropic-skills: commit must be a 40-character lowercase hex SHA.")
-    require_text(anthropic, "branch_at_fetch", "upstreams.anthropic-skills", failures)
-    require_text(anthropic, "fetched_at", "upstreams.anthropic-skills", failures)
-    require_text(anthropic, "license_note", "upstreams.anthropic-skills", failures)
-
-    skills = lock.get("skills")
-    if not isinstance(skills, dict) or not skills:
-        add_failure(failures, "lock: skills must be a non-empty object.")
-        return
-
-    for skill_name, skill in sorted(skills.items()):
-        context = f"skills.{skill_name}"
-        if not isinstance(skill, dict):
-            add_failure(failures, f"{context}: must be an object.")
-            continue
-        source = require_text(skill, "source", context, failures)
-        upstream_path = require_text(skill, "upstream_path", context, failures)
-        local_path = require_text(skill, "local_path", context, failures)
-        require_text(skill, "port_depth", context, failures)
-        require_text(skill, "alignment_owner", context, failures)
-
-        if source == "anthropic-skills" and skill.get("snapshot") is not True:
-            add_failure(failures, f"{context}: Anthropic-derived active skills must set snapshot true.")
-
-        if local_path:
-            local_dir = REPO_ROOT / local_path
-            if not local_dir.is_dir():
-                add_failure(failures, f"{context}: local_path does not exist: {local_path}")
-
-        if commit and upstream_path:
-            snapshot_dir = REPO_ROOT / ".upstream" / "anthropic-skills" / commit / upstream_path
-            if skill.get("snapshot") is True and not snapshot_dir.is_dir():
-                add_failure(failures, f"{context}: required snapshot is missing at {snapshot_dir.relative_to(REPO_ROOT)}")
-            elif skill.get("snapshot") is True:
-                license_path = snapshot_dir / "LICENSE.txt"
-                if not license_path.is_file():
-                    add_failure(failures, f"{context}: snapshot is missing upstream LICENSE.txt at {license_path.relative_to(REPO_ROOT)}")
-
-        if commit:
-            validate_provenance_doc(skill_name, skill, commit, failures)
+def text(obj: dict, key: str, context: str, failures: list[str]) -> str | None:
+    value = obj.get(key)
+    if not isinstance(value, str) or not value.strip():
+        failures.append(f"{context}: missing non-empty '{key}'")
+        return None
+    return value
 
 
 def main() -> int:
     failures: list[str] = []
+    registry = load(REGISTRY, failures)
+    manifest = load(MANIFEST, failures)
+    if not registry or not manifest:
+        for item in failures:
+            print(f"ERROR: {item}", file=sys.stderr)
+        return 1
 
-    if not LOCK_PATH.is_file():
-        add_failure(failures, f"missing lock file: {LOCK_PATH.relative_to(REPO_ROOT)}")
+    if registry.get("schema_version") != 1:
+        failures.append("source registry schema_version must be 1")
+
+    policy = registry.get("repository_license")
+    if not isinstance(policy, dict):
+        failures.append("repository_license must be an object")
     else:
-        try:
-            lock = json.loads(LOCK_PATH.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            add_failure(failures, f"lock JSON is invalid: {exc}")
-        else:
-            validate_lock(lock, failures)
+        text(policy, "status", "repository_license", failures)
+        document = text(policy, "policy_document", "repository_license", failures)
+        text(policy, "default_for_repo_owned_originals", "repository_license", failures)
+        if document and not (ROOT / document).is_file():
+            failures.append(f"repository license policy does not exist: {document}")
+
+    sources = registry.get("sources")
+    if not isinstance(sources, dict) or not sources:
+        failures.append("sources must be a non-empty object")
+        sources = {}
+    for source_id, source in sorted(sources.items()):
+        context = f"sources.{source_id}"
+        if not isinstance(source, dict):
+            failures.append(f"{context}: must be an object")
+            continue
+        kind = text(source, "kind", context, failures)
+        revision = text(source, "revision", context, failures)
+        text(source, "retrieved_on", context, failures)
+        text(source, "license", context, failures)
+        review = text(source, "license_review", context, failures)
+        if revision and not SHA_RE.fullmatch(revision):
+            failures.append(f"{context}.revision must be a 40-character lowercase SHA")
+        if review and review not in VALID_REVIEWS:
+            failures.append(f"{context}.license_review is unsupported: {review}")
+        if kind == "github":
+            text(source, "repository", context, failures)
+            text(source, "default_branch", context, failures)
+        if review == "reviewed":
+            evidence = text(source, "license_evidence", context, failures)
+            if evidence and not (ROOT / evidence).is_file():
+                failures.append(f"{context}: missing license evidence: {evidence}")
+
+    records = registry.get("skills")
+    if not isinstance(records, dict) or not records:
+        failures.append("skills must be a non-empty object")
+        records = {}
+    manifest_skills = {item.get("name"): item for item in manifest.get("skills", []) if isinstance(item, dict)}
+    supported = {name for name, item in manifest_skills.items() if item.get("status") == "supported"}
+    missing = sorted(supported - set(records))
+    extra = sorted(set(records) - set(manifest_skills))
+    if missing:
+        failures.append("supported skills missing provenance records: " + ", ".join(missing))
+    if extra:
+        failures.append("provenance records not present in manifest: " + ", ".join(extra))
+
+    for name, record in sorted(records.items()):
+        context = f"skills.{name}"
+        if not isinstance(record, dict):
+            failures.append(f"{context}: must be an object")
+            continue
+        classification = text(record, "classification", context, failures)
+        text(record, "port_depth", context, failures)
+        text(record, "intentional_divergence", context, failures)
+        text(record, "owner", context, failures)
+        text(record, "last_alignment_review", context, failures)
+        distribution = text(record, "distribution", context, failures)
+        if distribution and distribution not in VALID_DISTRIBUTIONS:
+            failures.append(f"{context}.distribution is unsupported: {distribution}")
+        source_id = record.get("source")
+        source_path = record.get("source_path")
+        if classification in EXTERNAL:
+            if not isinstance(source_id, str) or source_id not in sources:
+                failures.append(f"{context}: external derivative must reference a registered source")
+            if not isinstance(source_path, str) or not source_path.strip():
+                failures.append(f"{context}: external derivative must record source_path")
+            if source_id in sources and sources[source_id].get("license_review") == "restricted-pending-review" and distribution != "restricted":
+                failures.append(f"{context}: unresolved source licensing requires restricted distribution")
+        elif source_id is not None or source_path is not None:
+            failures.append(f"{context}: repo-owned original must not reference an external source")
 
     if failures:
         for item in failures:
             print(f"ERROR: {item}", file=sys.stderr)
         return 1
-
-    print("Provenance validation passed.")
+    print(f"Provenance validation passed for {len(records)} skills and {len(sources)} sources.")
     return 0
 
 
