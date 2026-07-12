@@ -15,74 +15,58 @@ How much latency and resource overhead does `code-intelligence` add when the cor
 - caches: warm and cold;
 - Graphify states: absent, installed without graph, fresh graph, stale flag, and large graph present.
 
-### Metrics
-
-- median and p95 wall time;
-- CPU time and peak RSS;
-- subprocess count;
-- bytes read from `graphify-out`;
-- output equivalence;
-- provider route accuracy.
-
-### Gates
+### Metrics and gates
 
 - median absolute overhead at most 75 ms;
 - median relative overhead at most 5 percent;
 - p95 absolute overhead at most 200 ms;
 - zero graph JSON reads;
-- zero Graphify subprocesses.
+- zero Graphify subprocesses;
+- equivalent mapper output apart from route provenance.
 
-## Benchmark 2: Discovery quality
+## Benchmark 2: Discovery-provider value
 
-### Conditions
+Compare only:
 
-Compare:
-
-1. direct grep and file exploration;
+1. direct source exploration;
 2. Graphify;
 3. Codebase-Memory;
-4. Aider-style repository map;
-5. graph discovery followed by precise provider;
-6. router-selected hybrid.
+4. router-selected Graphify/direct-source flow.
 
-Use unfamiliar repositories across Python, TypeScript, Java, Go, Rust, and a polyglot service repository.
+Use pinned unfamiliar repositories across Python, TypeScript, Java, Go, Rust, a polyglot service repository, and at least one mixed code/document/media project.
 
-### Task families
-
-- locate feature implementation;
-- explain request-to-database flow;
-- identify likely files for a defect;
-- architecture and boundary questions;
-- impact of a proposed subsystem change;
-- cross-service route and event relationships.
-
-### Metrics
+Measure:
 
 - key-fact precision and recall;
-- correct file and symbol ranking;
+- top-one and top-three file or symbol accuracy;
 - source citation accuracy;
 - false relationship rate;
 - answer quality under fixed model, token, turn, and time budgets;
-- indexing time, incremental update time, query latency, memory, disk, tokens, and tool calls.
+- index build, incremental update, query latency, memory, disk, tokens, and tool calls.
 
-## Benchmark 3: Exact semantic navigation
+Codebase-Memory remains unintegrated unless it demonstrates a material advantage without a material precision regression.
 
-Compare code-mapper/Jedi, tree-sitter graph providers, Serena/LSP, and SCIP indexes for definitions, references, implementations, type hierarchy, and change impact.
+## Benchmark 3: Selective CodeQL value inside code-mapper
 
-Measure precision, recall, unresolved symbols, cross-repository coverage, setup time, and update latency.
+Compare:
 
-## Benchmark 4: Data flow and security
+1. mapper structural output without CodeQL;
+2. mapper with its existing selective CodeQL enrichment.
 
-Compare current mapper CodeQL enrichment, full CodeQL, Joern/codebadger, and Semgrep on curated and real-world source-to-sink tasks.
+Use curated and pinned real-world Python source-to-sink tasks. Measure true paths, false paths, missed paths, path explainability, database/build cost, query cost, and whether unrelated mapper requests incur any additional work.
 
-Measure true paths, false paths, missed paths, path explainability, build time, query time, peak resources, and language coverage.
+Acceptance requirements:
+
+- selective CodeQL improves useful path evidence on its intended tasks;
+- it remains off by default for unrelated work;
+- failure or absence degrades explicitly to structural mapper output rather than silently changing claims.
 
 ## Experimental discipline
 
-- Pin repository revisions and provider versions.
-- Alternate baseline and candidate execution order.
-- Use at least two warmups and 15 measured runs; use 30 runs for stable p95 estimates.
+- Pin repository and provider revisions.
+- Alternate baseline and candidate order.
+- Use at least two warmups and 15 measured runs; use 30 for stable p95 estimates.
 - Publish raw samples and environment metadata.
-- Separate index-build cost from query cost.
+- Separate index-build cost from warm-query cost.
 - Separate router overhead from deliberate provider work.
-- Do not compare quality under unequal model, token, turn, or source-access budgets.
+- Use equal model, token, turn, source-access, and time budgets for quality comparisons.
