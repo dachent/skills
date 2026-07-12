@@ -24,6 +24,8 @@ jobs:
       - name: Apply implementation
         shell: bash
         run: |
+          git show 338c26cee0d98b7442aadd1a72e4b4b6b994d0b2:.github/workflows/validate.yml > .github/workflows/validate.yml
+          git show 338c26cee0d98b7442aadd1a72e4b4b6b994d0b2:.github/workflows/issue-42-bootstrap.yml > .github/workflows/issue-42-bootstrap.yml
           cat .issue-42-patch/final0{0..7} | base64 --decode | gzip --decompress > /tmp/issue-42.patch
           git apply /tmp/issue-42.patch
           rm -rf .issue-42-patch
