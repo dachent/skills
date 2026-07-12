@@ -1,6 +1,7 @@
 # Adversarial Review
 
 Reviewed: 2026-07-12
+Method: six independent review lenses applied before the final implementation gate.
 
 ## Verdict
 
