@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Low-overhead provider and persistent-graph preflight.
+"""Low-overhead local capability and Graphify freshness preflight.
 
 This script intentionally does not parse graph.json.
 """
@@ -67,7 +67,7 @@ def inspect(repo: Path) -> dict:
         state = "semantic_stale"
     elif head and built_commit and not head.startswith(built_commit) and not built_commit.startswith(head):
         state = "code_stale"
-    elif dirty and any(line and not line.startswith("?? graphify-out/") for line in dirty.splitlines()):
+    elif dirty:
         state = "code_stale"
     elif head and built_commit:
         state = "fresh"
@@ -97,9 +97,6 @@ def inspect(repo: Path) -> dict:
         "providers": {
             "codeMapperPresent": (repo / "code-mapper-skill" / "scripts" / "blast_radius.py").is_file(),
             "codeql": shutil.which("codeql"),
-            "codebaseMemory": shutil.which("codebase-memory-mcp"),
-            "serena": shutil.which("serena"),
-            "semgrep": shutil.which("semgrep"),
         },
         "policy": {
             "parsedGraphJson": False,
