@@ -122,6 +122,22 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
         policy = {}
     valid_statuses = set(policy.get("supported_statuses", []))
     valid_sources = set(policy.get("source_classifications", []))
+    catalog_groups = policy.get("catalog_groups", [])
+    if not isinstance(catalog_groups, list) or not catalog_groups:
+        fail(errors, "policy.catalog_groups must be a non-empty list")
+        catalog_groups = []
+    catalog_group_keys = set()
+    for index, group in enumerate(catalog_groups):
+        context = f"policy.catalog_groups[{index}]"
+        if not isinstance(group, dict):
+            fail(errors, f"{context}: must be an object")
+            continue
+        key = require_string(group, "key", context, errors)
+        require_string(group, "title", context, errors)
+        require_string(group, "description", context, errors)
+        if key in catalog_group_keys:
+            fail(errors, f"duplicate catalog group: {key}")
+        catalog_group_keys.add(key)
     required_packaging = policy.get("required_packaging_for_supported", [])
     if not valid_statuses or not valid_sources:
         fail(errors, "policy status and source classification lists must be non-empty")
@@ -157,6 +173,9 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
         if status and status not in valid_statuses:
             fail(errors, f"{name}: unsupported status {status!r}")
         require_string(raw, "family", name or context, errors)
+        catalog_group = require_string(raw, "catalog_group", name or context, errors)
+        if catalog_group and catalog_group not in catalog_group_keys:
+            fail(errors, f"{name}: unknown catalog_group {catalog_group!r}")
         require_string(raw, "description", name or context, errors)
         require_string(raw, "owner", name or context, errors)
         require_string_list(raw, "platforms", name or context, errors)
@@ -191,8 +210,12 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
         if classification not in {"repo-owned-original", "local-source-import"}:
             require_string(source, "repository", f"{name}.source", errors)
             require_string(source, "path", f"{name}.source", errors)
-            revision = require_string(source, "revision", f"{name}.source", errors)
-            if revision and not SHA_RE.fullmatch(revision):
+            revision = source.get("revision")
+            provenance_status = source.get("provenance_status")
+            if revision is None:
+                if provenance_status != "revision-unresolved":
+                    fail(errors, f"{name}.source: missing revision or explicit revision-unresolved provenance status")
+            elif not isinstance(revision, str) or not SHA_RE.fullmatch(revision):
                 fail(errors, f"{name}: source revision must be a 40-character lowercase SHA")
         elif classification == "local-source-import":
             initial_commit = require_string(source, "initial_commit", f"{name}.source", errors)
@@ -215,6 +238,31 @@ def validate_manifest(repo_root: Path, manifest_path: Path) -> list[str]:
         fail(errors, f"unregistered top-level skill directory: {item}")
     for item in sorted(declared_existing_paths - discovered):
         fail(errors, f"manifest skill directory is missing or lacks SKILL.md: {item}")
+
+
+    mirrors = manifest.get("generated_mirrors", [])
+    if not isinstance(mirrors, list):
+        fail(errors, "generated_mirrors must be a list")
+    else:
+        destinations: set[str] = set()
+        for index, mirror in enumerate(mirrors):
+            context = f"generated_mirrors[{index}]"
+            if not isinstance(mirror, dict):
+                fail(errors, f"{context}: must be an object")
+                continue
+            source_path = require_string(mirror, "source", context, errors)
+            destination = require_string(mirror, "destination", context, errors)
+            transform = require_string(mirror, "transform", context, errors)
+            if source_path and not (repo_root / source_path).is_file():
+                fail(errors, f"{context}: missing source {source_path}")
+            normalized = destination.replace("\\", "/")
+            if destination and not normalized.startswith(".claude/skills/"):
+                fail(errors, f"{context}: destination must be under .claude/skills")
+            if destination in destinations:
+                fail(errors, f"duplicate generated mirror destination: {destination}")
+            destinations.add(destination)
+            if transform != "copy-with-generated-notice":
+                fail(errors, f"{context}: unsupported transform {transform!r}")
 
     shared = manifest.get("shared_components", [])
     if not isinstance(shared, list):
