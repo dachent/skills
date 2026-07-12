@@ -28,7 +28,7 @@ Forked or adapted skills that replace generic file handling with native desktop 
 | --- | --- | --- |
 | [`docx-win`](./docx-win) | native microsoft word automation for windows .docx workflows. use when chatgpt or codex is running on windows with microsoft word installed and needs to create, edit, review, convert, or verify word documents through word com automation. trigger for .docx or .doc requests, professional word deliverables, no-template document polish, tracked changes, comments, find and replace, table of contents, headers and footers, page numbering, layout-sensitive edits, or exporting a word document to pdf for review. prefer this skill over libreoffice-based document workflows when word is available. | heavy adaptation; `anthropics/skills` |
 | [`pptx-win`](./pptx-win) | windows powerpoint automation and no-template deck design support for .pptx files in codex app or other local windows environments with microsoft 365 installed. use when chatgpt needs to open, inspect, edit, create, render, export, or qa powerpoint presentations on windows, especially new decks without a template, existing deck edits, speaker notes, slide images, pdf export, placeholder replacement, visual QA, or smoke testing via native powerpoint com automation. prefer this skill over libreoffice-based flows when powerpoint desktop is available. | heavy adaptation; `anthropics/skills` |
-| [`xlsx-win`](./xlsx-win) | Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed. | heavy adaptation; `anthropics/skills` |
+| [`xlsx-win`](./xlsx-win) | Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xlsb`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed. | heavy adaptation; `anthropics/skills` |
 
 ### Claude and agent workflow ports for Codex
 
@@ -39,8 +39,8 @@ External agent workflows ported or substantially adapted for Codex conventions, 
 | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | Use when a plan needs hostile review before execution, especially high-risk coding, business deliverables, migrations, no-git changes, weak validation, stale assumptions, rollback gaps, or plans that must be safe for another agent to execute. | medium adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
 | [`deep-planning-codex`](./deep-planning-codex) | Use when a project needs deep, gated planning before execution, especially high-stakes coding, failed prior attempts, business deliverables, mixed business-coding work, no-git workflows, or plans that need evidence, probes, verification, and adversarial review. | heavy adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
 | [`grill-me-codex`](./grill-me-codex) | Use when the user says grill me, wants to stress-test a plan or design, needs a rigorous interview before committing to a decision, or asks for adversarial product, architecture, or implementation questions. | medium adaptation; `mattpocock/skills` |
-| [`grill-with-docs-codex`](./grill-with-docs-codex) | Use when the user wants to stress-test a plan against project terminology, domain language, CONTEXT.md, ADRs, existing docs, or code-backed architectural decisions. | medium adaptation; `mattpocock/skills` |
-| [`handoff-codex`](./handoff-codex) | Use when the user asks for a handoff, session summary, context packet, continuation note, or wants another agent or future session to pick up the current work. | medium adaptation; `mattpocock/skills` |
+| [`grill-with-docs-codex`](./grill-with-docs-codex) | Use when the user wants to stress-test a plan against project terminology, domain language, CONTEXT.md, ADRs, existing docs, or code-backed architectural decisions. | medium adaptation; `mattpocock/skils` |
+| [`handoff-codex`](./handoff-codex) | Use when the user asks for a handoff, session summary, context packet, continuation note, or wants another agent or future session to pick up the current work. | medium adaptation; `mattpocock/skils` |
 | [`repo-map-codex`](./repo-map-codex) | Use when planning needs a durable project map before execution, especially unfamiliar codebases, no-git folders, business artifact projects, mixed business-coding work, dependency discovery, test command discovery, or evidence cataloging. | medium adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
 | [`ultraplan-codex`](./ultraplan-codex) | Use when the user says ultraplan, invokes $ultraplan-codex, wants a thorough plan before coding, needs architectural decisions, asks for a grounded implementation plan, or faces a complex multi-file implementation task. | heavy adaptation; `6missedcalls/ultraplan` |
 | [`verification-plan-codex`](./verification-plan-codex) | Use when a plan needs proof criteria before execution, especially coding changes, business deliverables, mixed business-coding projects, acceptance criteria, rollback triggers, manual checks, or final validation design. | medium adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
@@ -52,6 +52,7 @@ Original or locally imported workflows whose current implementation is maintaine
 | Skill | Purpose | Provenance |
 | --- | --- | --- |
 | [`agent-project-orchestrator`](./agent-project-orchestrator) | Use when a long-running human-agent project needs durable backlog, project memory, sprint contracts, capability preflight, cross-harness orchestration, evidence-backed stopping conditions, or independent terminal review across Claude Code and Codex. | repo owned original |
+| [`code-intelligence`](./code-intelligence) | Route codebase understanding and change-impact work across repository discovery, precise symbol analysis, artifact lineage, contracts, semantic flow, and durable planning. Use for unfamiliar repositories, architecture questions, locating implementations, blast-radius analysis, callers and references, data lineage, security or taint flow, graph freshness decisions, and selecting among Graphify, code-mapper, direct source inspection, repo-map, CodeQL, Joern, Serena, SCIP, or other configured providers. | repo owned original |
 | [`code-mapper-skill`](./code-mapper-skill) | Maps Python imports, symbol references, artifact use, contracts, catalog relationships, OpenLineage datasets, and selectively triggered CodeQL local value/taint flow. Use for dependency maps, callers, inputs/outputs, APIs/schemas, Backstage relationships, blast radius, and semantic tracing. Works on a local path or Git URL. | repo owned original |
 | [`document-handoff`](./document-handoff) | Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from Claude Code or Codex projects. Run at any project milestone. | local source import |
 
@@ -81,6 +82,7 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | `agent-project-orchestrator` | [`agent-project-orchestrator`](./agent-project-orchestrator) | — |
 | `artifact-runtime-codex` | [`artifact-runtime-codex`](./artifact-runtime-codex) | `.shared/visual-runtime` |
 | `canvas-design-codex` | [`canvas-design-codex`](./canvas-design-codex) | `.shared/visual-runtime` |
+| `code-intelligence` | [`code-intelligence`](./code-intelligence) | — |
 | `code-mapper-skill` | [`code-mapper-skill`](./code-mapper-skill) | — |
 | `deep-planning-codex` | [`deep-planning-codex`](./deep-planning-codex) | — |
 | `document-handoff` | [`document-handoff`](./document-handoff) | — |
@@ -109,6 +111,7 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | [`agent-project-orchestrator`](./agent-project-orchestrator) | `cross-platform` | `codex`, `claude-code` | `experimental` |
 | [`artifact-runtime-codex`](./artifact-runtime-codex) | `cross-platform` | `codex` | `supported` |
 | [`canvas-design-codex`](./canvas-design-codex) | `cross-platform` | `codex` | `supported` |
+| [`code-intelligence`](./code-intelligence) | `cross-platform` | `codex` | `experimental` |
 | [`code-mapper-skill`](./code-mapper-skill) | `cross-platform` | `codex` | `supported` |
 | [`deep-planning-codex`](./deep-planning-codex) | `cross-platform` | `codex` | `supported` |
 | [`document-handoff`](./document-handoff) | `cross-platform` | `codex`, `claude-code` | `supported` |
@@ -162,6 +165,7 @@ Load compatible canonical top-level skill directories directly. `.claude/skills`
 | `agent-project-orchestrator` | 2 | 0 |
 | `artifact-runtime-codex` | 1 | 0 |
 | `canvas-design-codex` | 1 | 0 |
+| `code-intelligence` | 1 | 0 |
 | `code-mapper-skill` | 1 | 0 |
 | `deep-planning-codex` | 1 | 0 |
 | `document-handoff` | 1 | 0 |
