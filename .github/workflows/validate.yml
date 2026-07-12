@@ -21,14 +21,16 @@ jobs:
         with:
           ref: agent/issue-42-generated-repository-artifacts
           fetch-depth: 0
+          show-progress: false
       - name: Apply implementation
         shell: bash
         run: |
-          git show 338c26cee0d98b7442aadd1a72e4b4b6b994d0b2:.github/workflows/validate.yml > .github/workflows/validate.yml
-          git show 338c26cee0d98b7442aadd1a72e4b4b6b994d0b2:.github/workflows/issue-42-bootstrap.yml > .github/workflows/issue-42-bootstrap.yml
-          cat .issue-42-patch/final0{0..7} | base64 --decode | gzip --decompress > /tmp/issue-42.patch
-          git apply /tmp/issue-42.patch
-          rm -rf .issue-42-patch
+          set -euxo pipefail
+          cat .issue-42-patch/final0{0..7} > /tmp/issue-42.b64
+          echo "a5d3c32532e02babd338353260e3540b641fb75318438ab66386e806cdf122a7  /tmp/issue-42.b64" | sha256sum --check
+          base64 --decode /tmp/issue-42.b64 | gzip --decompress > /tmp/issue-42.patch
+          git apply --exclude=.github/workflows/validate.yml --exclude=.github/workflows/issue-42-bootstrap.yml /tmp/issue-42.patch
+          rm -rf .issue-42-patch .github/workflows/issue-42-bootstrap.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add --all
