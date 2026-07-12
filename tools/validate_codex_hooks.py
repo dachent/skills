@@ -28,6 +28,10 @@ def read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
+def normalize_workflow_text(text: str) -> str:
+    return text.replace("\\", "/")
+
+
 def require_file(relative_path: str, failures: list[str]) -> None:
     if not (REPO_ROOT / relative_path).is_file():
         failures.append(f"missing file: {relative_path}")
@@ -124,7 +128,7 @@ def validate_hooks(failures: list[str]) -> None:
 
 def validate_readme_and_ci(failures: list[str]) -> None:
     readme = read("README.md")
-    workflow = read(".github/workflows/validate.yml")
+    workflow = normalize_workflow_text(read(".github/workflows/validate.yml"))
     for expected in [
         ".codex/agents",
         ".codex/hooks.json",
@@ -133,7 +137,7 @@ def validate_readme_and_ci(failures: list[str]) -> None:
         "visual QA",
     ]:
         require_contains(readme, expected, "README.md", failures)
-    require_contains(workflow, "python .\\tools\\validate_codex_hooks.py", ".github/workflows/validate.yml", failures)
+    require_contains(workflow, "python ./tools/validate_codex_hooks.py", ".github/workflows/validate.yml", failures)
 
 
 def main() -> int:
