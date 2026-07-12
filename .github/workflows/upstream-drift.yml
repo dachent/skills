@@ -50,11 +50,11 @@ jobs:
             const body = `${marker}\n## Latest automated review\n\n` +
               (impacted.length ? `Impacted or unresolved skills: ${impacted.map(x => `\`${x}\``).join(', ')}.` : 'No registered skill is currently impacted.') +
               `\n\nWorkflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const {data: issues} = await github.rest.issues.listForRepo({owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'upstream-drift'});
+            const {data: issues} = await github.rest.issues.listForRepo({owner: context.repo.owner, repo: context.repo.repo, state: 'open'});
             const existing = issues.find(issue => issue.title === title || issue.body?.includes(marker));
             if (report.review_required) {
               if (existing) await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body});
-              else await github.rest.issues.create({owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['upstream-drift']});
+              else await github.rest.issues.create({owner: context.repo.owner, repo: context.repo.repo, title, body});
             } else if (existing) {
               await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body: 'Automated drift review is now clear; closing.'});
               await github.rest.issues.update({owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, state: 'closed'});
