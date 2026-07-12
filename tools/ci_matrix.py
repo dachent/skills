@@ -40,12 +40,17 @@ def normalize_path(value: str) -> str:
     return value.strip().replace("\\", "/").lstrip("./")
 
 
-def supported_skills(manifest: dict[str, Any]) -> list[dict[str, Any]]:
-    return [skill for skill in manifest["skills"] if skill.get("status") == "supported"]
+def ci_enabled_skills(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        skill
+        for skill in manifest["skills"]
+        if skill.get("status") == "supported"
+        or skill.get("validation", {}).get("ci_enabled") is True
+    ]
 
 
 def skill_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {skill["name"]: skill for skill in supported_skills(manifest)}
+    return {skill["name"]: skill for skill in ci_enabled_skills(manifest)}
 
 
 def matches_path(changed: str, declared: str) -> bool:
@@ -57,7 +62,7 @@ def matches_path(changed: str, declared: str) -> bool:
 def affected_skill_names(
     manifest: dict[str, Any], changed_files: Iterable[str], *, full: bool = False
 ) -> list[str]:
-    skills = supported_skills(manifest)
+    skills = ci_enabled_skills(manifest)
     names = {skill["name"] for skill in skills}
     if full:
         return sorted(names)
@@ -135,7 +140,7 @@ def build_matrix(manifest: dict[str, Any], selected_names: Iterable[str]) -> dic
     for name in sorted(set(selected_names)):
         skill = by_name.get(name)
         if skill is None:
-            raise ValueError(f"unknown supported skill: {name}")
+            raise ValueError(f"unknown CI-enabled skill: {name}")
         authority = SPECIALIZED_WORKFLOWS.get(name, "manifest")
         for runner in runners_for_skill(skill):
             include.append({
