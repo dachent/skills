@@ -16,9 +16,14 @@ permissions:
   issues: read
   pull-requests: read
 
+concurrency:
+  group: office-smoke-${{ github.event.issue.number || inputs.ref || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   authorize:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       should_run: ${{ steps.resolve.outputs.should_run }}
       checkout_ref: ${{ steps.resolve.outputs.checkout_ref }}
@@ -26,7 +31,7 @@ jobs:
     steps:
       - name: Resolve trigger
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             if (context.eventName === 'workflow_dispatch') {
@@ -35,38 +40,16 @@ jobs:
               core.setOutput('checkout_repository', `${context.repo.owner}/${context.repo.repo}`);
               return;
             }
-
             const issue = context.payload.issue;
             const comment = context.payload.comment;
             const allowed = ['OWNER', 'MEMBER', 'COLLABORATOR'];
-
-            if (!issue || !issue.pull_request) {
+            if (!issue || !issue.pull_request || !comment?.body?.includes('/office-smoke') || !allowed.includes(comment.author_association)) {
               core.setOutput('should_run', 'false');
               core.setOutput('checkout_ref', '');
               core.setOutput('checkout_repository', '');
               return;
             }
-
-            if (!comment || !comment.body || !comment.body.includes('/office-smoke')) {
-              core.setOutput('should_run', 'false');
-              core.setOutput('checkout_ref', '');
-              core.setOutput('checkout_repository', '');
-              return;
-            }
-
-            if (!allowed.includes(comment.author_association)) {
-              core.setOutput('should_run', 'false');
-              core.setOutput('checkout_ref', '');
-              core.setOutput('checkout_repository', '');
-              return;
-            }
-
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: issue.number
-            });
-
+            const pr = await github.rest.pulls.get({owner: context.repo.owner, repo: context.repo.repo, pull_number: issue.number});
             core.setOutput('should_run', 'true');
             core.setOutput('checkout_ref', pr.data.head.sha);
             core.setOutput('checkout_repository', pr.data.head.repo.full_name);
@@ -78,99 +61,46 @@ jobs:
       - self-hosted
       - windows
       - office
+    timeout-minutes: 60
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: ${{ needs.authorize.outputs.checkout_repository }}
           ref: ${{ needs.authorize.outputs.checkout_ref }}
-
+          persist-credentials: false
       - name: Run Office smoke tests
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-
           $artifactRoot = Join-Path $env:RUNNER_TEMP 'office-smoke'
           $docxDir = Join-Path $artifactRoot 'docx'
           $pptxDir = Join-Path $artifactRoot 'pptx'
           $xlsxDir = Join-Path $artifactRoot 'xlsx'
           $summaryPath = Join-Path $artifactRoot 'office-smoke-summary.json'
-
           foreach ($path in @($artifactRoot, $docxDir, $pptxDir, $xlsxDir)) {
-              if (-not (Test-Path -LiteralPath $path)) {
-                  New-Item -ItemType Directory -Path $path -Force | Out-Null
-              }
+            if (-not (Test-Path -LiteralPath $path)) { New-Item -ItemType Directory -Path $path -Force | Out-Null }
           }
-
           $results = New-Object System.Collections.Generic.List[object]
-
           function Invoke-SmokeScript {
-              param(
-                  [Parameter(Mandatory)]
-                  [string]$Name,
-
-                  [Parameter(Mandatory)]
-                  [string]$ScriptPath,
-
-                  [Parameter(Mandatory)]
-                  [string]$LogPath,
-
-                  [string[]]$Arguments = @()
-              )
-
-              $started = Get-Date
-              & powershell -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @Arguments 2>&1 |
-                Tee-Object -FilePath $LogPath
-              $exitCode = $LASTEXITCODE
-              $ended = Get-Date
-
-              $results.Add([pscustomobject]@{
-                  name = $Name
-                  script_path = $ScriptPath
-                  log_path = $LogPath
-                  exit_code = $exitCode
-                  duration_seconds = [Math]::Round(($ended - $started).TotalSeconds, 3)
-              })
+            param([string]$Name, [string]$ScriptPath, [string]$LogPath, [string[]]$Arguments = @())
+            $started = Get-Date
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @Arguments 2>&1 | Tee-Object -FilePath $LogPath
+            $exitCode = $LASTEXITCODE
+            $results.Add([pscustomobject]@{name=$Name; script_path=$ScriptPath; log_path=$LogPath; exit_code=$exitCode; duration_seconds=[Math]::Round(((Get-Date)-$started).TotalSeconds,3)})
           }
-
-          Invoke-SmokeScript `
-            -Name 'docx-win' `
-            -ScriptPath '.\docx-win\scripts\smoke-test.ps1' `
-            -LogPath (Join-Path $docxDir 'smoke-test.log') `
-            -Arguments @('-WorkingDirectory', $docxDir)
-
-          Invoke-SmokeScript `
-            -Name 'pptx-win' `
-            -ScriptPath '.\pptx-win\scripts\smoke_test.ps1' `
-            -LogPath (Join-Path $pptxDir 'smoke-test.json') `
-            -Arguments @('-OutputDir', $pptxDir)
-
-          Invoke-SmokeScript `
-            -Name 'xlsx-win' `
-            -ScriptPath '.\xlsx-win\scripts\self_test_xlsx_win.ps1' `
-            -LogPath (Join-Path $xlsxDir 'self-test.log') `
-            -Arguments @('-JsonPath', (Join-Path $xlsxDir 'self-test.json'))
-
+          Invoke-SmokeScript -Name 'docx-win' -ScriptPath '.\docx-win\scripts\smoke-test.ps1' -LogPath (Join-Path $docxDir 'smoke-test.log') -Arguments @('-WorkingDirectory', $docxDir)
+          Invoke-SmokeScript -Name 'pptx-win' -ScriptPath '.\pptx-win\scripts\smoke_test.ps1' -LogPath (Join-Path $pptxDir 'smoke-test.json') -Arguments @('-OutputDir', $pptxDir)
+          Invoke-SmokeScript -Name 'xlsx-win' -ScriptPath '.\xlsx-win\scripts\self_test_xlsx_win.ps1' -LogPath (Join-Path $xlsxDir 'self-test.log') -Arguments @('-JsonPath', (Join-Path $xlsxDir 'self-test.json'))
           $summary = [pscustomobject]@{
-              checkout_repository = '${{ needs.authorize.outputs.checkout_repository }}'
-              checkout_ref = '${{ needs.authorize.outputs.checkout_ref }}'
-              run_id = $env:GITHUB_RUN_ID
-              runner_name = $env:RUNNER_NAME
-              generated_at = (Get-Date).ToUniversalTime().ToString('o')
-              tests = @($results.ToArray())
-              all_passed = $null -eq ($results | Where-Object { $_.exit_code -ne 0 } | Select-Object -First 1)
+            checkout_repository='${{ needs.authorize.outputs.checkout_repository }}'; checkout_ref='${{ needs.authorize.outputs.checkout_ref }}'; run_id=$env:GITHUB_RUN_ID; runner_name=$env:RUNNER_NAME; generated_at=(Get-Date).ToUniversalTime().ToString('o'); tests=@($results.ToArray()); all_passed=$null -eq ($results | Where-Object { $_.exit_code -ne 0 } | Select-Object -First 1)
           }
           $summary | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding UTF8
-
-          if (-not $summary.all_passed) {
-              $failures = $results | Where-Object { $_.exit_code -ne 0 } | ForEach-Object { '{0} exited {1}' -f $_.name, $_.exit_code }
-              throw ($failures -join [Environment]::NewLine)
-          }
-
+          if (-not $summary.all_passed) { throw (($results | Where-Object { $_.exit_code -ne 0 } | ForEach-Object { '{0} exited {1}' -f $_.name, $_.exit_code }) -join [Environment]::NewLine) }
       - name: Upload smoke test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: office-smoke-artifacts
           path: ${{ runner.temp }}/office-smoke

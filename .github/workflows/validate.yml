@@ -2,50 +2,124 @@ name: Validate
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Run the complete hosted skill matrix
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    - cron: "41 10 * * 0"
 
 permissions:
   contents: read
 
 concurrency:
-  group: validate-${{ github.event.pull_request.number || github.ref }}
+  group: validate-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  plan:
+    name: Plan validation matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_jobs: ${{ steps.plan.outputs.has_jobs }}
+      specialized: ${{ steps.plan.outputs.specialized }}
+      selected: ${{ steps.plan.outputs.selected }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Generate manifest-driven plan
+        id: plan
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          DISPATCH_FULL: ${{ inputs.full }}
+        run: |
+          set -euo pipefail
+          full=false
+          : > changed-files.txt
+          case "$EVENT_NAME" in
+            schedule) full=true ;;
+            workflow_dispatch)
+              if [[ "$DISPATCH_FULL" != "false" ]]; then full=true; fi
+              ;;
+            pull_request)
+              git diff --name-only "$BASE_SHA" "$HEAD_SHA" > changed-files.txt
+              ;;
+            push)
+              if [[ -z "$BEFORE_SHA" || "$BEFORE_SHA" =~ ^0+$ ]]; then
+                full=true
+              else
+                git diff --name-only "$BEFORE_SHA" "$HEAD_SHA" > changed-files.txt
+              fi
+              ;;
+          esac
+          args=(--changed-files changed-files.txt --output .ci/validation-plan.json --github-output "$GITHUB_OUTPUT")
+          if [[ "$full" == "true" ]]; then args+=(--full); fi
+          python tools/ci_matrix.py "${args[@]}"
+          cat .ci/validation-plan.json
+      - name: Upload validation plan
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: validation-plan
+          path: .ci/validation-plan.json
+          if-no-files-found: error
+
   repository-integrity:
     name: Repository integrity
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: Validate canonical skill inventory
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python .\tools\validate_skill_manifest.py
-          python .\tools\test_skill_manifest.py
-          python .\tools\generate_repository_artifacts.py --check
-          python .\tools\test_generate_repository_artifacts.py
+          python ./tools/validate_skill_manifest.py
+          python ./tools/test_skill_manifest.py
+          python ./tools/generate_repository_artifacts.py --check
+          python ./tools/test_generate_repository_artifacts.py
+      - name: Validate CI orchestration
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python ./tools/validate_actions.py
+          Push-Location ./tools
+          python -m unittest -v test_ci_orchestration.py
+          Pop-Location
       - name: Validate skill metadata and references
         shell: pwsh
-        run: .\tools\validate_repo.ps1
+        run: ./tools/validate_repo.ps1
       - name: Validate provenance metadata
         shell: pwsh
-        run: python .\tools\validate_provenance.py
+        run: python ./tools/validate_provenance.py
       - name: Validate Codex hooks and agents
         shell: pwsh
-        run: python .\tools\validate_codex_hooks.py
+        run: python ./tools/validate_codex_hooks.py
 
   static-contracts:
     name: Static and contract checks
@@ -53,15 +127,15 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
       - name: Install PSScriptAnalyzer
@@ -70,11 +144,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $requiredVersion = '1.24.0'
           if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer | Where-Object Version -eq $requiredVersion)) {
-              Install-Module -Name PSScriptAnalyzer -RequiredVersion $requiredVersion -Repository PSGallery -Scope CurrentUser -Force
+            Install-Module -Name PSScriptAnalyzer -RequiredVersion $requiredVersion -Repository PSGallery -Scope CurrentUser -Force
           }
       - name: Validate PowerShell scripts
         shell: pwsh
-        run: .\tools\validate_powershell.ps1 -SettingsPath '.github\PSScriptAnalyzerSettings.psd1'
+        run: ./tools/validate_powershell.ps1 -SettingsPath '.github/PSScriptAnalyzerSettings.psd1'
       - name: Compile Python files
         shell: pwsh
         run: |
@@ -86,64 +160,98 @@ jobs:
           python -m compileall -q @compilePaths
       - name: Validate Office COM contract
         shell: pwsh
-        run: python .\tools\test_office_com_contract.py
+        run: python ./tools/test_office_com_contract.py
       - name: Validate shared visual runtime
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python .\tools\test_visual_runtime_contract.py
-          Push-Location .shared\visual-runtime
+          python ./tools/test_visual_runtime_contract.py
+          Push-Location .shared/visual-runtime
           npm ci --ignore-scripts
           npm run check
           Pop-Location
       - name: Validate Codex visual skills
         shell: pwsh
-        run: python .\tools\test_visual_skills_contract.py
+        run: python ./tools/test_visual_skills_contract.py
 
-  behavioral-tests:
-    name: Behavioral tests
-    runs-on: windows-latest
-    timeout-minutes: 20
+  hosted-skill-tests:
+    name: Skill / ${{ matrix.skill }} / ${{ matrix.runner }}
+    needs: plan
+    if: needs.plan.outputs.has_jobs == 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
-      - name: Test document handoff
+      - name: Run hosted validation
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $tests = Get-ChildItem .\document-handoff\scripts\tests -Filter '*.test.mjs' | ForEach-Object { $_.FullName }
-          if (-not $tests) { throw 'No document-handoff tests were found.' }
-          node --test @tests
-      - name: Test deep planning validator
-        shell: pwsh
-        run: python .\tools\test_deep_planning_validator.py
+          $output = '.test-results/${{ matrix.skill }}-${{ matrix.runner }}.json'
+          $arguments = @(
+            './tools/run_skill_validation.py',
+            '--skill', '${{ matrix.skill }}',
+            '--authority', '${{ matrix.authority }}',
+            '--output', $output
+          )
+          if ('${{ matrix.structural_only }}' -eq 'true') { $arguments += '--structural-only' }
+          python @arguments
+      - name: Upload per-skill result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: skill-result-${{ matrix.skill }}-${{ matrix.runner }}
+          path: .test-results/${{ matrix.skill }}-${{ matrix.runner }}.json
+          if-no-files-found: error
+
+  code-mapper:
+    name: Code Mapper authoritative validation
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.specialized), 'code-mapper-skill')
+    uses: ./.github/workflows/code-mapper-codeql.yml
+    permissions:
+      contents: read
 
   required:
     name: Required
     if: always()
     needs:
+      - plan
       - repository-integrity
       - static-contracts
-      - behavioral-tests
+      - hosted-skill-tests
+      - code-mapper
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Require all validation jobs
         shell: bash
         run: |
-          if [[ "${{ needs.repository-integrity.result }}" != "success" || \
-                "${{ needs.static-contracts.result }}" != "success" || \
-                "${{ needs.behavioral-tests.result }}" != "success" ]]; then
-            echo "One or more required validation jobs failed or were cancelled."
-            exit 1
-          fi
+          set -euo pipefail
+          require_success_or_skipped() {
+            local name="$1"
+            local result="$2"
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "$name finished with $result"
+              exit 1
+            fi
+          }
+          [[ "${{ needs.plan.result }}" == "success" ]]
+          [[ "${{ needs.repository-integrity.result }}" == "success" ]]
+          [[ "${{ needs.static-contracts.result }}" == "success" ]]
+          require_success_or_skipped hosted-skill-tests "${{ needs.hosted-skill-tests.result }}"
+          require_success_or_skipped code-mapper "${{ needs.code-mapper.result }}"

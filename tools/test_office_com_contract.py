@@ -11,6 +11,10 @@ def read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
+def normalize_workflow_text(text: str) -> str:
+    return text.replace("\\", "/")
+
+
 def require_contains(text: str, expected: str, context: str, failures: list[str]) -> None:
     if expected not in text:
         failures.append(f"{context}: missing expected text: {expected}")
@@ -120,7 +124,7 @@ def validate_impacted_skills(failures: list[str]) -> None:
 
 def validate_workflows(failures: list[str]) -> None:
     office_smoke = read(".github/workflows/office-smoke.yml")
-    validate = read(".github/workflows/validate.yml")
+    validate = normalize_workflow_text(read(".github/workflows/validate.yml"))
 
     for expected in [
         "workflow_dispatch:",
@@ -138,7 +142,7 @@ def validate_workflows(failures: list[str]) -> None:
 
     require_contains(
         validate,
-        "python .\\tools\\test_office_com_contract.py",
+        "python ./tools/test_office_com_contract.py",
         ".github/workflows/validate.yml",
         failures,
     )
