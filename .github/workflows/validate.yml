@@ -2,11 +2,9 @@ name: Validate
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
     inputs:
       full:
@@ -58,9 +56,7 @@ jobs:
           full=false
           : > changed-files.txt
           case "$EVENT_NAME" in
-            schedule)
-              full=true
-              ;;
+            schedule) full=true ;;
             workflow_dispatch)
               if [[ "$DISPATCH_FULL" != "false" ]]; then full=true; fi
               ;;
@@ -103,27 +99,27 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python .\tools\validate_skill_manifest.py
-          python .\tools\test_skill_manifest.py
-          python .\tools\generate_repository_artifacts.py --check
-          python .\tools\test_generate_repository_artifacts.py
+          python ./tools/validate_skill_manifest.py
+          python ./tools/test_skill_manifest.py
+          python ./tools/generate_repository_artifacts.py --check
+          python ./tools/test_generate_repository_artifacts.py
       - name: Validate CI orchestration
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python .\tools\validate_actions.py
-          Push-Location .\tools
+          python ./tools/validate_actions.py
+          Push-Location ./tools
           python -m unittest -v test_ci_orchestration.py
           Pop-Location
       - name: Validate skill metadata and references
         shell: pwsh
-        run: .\tools\validate_repo.ps1
+        run: ./tools/validate_repo.ps1
       - name: Validate provenance metadata
         shell: pwsh
-        run: python .\tools\validate_provenance.py
+        run: python ./tools/validate_provenance.py
       - name: Validate Codex hooks and agents
         shell: pwsh
-        run: python .\tools\validate_codex_hooks.py
+        run: python ./tools/validate_codex_hooks.py
 
   static-contracts:
     name: Static and contract checks
@@ -148,11 +144,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $requiredVersion = '1.24.0'
           if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer | Where-Object Version -eq $requiredVersion)) {
-              Install-Module -Name PSScriptAnalyzer -RequiredVersion $requiredVersion -Repository PSGallery -Scope CurrentUser -Force
+            Install-Module -Name PSScriptAnalyzer -RequiredVersion $requiredVersion -Repository PSGallery -Scope CurrentUser -Force
           }
       - name: Validate PowerShell scripts
         shell: pwsh
-        run: .\tools\validate_powershell.ps1 -SettingsPath '.github\PSScriptAnalyzerSettings.psd1'
+        run: ./tools/validate_powershell.ps1 -SettingsPath '.github/PSScriptAnalyzerSettings.psd1'
       - name: Compile Python files
         shell: pwsh
         run: |
@@ -164,19 +160,19 @@ jobs:
           python -m compileall -q @compilePaths
       - name: Validate Office COM contract
         shell: pwsh
-        run: python .\tools\test_office_com_contract.py
+        run: python ./tools/test_office_com_contract.py
       - name: Validate shared visual runtime
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python .\tools\test_visual_runtime_contract.py
-          Push-Location .shared\visual-runtime
+          python ./tools/test_visual_runtime_contract.py
+          Push-Location .shared/visual-runtime
           npm ci --ignore-scripts
           npm run check
           Pop-Location
       - name: Validate Codex visual skills
         shell: pwsh
-        run: python .\tools\test_visual_skills_contract.py
+        run: python ./tools/test_visual_skills_contract.py
 
   hosted-skill-tests:
     name: Skill / ${{ matrix.skill }} / ${{ matrix.runner }}
@@ -205,9 +201,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $output = Join-Path '.test-results' ('${{ matrix.skill }}-${{ matrix.runner }}.json')
+          $output = '.test-results/${{ matrix.skill }}-${{ matrix.runner }}.json'
           $arguments = @(
-            '.\tools\run_skill_validation.py',
+            './tools/run_skill_validation.py',
             '--skill', '${{ matrix.skill }}',
             '--authority', '${{ matrix.authority }}',
             '--output', $output
