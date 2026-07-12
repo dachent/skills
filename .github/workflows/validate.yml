@@ -11,93 +11,137 @@ on:
 permissions:
   contents: read
 
-jobs:
-  validate:
-    runs-on: windows-latest
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  repository-integrity:
+    name: Repository integrity
+    runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
+        with:
+          persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Validate canonical skill inventory
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python .\tools\validate_skill_manifest.py
+          python .\tools\test_skill_manifest.py
+      - name: Validate skill metadata and references
+        shell: pwsh
+        run: .\tools\validate_repo.ps1
+      - name: Validate provenance metadata
+        shell: pwsh
+        run: python .\tools\validate_provenance.py
+      - name: Validate Codex hooks and agents
+        shell: pwsh
+        run: python .\tools\validate_codex_hooks.py
 
+  static-contracts:
+    name: Static and contract checks
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-
       - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
-          Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
-              Install-Module -Name PSScriptAnalyzer -Repository PSGallery -Scope CurrentUser -Force
+          $requiredVersion = '1.24.0'
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer | Where-Object Version -eq $requiredVersion)) {
+              Install-Module -Name PSScriptAnalyzer -RequiredVersion $requiredVersion -Repository PSGallery -Scope CurrentUser -Force
           }
-
-      - name: Validate skill metadata and references
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-          .\tools\validate_repo.ps1
-
       - name: Validate PowerShell scripts
         shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-          .\tools\validate_powershell.ps1 -SettingsPath '.github\PSScriptAnalyzerSettings.psd1'
-
+        run: .\tools\validate_powershell.ps1 -SettingsPath '.github\PSScriptAnalyzerSettings.psd1'
       - name: Compile Python files
         shell: pwsh
         run: |
-          Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           $compilePaths = @('tools')
           $compilePaths += Get-ChildItem -Path . -Directory -Recurse -Filter scripts |
             Where-Object { $_.FullName -notmatch '\\node_modules\\' } |
             ForEach-Object { $_.FullName }
           python -m compileall -q @compilePaths
-
-      - name: Validate provenance metadata
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-          python .\tools\validate_provenance.py
-
       - name: Validate Office COM contract
         shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-          python .\tools\test_office_com_contract.py
-
+        run: python .\tools\test_office_com_contract.py
       - name: Validate shared visual runtime
         shell: pwsh
         run: |
-          Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
           python .\tools\test_visual_runtime_contract.py
           Push-Location .shared\visual-runtime
           npm ci --ignore-scripts
           npm run check
           Pop-Location
-
       - name: Validate Codex visual skills
         shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-          python .\tools\test_visual_skills_contract.py
+        run: python .\tools\test_visual_skills_contract.py
 
-      - name: Validate Codex hooks and agents
+  behavioral-tests:
+    name: Behavioral tests
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Test document handoff
         shell: pwsh
         run: |
-          Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-          python .\tools\validate_codex_hooks.py
+          $tests = Get-ChildItem .\document-handoff\scripts\tests -Filter '*.test.mjs' | ForEach-Object { $_.FullName }
+          if (-not $tests) { throw 'No document-handoff tests were found.' }
+          node --test @tests
+      - name: Test deep planning validator
+        shell: pwsh
+        run: python .\tools\test_deep_planning_validator.py
+
+  required:
+    name: Required
+    if: always()
+    needs:
+      - repository-integrity
+      - static-contracts
+      - behavioral-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all validation jobs
+        shell: bash
+        run: |
+          if [[ "${{ needs.repository-integrity.result }}" != "success" || \
+                "${{ needs.static-contracts.result }}" != "success" || \
+                "${{ needs.behavioral-tests.result }}" != "success" ]]; then
+            echo "One or more required validation jobs failed or were cancelled."
+            exit 1
+          fi

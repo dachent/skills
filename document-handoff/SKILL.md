@@ -1,6 +1,6 @@
 ---
 name: document-handoff
-description: Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from any Claude Code, Codex, or OpenCode project. Run at any project milestone.
+description: Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from Claude Code or Codex projects. Run at any project milestone.
 ---
 
 # document-handoff
@@ -52,7 +52,7 @@ Ask the user (or infer from context):
 3. **Output directory** — where to write the workfolder and memo (default: `<source_root>\.handoff-output`)
 4. **Fresh or resume?** — `--fresh` overwrites existing state; `--resume` continues from last completed phase
 
-**Provider detection note:** The skill auto-detects whether you are running under Claude Code, Codex, or OpenCode via environment variables. No user action needed.
+**Provider detection note:** The skill auto-detects Claude Code or Codex via environment variables. OpenCode session discovery is not currently implemented.
 
 ```powershell
 $slug = "<project-slug>"
