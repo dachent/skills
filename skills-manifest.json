@@ -208,7 +208,7 @@
       "family": "code-analysis",
       "catalog_group": "repository-owned",
       "status": "experimental",
-      "description": "Route codebase understanding and change-impact work across repository discovery, precise symbol analysis, artifact lineage, contracts, semantic flow, and durable planning. Use for unfamiliar repositories, architecture questions, locating implementations, blast-radius analysis, callers and references, data lineage, security or taint flow, graph freshness decisions, and selecting among Graphify, code-mapper, direct source inspection, repo-map, CodeQL, Joern, Serena, SCIP, or other configured providers.",
+      "description": "Route repository understanding and change-impact work across direct source inspection, fresh Graphify discovery, Python-focused code-mapper analysis, selective CodeQL enrichment, and explicit durable repo-map planning. Use for unfamiliar repositories, architecture questions, locating implementations, Python blast radius, contracts, artifacts, lineage, security-flow triage, and graph freshness decisions.",
       "platforms": [
         "cross-platform"
       ],
