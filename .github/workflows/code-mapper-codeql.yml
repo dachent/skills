@@ -1,26 +1,32 @@
 name: Code Mapper CodeQL
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'code-mapper-skill/**'
-      - '.github/workflows/code-mapper-codeql.yml'
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: code-mapper-codeql-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    name: Code Mapper authoritative tests
     runs-on: windows-latest
+    timeout-minutes: 35
     env:
-      PYTHONUTF8: '1'
+      PYTHONUTF8: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          python-version: '3.12'
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
       - name: Install mapper dependencies
         shell: pwsh
         run: python -m pip install -r .\code-mapper-skill\scripts\requirements.txt
@@ -41,7 +47,7 @@ jobs:
           Pop-Location
       - name: Set up official CodeQL CLI
         id: setup-codeql
-        uses: github/codeql-action/setup-codeql@v3
+        uses: github/codeql-action/setup-codeql@02c5e83432fe5497fd85b873b6c9f16a8578e1d9 # v3
         with:
           languages: python
       - name: Run real CodeQL build-query-decode smoke test
@@ -52,10 +58,27 @@ jobs:
           Push-Location .\code-mapper-skill\scripts
           python -m unittest -v test_codeql_live
           Pop-Location
-      - name: Upload CodeQL live diagnostic
+      - name: Write standardized result
         if: always()
-        uses: actions/upload-artifact@v4
+        shell: pwsh
+        run: |
+          $status = switch ('${{ job.status }}') {
+            'success' { 'passed' }
+            'cancelled' { 'cancelled' }
+            default { 'failed' }
+          }
+          python .\tools\write_test_result.py `
+            --skill code-mapper-skill `
+            --status $status `
+            --authority .github/workflows/code-mapper-codeql.yml `
+            --detail 'CodeQL lifecycle, benchmark, and live query validation' `
+            --output .test-results\code-mapper-skill-windows-latest.json
+      - name: Upload Code Mapper results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: codeql-live-diagnostic
-          path: code-mapper-skill/scripts/codeql-live-diagnostic.json
+          name: skill-result-code-mapper-skill-windows-latest
+          path: |
+            .test-results/code-mapper-skill-windows-latest.json
+            code-mapper-skill/scripts/codeql-live-diagnostic.json
           if-no-files-found: warn
