@@ -1,0 +1,147 @@
+name: Apply experimental skill CI opt-in
+
+on:
+  push:
+    branches:
+      - agent/enable-experimental-skill-ci
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Apply and validate changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          from pathlib import Path
+
+          manifest_path = Path("skills-manifest.json")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          target = next(skill for skill in manifest["skills"] if skill["name"] == "agent-project-orchestrator")
+          target.setdefault("validation", {})["ci_enabled"] = True
+          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+          ci_path = Path("tools/ci_matrix.py")
+          ci_text = ci_path.read_text(encoding="utf-8")
+          ci_text = ci_text.replace(
+              "def supported_skills(manifest: dict[str, Any]) -> list[dict[str, Any]]:\n    return [skill for skill in manifest[\"skills\"] if skill.get(\"status\") == \"supported\"]\n",
+              "def ci_enabled_skills(manifest: dict[str, Any]) -> list[dict[str, Any]]:\n    return [\n        skill\n        for skill in manifest[\"skills\"]\n        if skill.get(\"status\") == \"supported\"\n        or skill.get(\"validation\", {}).get(\"ci_enabled\") is True\n    ]\n",
+          )
+          ci_text = ci_text.replace("supported_skills(manifest)", "ci_enabled_skills(manifest)")
+          ci_path.write_text(ci_text, encoding="utf-8")
+
+          tests_path = Path("tools/test_ci_orchestration.py")
+          tests = tests_path.read_text(encoding="utf-8")
+          archived_block = '''                {
+                    "name": "old",
+                    "path": "old",
+                    "status": "archived",
+                    "platforms": ["linux"],
+                    "packaging": {},
+                    "validation": {
+                        "hosted_commands": [],
+                        "environment_dependent_commands": [],
+                    },
+                },
+'''
+          experimental_blocks = '''                {
+                    "name": "experimental-enabled",
+                    "path": "experimental-enabled",
+                    "status": "experimental",
+                    "platforms": ["linux"],
+                    "packaging": {
+                        "skill_file": "experimental-enabled/SKILL.md",
+                        "agent_metadata": "experimental-enabled/agents/openai.yaml",
+                    },
+                    "validation": {
+                        "ci_enabled": True,
+                        "hosted_commands": [],
+                        "environment_dependent_commands": [],
+                    },
+                },
+                {
+                    "name": "experimental-disabled",
+                    "path": "experimental-disabled",
+                    "status": "experimental",
+                    "platforms": ["linux"],
+                    "packaging": {},
+                    "validation": {
+                        "hosted_commands": [],
+                        "environment_dependent_commands": [],
+                    },
+                },
+'''
+          tests = tests.replace(archived_block, experimental_blocks + archived_block)
+          tests = tests.replace(
+              '''    def test_full_excludes_archived(self) -> None:
+        self.assertEqual(
+            ci_matrix.affected_skill_names(self.manifest, [], full=True),
+            ["alpha", "beta"],
+        )
+''',
+              '''    def test_full_includes_opted_in_experimental_and_excludes_others(self) -> None:
+        self.assertEqual(
+            ci_matrix.affected_skill_names(self.manifest, [], full=True),
+            ["alpha", "beta", "experimental-enabled"],
+        )
+
+    def test_experimental_skill_requires_explicit_ci_opt_in(self) -> None:
+        self.assertEqual(
+            ci_matrix.affected_skill_names(
+                self.manifest, ["experimental-disabled/SKILL.md"]
+            ),
+            [],
+        )
+
+    def test_experimental_skill_with_ci_opt_in_is_selected(self) -> None:
+        self.assertEqual(
+            ci_matrix.affected_skill_names(
+                self.manifest, ["experimental-enabled/SKILL.md"]
+            ),
+            ["experimental-enabled"],
+        )
+''',
+          )
+          tests = tests.replace(
+              '''        expected = sorted(
+            skill["name"]
+            for skill in manifest["skills"]
+            if skill.get("status") == "supported"
+        )
+''',
+              '''        expected = sorted(
+            skill["name"]
+            for skill in manifest["skills"]
+            if skill.get("status") == "supported"
+            or skill.get("validation", {}).get("ci_enabled") is True
+        )
+''',
+          )
+          tests_path.write_text(tests, encoding="utf-8")
+          PY
+
+          python tools/test_ci_orchestration.py
+          python tools/validate_skill_manifest.py
+          python tools/test_skill_manifest.py
+          python tools/generate_repository_artifacts.py --check
+          python agent-project-orchestrator/scripts/test_doctor.py
+          python agent-project-orchestrator/scripts/doctor.py --root agent-project-orchestrator
+
+          git rm .github/workflows/temporary-enable-experimental-ci.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add skills-manifest.json tools/ci_matrix.py tools/test_ci_orchestration.py
+          git commit -m "Enable CI opt-in for experimental skills"
+          git push
