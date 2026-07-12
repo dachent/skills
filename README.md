@@ -15,6 +15,8 @@ This provenance-and-purpose grouping explains **why a skill belongs here**. Plat
 
 `skills-manifest.json` is the operational source of truth for inventory, catalog grouping, ownership, support, provenance classification, packaging, shared runtimes, validation, and any generated agent mirrors. Each top-level skill directory is canonical. See [`docs/repository-contract.md`](./docs/repository-contract.md).
 
+This is a mixed-license repository. Redistribution rights vary by skill and source; see [`docs/licensing-and-redistribution.md`](./docs/licensing-and-redistribution.md) and [`.provenance/source-registry.json`](./.provenance/source-registry.json).
+
 ## Skill catalog
 
 <!-- BEGIN GENERATED: skill-catalog -->
@@ -128,96 +130,38 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 Common repository tooling:
 
 - Python 3.12 for validation and bundled helpers;
-- Node.js 20 and npm for the visual runtime and Document Handoff tests;
-- PowerShell 7 for repository and Office automation validation;
-- Codex or Claude Code configured to load local skills.
+- Node.js for `document-handoff` tests and runtime;
+- PowerShell and Microsoft 365 desktop applications for Windows Office skills;
+- Playwright-compatible browser tooling for the visual runtime.
 
-Office skills require Windows, an interactive signed-in desktop session, and the corresponding Microsoft 365 desktop application. Code Mapper uses `grimp` and `jedi`; Git URL targets also require Git. Planning skills require permission to write their declared planning artifacts.
-
-## Installation
-
-### Codex
-
-1. Clone the repository.
-2. Copy the desired canonical top-level skill directories into the Codex skills directory, commonly `%USERPROFILE%\.codex\skills\`.
-3. Copy shared components shown in the generated installation inventory.
-4. Keep directory names unchanged.
-5. Run the relevant validation before relying on the skill on a new machine.
-
-### Claude Code
-
-Load compatible canonical top-level skill directories directly. `.claude/skills` is reserved for generated, manifest-declared mirrors only; it is not a second source tree.
-
-## Validation summary
+## Validation
 
 <!-- BEGIN GENERATED: validation-summary -->
 <!-- Generated section: validation summary. Source: skills-manifest.json. Generator: tools/generate_repository_artifacts.py. Do not edit by hand. -->
 
-| Skill | Hosted commands | Environment-dependent commands |
-| --- | ---: | ---: |
-| `adversarial-plan-review-codex` | 1 | 0 |
-| `artifact-runtime-codex` | 1 | 0 |
-| `canvas-design-codex` | 1 | 0 |
-| `code-mapper-skill` | 1 | 0 |
-| `deep-planning-codex` | 1 | 0 |
-| `document-handoff` | 1 | 0 |
-| `docx-win` | 1 | 1 |
-| `frontend-design-codex` | 1 | 0 |
-| `grill-me-codex` | 0 | 0 |
-| `grill-with-docs-codex` | 0 | 0 |
-| `handoff-codex` | 0 | 0 |
-| `pptx-win` | 1 | 1 |
-| `repo-map-codex` | 1 | 0 |
-| `theme-factory-codex` | 1 | 0 |
-| `ultraplan-codex` | 1 | 0 |
-| `verification-plan-codex` | 1 | 0 |
-| `web-artifacts-builder-codex` | 1 | 0 |
-| `xlsx-win` | 1 | 1 |
+Run repository validation from the repository root:
+
+```powershell
+python .\tools\validate_skill_manifest.py
+python .\tools\test_skill_manifest.py
+python .\tools\generate_repository_artifacts.py --check
+python .\tools\test_generate_repository_artifacts.py
+python .\tools\validate_provenance.py
+python .\tools\test_deep_planning_validator.py
+python .\tools\test_office_com_contract.py
+python .\tools\test_visual_runtime_contract.py
+python .\tools\test_visual_skills_contract.py
+python .\tools\validate_codex_hooks.py
+node --test document-handoff/scripts/tests/*.test.mjs
+```
+
+The repository CI also runs PSScriptAnalyzer, PowerShell parser checks, Python compile checks, metadata tests, and repository contract checks. Environment-dependent Microsoft Office smoke tests remain explicit and are not hosted CI gates.
 <!-- END GENERATED: validation-summary -->
 
-## Validation and CI
+## Codex hooks
 
-Regenerate repository documentation and declared mirrors:
+The repository includes `.codex/hooks.json`. The hook integration is warning-only: failures are surfaced but do not block execution. Validate it with `python .\tools\validate_codex_hooks.py`.
 
-```powershell
-python .\tools\generate_repository_artifacts.py
-```
+## Design workflow
 
-Fail without modifying files when generated output is stale:
-
-```powershell
-python .\tools\generate_repository_artifacts.py --check
-```
-
-Hosted validation exposes:
-
-- **Repository integrity** — manifest, generated documentation and mirrors, metadata, provenance, hooks, and agent definitions;
-- **Static and contract checks** — PowerShell analysis, Python compilation, Office boundaries, and visual-runtime contracts;
-- **Behavioral tests** — Document Handoff and deep-planning validation;
-- **Required** — the stable branch-protection aggregate.
-
-Code Mapper has a dedicated CodeQL workflow. True Office runtime validation remains separate because GitHub-hosted runners do not provide reliable Microsoft Office COM automation; `.github/workflows/office-smoke.yml` uses a controlled self-hosted Windows runner.
-
-The shared visual runtime uses a **render-inspect-lint-revise** loop and is checked by `tools/test_visual_runtime_contract.py`. Codex visual skills are checked by `tools/test_visual_skills_contract.py`. `.codex/hooks.json` contains warning-only reminders, validated by `tools/validate_codex_hooks.py`; hooks do not instantiate Office COM.
-
-## Repository layout
-
-- [`skills-manifest.json`](./skills-manifest.json): operational inventory and generation source;
-- [`docs/repository-contract.md`](./docs/repository-contract.md): packaging, generation, and maintenance rules;
-- [`.generated/`](./.generated): generated registries, including mirror hashes;
-- [`.shared/office-com/`](./.shared/office-com): Office preflight and COM boundary runtime;
-- [`.shared/visual-runtime/`](./.shared/visual-runtime): browser screenshot, lint, PDF, and image-evidence tooling;
-- [`.codex/agents`](./.codex/agents): specialized review and packaging agents;
-- each top-level skill directory: the canonical skill definition and implementation;
-- [`.github/workflows/`](./.github/workflows): hosted validation, drift checks, and Office smoke workflows;
-- [`tools/`](./tools): generators, validators, and contract tests.
-
-## Provenance and licensing
-
-The manifest records a source classification for every supported skill. Some pre-existing ports do not yet have an immutable upstream revision recorded; those entries explicitly declare the unresolved provenance state rather than inventing a revision. Repository-wide provenance, drift, and licensing completion is tracked separately in issue #43.
-
-The repository does not currently publish a root `LICENSE`. Do not assume redistribution rights for the repository as a whole. Review each upstream license before repackaging or redistribution.
-
-## Contributing
-
-Update `skills-manifest.json` whenever inventory, grouping, support, source, runtime, packaging, or validation changes. Then run the generator and check mode. CI fails when a top-level skill is unregistered, generated README sections are stale, a declared mirror diverges, or undeclared files appear under `.claude/skills`.
+The Codex visual skills share a `render-inspect-lint-revise` workflow through `.shared/visual-runtime`. The shared runtime produces screenshots, console output, artifact metadata, and QA evidence for review.
