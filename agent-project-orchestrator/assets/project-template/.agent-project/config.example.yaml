@@ -1,0 +1,9 @@
+schema_version: 1
+project_id: replace-with-runtime-generated-id
+profile: standard
+project_state_mode: greenfield
+delivery_mode: software-git
+execution_backend: native
+policy:
+  approval_source: trusted-user-channel
+  minimum_terminal_review_independence: 2

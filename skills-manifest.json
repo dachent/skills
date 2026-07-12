@@ -103,6 +103,41 @@
       "last_reviewed": "2026-07-12"
     },
     {
+      "name": "agent-project-orchestrator",
+      "path": "agent-project-orchestrator",
+      "family": "project-orchestration",
+      "catalog_group": "repository-owned",
+      "status": "experimental",
+      "description": "Use when a long-running human-agent project needs durable backlog, project memory, sprint contracts, capability preflight, cross-harness orchestration, evidence-backed stopping conditions, or independent terminal review across Claude Code and Codex.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex",
+        "claude-code"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "agent-project-orchestrator/SKILL.md",
+        "agent_metadata": "agent-project-orchestrator/agents/openai.yaml",
+        "provenance_file": "agent-project-orchestrator/PROVENANCE.md"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\agent-project-orchestrator\\scripts\\test_doctor.py",
+          "python .\\agent-project-orchestrator\\scripts\\doctor.py --root .\\agent-project-orchestrator"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
       "name": "artifact-runtime-codex",
       "path": "artifact-runtime-codex",
       "family": "visual",

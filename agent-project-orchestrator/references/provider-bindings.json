@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "status": "design-stage-fixed-bindings",
+  "capabilities": [
+    {
+      "name": "requirements_interview",
+      "required_profiles": ["standard", "autonomous"],
+      "providers": [
+        {
+          "id": "mattpocock.grilling",
+          "harnesses": ["claude-code", "codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["grilling/SKILL.md", "grill-with-docs-codex/SKILL.md"]
+        }
+      ]
+    },
+    {
+      "name": "repository_mapping",
+      "required_profiles": ["standard", "autonomous"],
+      "providers": [
+        {
+          "id": "dachent.repo-map-codex",
+          "harnesses": ["codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["repo-map-codex/SKILL.md"]
+        },
+        {
+          "id": "core.repository-map-claude",
+          "harnesses": ["claude-code"],
+          "invocation_mode": "prompt-adapter",
+          "entrypoint_candidates": []
+        }
+      ]
+    },
+    {
+      "name": "failure_autopsy",
+      "required_profiles": [],
+      "conditional": true,
+      "providers": [
+        {
+          "id": "superpowers.systematic-debugging",
+          "harnesses": ["claude-code", "codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["systematic-debugging/SKILL.md", "superpowers/skills/systematic-debugging/SKILL.md"]
+        }
+      ]
+    },
+    {
+      "name": "design_synthesis",
+      "required_profiles": ["standard", "autonomous"],
+      "providers": [
+        {
+          "id": "superpowers.brainstorming",
+          "harnesses": ["claude-code", "codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["brainstorming/SKILL.md", "superpowers/skills/brainstorming/SKILL.md"]
+        }
+      ]
+    },
+    {
+      "name": "implementation_planning",
+      "required_profiles": ["standard", "autonomous"],
+      "providers": [
+        {
+          "id": "ultraplan.ultraplan",
+          "harnesses": ["claude-code"],
+          "invocation_mode": "user-or-model-adapter",
+          "entrypoint_candidates": ["ultraplan/SKILL.md"]
+        },
+        {
+          "id": "dachent.ultraplan-codex",
+          "harnesses": ["codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["ultraplan-codex/SKILL.md"]
+        }
+      ]
+    },
+    {
+      "name": "verification_planning",
+      "required_profiles": ["standard", "autonomous"],
+      "providers": [
+        {
+          "id": "dachent.verification-plan-codex",
+          "harnesses": ["codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["verification-plan-codex/SKILL.md"]
+        },
+        {
+          "id": "core.verification-plan-claude",
+          "harnesses": ["claude-code"],
+          "invocation_mode": "prompt-adapter",
+          "entrypoint_candidates": []
+        }
+      ]
+    },
+    {
+      "name": "adversarial_review",
+      "required_profiles": ["standard", "autonomous"],
+      "providers": [
+        {
+          "id": "dachent.adversarial-plan-review-codex",
+          "harnesses": ["codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["adversarial-plan-review-codex/SKILL.md"]
+        },
+        {
+          "id": "core.adversarial-review-claude",
+          "harnesses": ["claude-code"],
+          "invocation_mode": "prompt-adapter",
+          "entrypoint_candidates": []
+        }
+      ]
+    },
+    {
+      "name": "terminal_verification",
+      "required_profiles": ["standard", "autonomous"],
+      "providers": [
+        {
+          "id": "superpowers.verification-before-completion",
+          "harnesses": ["claude-code", "codex"],
+          "invocation_mode": "model",
+          "entrypoint_candidates": ["verification-before-completion/SKILL.md", "superpowers/skills/verification-before-completion/SKILL.md"]
+        }
+      ],
+      "minimum_independence_level": 2
+    }
+  ]
+}

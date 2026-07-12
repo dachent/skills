@@ -51,6 +51,7 @@ Original or locally imported workflows whose current implementation is maintaine
 
 | Skill | Purpose | Provenance |
 | --- | --- | --- |
+| [`agent-project-orchestrator`](./agent-project-orchestrator) | Use when a long-running human-agent project needs durable backlog, project memory, sprint contracts, capability preflight, cross-harness orchestration, evidence-backed stopping conditions, or independent terminal review across Claude Code and Codex. | repo owned original |
 | [`code-mapper-skill`](./code-mapper-skill) | Maps Python imports, symbol references, artifact use, contracts, catalog relationships, OpenLineage datasets, and selectively triggered CodeQL local value/taint flow. Use for dependency maps, callers, inputs/outputs, APIs/schemas, Backstage relationships, blast radius, and semantic tracing. Works on a local path or Git URL. | repo owned original |
 | [`document-handoff`](./document-handoff) | Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from Claude Code or Codex projects. Run at any project milestone. | local source import |
 
@@ -77,6 +78,7 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | Skill | Canonical directory | Shared components |
 | --- | --- | --- |
 | `adversarial-plan-review-codex` | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | — |
+| `agent-project-orchestrator` | [`agent-project-orchestrator`](./agent-project-orchestrator) | — |
 | `artifact-runtime-codex` | [`artifact-runtime-codex`](./artifact-runtime-codex) | `.shared/visual-runtime` |
 | `canvas-design-codex` | [`canvas-design-codex`](./canvas-design-codex) | `.shared/visual-runtime` |
 | `code-mapper-skill` | [`code-mapper-skill`](./code-mapper-skill) | — |
@@ -104,6 +106,7 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | Skill | Platforms | Agents | Status |
 | --- | --- | --- | --- |
 | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | `cross-platform` | `codex` | `supported` |
+| [`agent-project-orchestrator`](./agent-project-orchestrator) | `cross-platform` | `codex`, `claude-code` | `experimental` |
 | [`artifact-runtime-codex`](./artifact-runtime-codex) | `cross-platform` | `codex` | `supported` |
 | [`canvas-design-codex`](./canvas-design-codex) | `cross-platform` | `codex` | `supported` |
 | [`code-mapper-skill`](./code-mapper-skill) | `cross-platform` | `codex` | `supported` |
@@ -156,6 +159,7 @@ Load compatible canonical top-level skill directories directly. `.claude/skills`
 | Skill | Hosted commands | Environment-dependent commands |
 | --- | ---: | ---: |
 | `adversarial-plan-review-codex` | 1 | 0 |
+| `agent-project-orchestrator` | 2 | 0 |
 | `artifact-runtime-codex` | 1 | 0 |
 | `canvas-design-codex` | 1 | 0 |
 | `code-mapper-skill` | 1 | 0 |
