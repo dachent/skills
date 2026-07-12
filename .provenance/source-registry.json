@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-07-12",
+  "repository_license": {
+    "status": "mixed-license",
+    "policy_document": "docs/licensing-and-redistribution.md",
+    "default_for_repo_owned_originals": "All rights reserved pending an explicit root license"
+  },
+  "sources": {
+    "anthropic-skills": {
+      "kind": "github",
+      "repository": "anthropics/skills",
+      "revision": "57546260929473d4e0d1c1bb75297be2fdfa1949",
+      "retrieved_on": "2026-06-15",
+      "license": "per-skill license files and upstream notices; no repository-wide license assumed",
+      "license_review": "reviewed-with-boundaries",
+      "snapshot_root": ".upstream/anthropic-skills/57546260929473d4e0d1c1bb75297be2fdfa1949",
+      "default_branch": "main"
+    },
+    "mattpocock-skills": {
+      "kind": "github",
+      "repository": "mattpocock/skills",
+      "revision": "391a2701dd948f94f56a39f7533f8eea9a859c87",
+      "retrieved_on": "2026-07-12",
+      "license": "MIT",
+      "license_review": "reviewed",
+      "license_evidence": ".upstream/licenses/mattpocock-skills-MIT.txt",
+      "default_branch": "main"
+    },
+    "ultraplan": {
+      "kind": "github",
+      "repository": "6missedcalls/ultraplan",
+      "revision": "06779940475f9c52b4d3b546d309b2c31ebbf8ea",
+      "retrieved_on": "2026-07-12",
+      "license": "MIT",
+      "license_review": "reviewed",
+      "license_evidence": ".upstream/licenses/ultraplan-MIT.txt",
+      "default_branch": "main"
+    },
+    "deep-planning-import": {
+      "kind": "local-import-snapshot",
+      "repository": "dachent/cdc05151d047708c290bd4da0aaeed96",
+      "path": "deep_planning.txt",
+      "revision": "0aadb9e28397b07a75853d40a78610bc21cebc81",
+      "retrieved_on": "2026-07-12",
+      "license": "unresolved",
+      "license_review": "restricted-pending-review",
+      "default_branch": null
+    },
+    "document-handoff-import": {
+      "kind": "local-import-snapshot",
+      "repository": null,
+      "path": "document-handoff",
+      "revision": "0aadb9e28397b07a75853d40a78610bc21cebc81",
+      "retrieved_on": "2026-07-12",
+      "license": "unresolved",
+      "license_review": "restricted-pending-review",
+      "default_branch": null
+    }
+  },
+  "skills": {
+    "docx-win": {"classification":"heavy-adaptation","source":"anthropic-skills","source_path":"skills/docx","port_depth":"heavy","intentional_divergence":"Native Microsoft Word COM automation replaces generic document tooling.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"source-license-boundary"},
+    "pptx-win": {"classification":"heavy-adaptation","source":"anthropic-skills","source_path":"skills/pptx","port_depth":"heavy","intentional_divergence":"Native Microsoft PowerPoint COM automation and visual QA replace generic presentation tooling.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"source-license-boundary"},
+    "xlsx-win": {"classification":"heavy-adaptation","source":"anthropic-skills","source_path":"skills/xlsx","port_depth":"heavy","intentional_divergence":"Native Excel COM, Power Query, calculation, and refresh behavior replace generic spreadsheet tooling.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"source-license-boundary"},
+    "grill-me-codex": {"classification":"medium-adaptation","source":"mattpocock-skills","source_path":"skills/productivity/grill-me","port_depth":"medium","intentional_divergence":"Ported to Codex invocation, terminology, and tool contracts.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"MIT"},
+    "grill-with-docs-codex": {"classification":"medium-adaptation","source":"mattpocock-skills","source_path":"skills/engineering/grill-with-docs","port_depth":"medium","intentional_divergence":"Ported to Codex and repository-document grounding conventions.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"MIT"},
+    "handoff-codex": {"classification":"medium-adaptation","source":"mattpocock-skills","source_path":"skills/productivity/handoff","port_depth":"medium","intentional_divergence":"Ported to Codex handoff and continuation contracts.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"MIT"},
+    "ultraplan-codex": {"classification":"heavy-adaptation","source":"ultraplan","source_path":".","port_depth":"heavy","intentional_divergence":"Reworked into a Codex planning skill integrated with repository planning components.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"MIT"},
+    "adversarial-plan-review-codex": {"classification":"medium-adaptation","source":"deep-planning-import","source_path":"deep_planning.txt","port_depth":"medium","intentional_divergence":"Extracted adversarial review stage with Codex-specific execution safeguards.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"restricted"},
+    "deep-planning-codex": {"classification":"heavy-adaptation","source":"deep-planning-import","source_path":"deep_planning.txt","port_depth":"heavy","intentional_divergence":"Expanded into a gated Codex planning workflow with evidence and verification.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"restricted"},
+    "repo-map-codex": {"classification":"medium-adaptation","source":"deep-planning-import","source_path":"deep_planning.txt","port_depth":"medium","intentional_divergence":"Extracted repository mapping into a standalone Codex skill.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"restricted"},
+    "verification-plan-codex": {"classification":"medium-adaptation","source":"deep-planning-import","source_path":"deep_planning.txt","port_depth":"medium","intentional_divergence":"Extracted proof criteria and rollback design into a standalone Codex skill.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"restricted"},
+    "document-handoff": {"classification":"local-source-import","source":"document-handoff-import","source_path":"document-handoff","port_depth":"heavy","intentional_divergence":"Current Node implementation, provider extraction, rendering, privacy controls, and tests are repository-maintained.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"restricted"},
+    "code-mapper-skill": {"classification":"repo-owned-original","source":null,"source_path":null,"port_depth":"original","intentional_divergence":"Not applicable.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"repository-policy"},
+    "artifact-runtime-codex": {"classification":"repo-owned-original","source":null,"source_path":null,"port_depth":"original","intentional_divergence":"Not applicable.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"repository-policy"},
+    "canvas-design-codex": {"classification":"repo-owned-original","source":null,"source_path":null,"port_depth":"original","intentional_divergence":"Not applicable.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"repository-policy"},
+    "frontend-design-codex": {"classification":"repo-owned-original","source":null,"source_path":null,"port_depth":"original","intentional_divergence":"Not applicable.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"repository-policy"},
+    "theme-factory-codex": {"classification":"repo-owned-original","source":null,"source_path":null,"port_depth":"original","intentional_divergence":"Not applicable.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"repository-policy"},
+    "web-artifacts-builder-codex": {"classification":"repo-owned-original","source":null,"source_path":null,"port_depth":"original","intentional_divergence":"Not applicable.","owner":"@dachent","last_alignment_review":"2026-07-12","distribution":"repository-policy"}
+  }
+}
