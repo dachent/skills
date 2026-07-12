@@ -16,23 +16,55 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(result.primary, "code-mapper")
         self.assertFalse(result.must_load_graph)
 
-    def test_broad_fresh_graph_prefers_codebase_memory_when_available(self):
+    def test_exact_non_python_uses_direct_source(self):
+        result = decide_route(
+            language="typescript",
+            target_file="src/service.ts",
+            providers=["graphify"],
+        )
+        self.assertEqual(result.primary, "direct-source")
+        self.assertFalse(result.must_load_graph)
+
+    def test_broad_fresh_graph_uses_graphify(self):
         result = decide_route(
             language="typescript",
             graph_state="fresh",
-            providers=["graphify", "codebase-memory"],
+            providers=["graphify"],
         )
-        self.assertEqual(result.primary, "codebase-memory")
+        self.assertEqual(result.primary, "graphify")
         self.assertTrue(result.must_load_graph)
+
+    def test_fresh_graph_without_graphify_falls_back(self):
+        result = decide_route(graph_state="fresh", providers=[])
+        self.assertEqual(result.primary, "direct-source")
+        self.assertFalse(result.must_load_graph)
 
     def test_small_repo_uses_direct_source(self):
         result = decide_route(repo_size="small", providers=["graphify"])
         self.assertEqual(result.primary, "direct-source")
 
-    def test_security_prefers_codeql(self):
-        result = decide_route(security_flow=True, providers=["codeql", "semgrep"])
-        self.assertEqual(result.primary, "codeql")
-        self.assertEqual(result.secondary, ["semgrep"])
+    def test_python_security_uses_mapper_and_codeql(self):
+        result = decide_route(
+            language="python",
+            security_flow=True,
+            providers=["code-mapper", "codeql"],
+        )
+        self.assertEqual(result.primary, "code-mapper")
+        self.assertFalse(result.warnings)
+
+    def test_python_security_warns_without_codeql(self):
+        result = decide_route(
+            language="python",
+            security_flow=True,
+            providers=["code-mapper"],
+        )
+        self.assertEqual(result.primary, "code-mapper")
+        self.assertTrue(result.warnings)
+
+    def test_unsupported_security_flow_uses_direct_source(self):
+        result = decide_route(language="rust", security_flow=True, providers=["graphify"])
+        self.assertEqual(result.primary, "direct-source")
+        self.assertTrue(result.warnings)
 
     def test_durable_map_routes_to_repo_map(self):
         result = decide_route(durable_map=True)
