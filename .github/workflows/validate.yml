@@ -35,6 +35,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python .\tools\validate_skill_manifest.py
           python .\tools\test_skill_manifest.py
+          python .\tools\generate_repository_artifacts.py --check
+          python .\tools\test_generate_repository_artifacts.py
       - name: Validate skill metadata and references
         shell: pwsh
         run: .\tools\validate_repo.ps1

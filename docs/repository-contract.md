@@ -1,51 +1,37 @@
-# Repository Integration Contract
+# Repository integration contract
 
-`skills-manifest.json` is the canonical inventory for supported top-level skills and shared runtimes.
+`skills-manifest.json` is the operational source of truth for supported skills, catalog grouping, ownership, platform and agent support, provenance classification, packaging, shared runtimes, validation, and generated mirrors.
 
-## Required supported-skill package
+## Canonical sources
 
-Every supported skill must declare and provide:
+Each active skill has one canonical top-level directory. `.claude/skills` may contain only mirrors declared in `generated_mirrors` and produced by `tools/generate_repository_artifacts.py`. Undeclared files there are drift.
 
-- a top-level directory whose name matches the skill name;
-- `SKILL.md` with matching front-matter `name` and a non-empty description;
-- `agents/openai.yaml` with display name, short description, and default prompt;
-- source classification, owner, supported platforms, supported agents, and review date in the manifest;
-- hosted validation commands or an explicit environment-dependent validation declaration;
-- `PROVENANCE.md` when the manifest declares a provenance file.
+## Catalog groups
 
-## Lifecycle states
+Catalog groups explain why a skill belongs in the repository, not merely its technical domain. Every active skill belongs to exactly one ordered group declared in `policy.catalog_groups`. The README catalog is generated from those declarations.
 
-- `supported`: documented, packaged, and subject to required validation;
-- `experimental`: usable with explicitly documented limitations;
-- `deprecated`: retained temporarily with replacement or removal guidance;
-- `archived`: historical material not included in active integration checks.
+## Generated artifacts
 
-## Source classifications
+Run `python .\tools\generate_repository_artifacts.py` to generate the README catalog, installation inventory, platform/agent matrix, validation summary, declared agent mirrors, and `.generated/agent-mirrors.json`.
 
-- `repo-owned-original`
-- `local-source-import`
-- `light-adaptation`
-- `medium-adaptation`
-- `heavy-adaptation`
-- `derived-work`
+Run `python .\tools\generate_repository_artifacts.py --check` to fail on stale marked README sections, stale mirrors, stale hashes, or undeclared files under `.claude/skills`.
 
-External adaptations must identify an immutable source revision. Local-source imports must identify the initial repository commit and document unresolved source or license questions.
+Generated README regions carry explicit markers and notices. Prose outside those markers remains hand-maintained.
 
-## Pull-request requirements
+## Agent mirrors
 
-A pull request that adds or materially changes a skill must update, as applicable:
+A mirror is allowed only when an agent needs a material packaging difference. Each declaration identifies a canonical source, a destination under `.claude/skills`, and an explicit transformation. `copy-with-generated-notice` preserves canonical content while inserting a generated-file notice after YAML front matter.
 
-1. `skills-manifest.json`;
-2. `SKILL.md`;
-3. `agents/openai.yaml`;
-4. `PROVENANCE.md`;
-5. hosted or environment-dependent tests;
-6. root documentation when user-facing installation or support behavior changes.
+`.generated/agent-mirrors.json` records source and destination SHA-256 values. No mirrors are currently declared; compatible agents should load canonical top-level skills directly.
 
-The repository validator fails when a top-level skill is not registered or a supported skill omits required packaging.
+## Supported-skill package
 
-## GitHub Actions requirements
+Every supported skill must provide a top-level canonical directory, matching `SKILL.md`, `agents/openai.yaml`, catalog group, source classification, owner, platforms, agents, review date, and validation declarations. A provenance file is required when declared by the manifest.
 
-Hosted validation must expose a stable `Validate / Required` result and separately report repository integrity, static/contract checks, and behavioral tests. Jobs must use least-privilege permissions, explicit timeouts, and pull-request concurrency cancellation.
+External adaptations should identify an immutable upstream revision. When prior repository history did not preserve one, the source must explicitly declare `provenance_status: revision-unresolved`; this is a visible debt, not a substitute for provenance completion.
 
-Office COM validation remains environment-dependent and must run through the separately controlled self-hosted workflow. Hardening that runner and separating trusted harness code from pull-request artifacts remains a dedicated follow-up workstream.
+## Pull requests and CI
+
+A skill-changing pull request updates the manifest, canonical skill package, provenance and tests as applicable, then regenerates repository artifacts. Repository-integrity CI runs manifest validation, generator check mode, generator tests, metadata validation, provenance checks, and Codex hook validation. Adding or removing a skill cannot leave the README stale, and canonical and generated definitions cannot silently diverge.
+
+Office COM validation remains environment-dependent and runs through the controlled self-hosted workflow.

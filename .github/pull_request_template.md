@@ -5,6 +5,7 @@ Describe the change and its user or maintainer impact.
 ## Skill integration
 
 - [ ] `skills-manifest.json` is updated when inventory, ownership, support, source, runtime, or validation changes.
+- [ ] Generated README sections and agent mirrors are current (`python .\tools\generate_repository_artifacts.py --check`).
 - [ ] `SKILL.md` is added or updated.
 - [ ] `agents/openai.yaml` is added or updated.
 - [ ] `PROVENANCE.md` or source-lock information is added or updated where applicable.

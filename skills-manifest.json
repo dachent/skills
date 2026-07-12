@@ -1,1 +1,691 @@
-{"schema_version":1,"repository":"dachent/skills","policy":{"supported_statuses":["supported","experimental","deprecated","archived"],"source_classifications":["repo-owned-original","local-source-import","light-adaptation","medium-adaptation","heavy-adaptation","derived-work"],"required_packaging_for_supported":["skill_file","agent_metadata"]},"shared_components":[{"name":"office-com","path":".shared/office-com","consumers":["docx-win","pptx-win","xlsx-win"]},{"name":"visual-runtime","path":".shared/visual-runtime","consumers":["artifact-runtime-codex","canvas-design-codex","frontend-design-codex","theme-factory-codex","web-artifacts-builder-codex"]}],"skills":[{"name":"adversarial-plan-review-codex","path":"adversarial-plan-review-codex","family":"planning","status":"supported","description":"Hostile review of execution plans before implementation.","platform
+{
+  "schema_version": 1,
+  "repository": "dachent/skills",
+  "policy": {
+    "supported_statuses": [
+      "supported",
+      "experimental",
+      "deprecated",
+      "archived"
+    ],
+    "source_classifications": [
+      "repo-owned-original",
+      "local-source-import",
+      "light-adaptation",
+      "medium-adaptation",
+      "heavy-adaptation",
+      "derived-work"
+    ],
+    "required_packaging_for_supported": [
+      "skill_file",
+      "agent_metadata"
+    ],
+    "catalog_groups": [
+      {
+        "key": "native-extensions",
+        "title": "Native application skill extensions",
+        "description": "Forked or adapted skills that replace generic file handling with native desktop application automation."
+      },
+      {
+        "key": "codex-ports",
+        "title": "Claude and agent workflow ports for Codex",
+        "description": "External agent workflows ported or substantially adapted for Codex conventions, tools, and artifact contracts."
+      },
+      {
+        "key": "repository-owned",
+        "title": "Repository-owned specialist skills",
+        "description": "Original or locally imported workflows whose current implementation is maintained in this repository."
+      },
+      {
+        "key": "design-pack",
+        "title": "Codex design extension pack",
+        "description": "A coordinated set of visual design skills built around shared browser rendering, evidence, and QA infrastructure."
+      }
+    ]
+  },
+  "shared_components": [
+    {
+      "name": "office-com",
+      "path": ".shared/office-com",
+      "consumers": [
+        "docx-win",
+        "pptx-win",
+        "xlsx-win"
+      ]
+    },
+    {
+      "name": "visual-runtime",
+      "path": ".shared/visual-runtime",
+      "consumers": [
+        "artifact-runtime-codex",
+        "canvas-design-codex",
+        "frontend-design-codex",
+        "theme-factory-codex",
+        "web-artifacts-builder-codex"
+      ]
+    }
+  ],
+  "generated_mirrors": [],
+  "skills": [
+    {
+      "name": "adversarial-plan-review-codex",
+      "path": "adversarial-plan-review-codex",
+      "family": "planning",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when a plan needs hostile review before execution, especially high-risk coding, business deliverables, migrations, no-git changes, weak validation, stale assumptions, rollback gaps, or plans that must be safe for another agent to execute.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "adversarial-plan-review-codex/SKILL.md",
+        "agent_metadata": "adversarial-plan-review-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "medium-adaptation",
+        "repository": "dachent/cdc05151d047708c290bd4da0aaeed96",
+        "path": "deep_planning.txt",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_deep_planning_validator.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "artifact-runtime-codex",
+      "path": "artifact-runtime-codex",
+      "family": "visual",
+      "catalog_group": "design-pack",
+      "status": "supported",
+      "description": "Use when Codex needs to run, package, validate, hand off, or debug the runtime for a browser visual artifact, including local server setup, asset paths, evidence bundles, screenshot review artifacts, or no-template visual QA handoff.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "artifact-runtime-codex/SKILL.md",
+        "agent_metadata": "artifact-runtime-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_visual_skills_contract.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "canvas-design-codex",
+      "path": "canvas-design-codex",
+      "family": "visual",
+      "catalog_group": "design-pack",
+      "status": "supported",
+      "description": "Use when Codex needs to build, revise, debug, or verify canvas, SVG, WebGL, Three.js, custom charting, diagram, game, generative visual, or pixel-based browser artwork where screenshot, pixel, animation, or image bounds evidence matters.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "canvas-design-codex/SKILL.md",
+        "agent_metadata": "canvas-design-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_visual_skills_contract.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "code-mapper-skill",
+      "path": "code-mapper-skill",
+      "family": "code-analysis",
+      "catalog_group": "repository-owned",
+      "status": "supported",
+      "description": "Maps Python imports, symbol references, artifact use, contracts, catalog relationships, OpenLineage datasets, and selectively triggered CodeQL local value/taint flow. Use for dependency maps, callers, inputs/outputs, APIs/schemas, Backstage relationships, blast radius, and semantic tracing. Works on a local path or Git URL.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "code-analysis"
+      },
+      "packaging": {
+        "skill_file": "code-mapper-skill/SKILL.md",
+        "agent_metadata": "code-mapper-skill/agents/openai.yaml",
+        "provenance_file": "code-mapper-skill/PROVENANCE.md"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python -m unittest -v smoke_test test_codeql_policy test_codeql_runtime test_codeql_cli"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "deep-planning-codex",
+      "path": "deep-planning-codex",
+      "family": "planning",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when a project needs deep, gated planning before execution, especially high-stakes coding, failed prior attempts, business deliverables, mixed business-coding work, no-git workflows, or plans that need evidence, probes, verification, and adversarial review.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "deep-planning-codex/SKILL.md",
+        "agent_metadata": "deep-planning-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "heavy-adaptation",
+        "repository": "dachent/cdc05151d047708c290bd4da0aaeed96",
+        "path": "deep_planning.txt",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_deep_planning_validator.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "document-handoff",
+      "path": "document-handoff",
+      "family": "handoff",
+      "catalog_group": "repository-owned",
+      "status": "supported",
+      "description": "Create a comprehensive project handoff package \u2014 workfolder copy + dark-mode HTML memo \u2014 from Claude Code or Codex projects. Run at any project milestone.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex",
+        "claude-code"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "document-handoff/SKILL.md",
+        "agent_metadata": "document-handoff/agents/openai.yaml",
+        "provenance_file": "document-handoff/PROVENANCE.md"
+      },
+      "source": {
+        "classification": "local-source-import",
+        "initial_commit": "0aadb9e28397b07a75853d40a78610bc21cebc81",
+        "provenance_status": "unresolved-original-source"
+      },
+      "validation": {
+        "hosted_commands": [
+          "node --test document-handoff/scripts/tests/*.test.mjs"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "docx-win",
+      "path": "docx-win",
+      "family": "office",
+      "catalog_group": "native-extensions",
+      "status": "supported",
+      "description": "native microsoft word automation for windows .docx workflows. use when chatgpt or codex is running on windows with microsoft word installed and needs to create, edit, review, convert, or verify word documents through word com automation. trigger for .docx or .doc requests, professional word deliverables, no-template document polish, tracked changes, comments, find and replace, table of contents, headers and footers, page numbering, layout-sensitive edits, or exporting a word document to pdf for review. prefer this skill over libreoffice-based document workflows when word is available.",
+      "platforms": [
+        "windows"
+      ],
+      "agents": [
+        "codex",
+        "claude-code"
+      ],
+      "runtimes": {
+        "type": "office"
+      },
+      "packaging": {
+        "skill_file": "docx-win/SKILL.md",
+        "agent_metadata": "docx-win/agents/openai.yaml",
+        "provenance_file": "docx-win/PROVENANCE.md"
+      },
+      "source": {
+        "classification": "heavy-adaptation",
+        "repository": "anthropics/skills",
+        "path": "skills/docx",
+        "revision": "57546260929473d4e0d1c1bb75297be2fdfa1949"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_office_com_contract.py"
+        ],
+        "environment_dependent_commands": [
+          "powershell -ExecutionPolicy Bypass -File .\\docx-win\\scripts\\smoke-test.ps1"
+        ]
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "frontend-design-codex",
+      "path": "frontend-design-codex",
+      "family": "visual",
+      "catalog_group": "design-pack",
+      "status": "supported",
+      "description": "Use when Codex is building, revising, or reviewing a frontend UI, web app screen, responsive layout, component surface, dashboard view, form flow, or no-template product interface that needs visual polish, accessibility, screenshots, or browser QA.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "frontend-design-codex/SKILL.md",
+        "agent_metadata": "frontend-design-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_visual_skills_contract.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "grill-me-codex",
+      "path": "grill-me-codex",
+      "family": "interview",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when the user says grill me, wants to stress-test a plan or design, needs a rigorous interview before committing to a decision, or asks for adversarial product, architecture, or implementation questions.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "grill-me-codex/SKILL.md",
+        "agent_metadata": "grill-me-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "medium-adaptation",
+        "repository": "mattpocock/skills",
+        "path": "skills/productivity/grill-me",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "grill-with-docs-codex",
+      "path": "grill-with-docs-codex",
+      "family": "interview",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when the user wants to stress-test a plan against project terminology, domain language, CONTEXT.md, ADRs, existing docs, or code-backed architectural decisions.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "grill-with-docs-codex/SKILL.md",
+        "agent_metadata": "grill-with-docs-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "medium-adaptation",
+        "repository": "mattpocock/skills",
+        "path": "skills/engineering/grill-with-docs",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "handoff-codex",
+      "path": "handoff-codex",
+      "family": "handoff",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when the user asks for a handoff, session summary, context packet, continuation note, or wants another agent or future session to pick up the current work.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "handoff-codex/SKILL.md",
+        "agent_metadata": "handoff-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "medium-adaptation",
+        "repository": "mattpocock/skills",
+        "path": "skills/productivity/handoff",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "pptx-win",
+      "path": "pptx-win",
+      "family": "office",
+      "catalog_group": "native-extensions",
+      "status": "supported",
+      "description": "windows powerpoint automation and no-template deck design support for .pptx files in codex app or other local windows environments with microsoft 365 installed. use when chatgpt needs to open, inspect, edit, create, render, export, or qa powerpoint presentations on windows, especially new decks without a template, existing deck edits, speaker notes, slide images, pdf export, placeholder replacement, visual QA, or smoke testing via native powerpoint com automation. prefer this skill over libreoffice-based flows when powerpoint desktop is available.",
+      "platforms": [
+        "windows"
+      ],
+      "agents": [
+        "codex",
+        "claude-code"
+      ],
+      "runtimes": {
+        "type": "office"
+      },
+      "packaging": {
+        "skill_file": "pptx-win/SKILL.md",
+        "agent_metadata": "pptx-win/agents/openai.yaml",
+        "provenance_file": "pptx-win/PROVENANCE.md"
+      },
+      "source": {
+        "classification": "heavy-adaptation",
+        "repository": "anthropics/skills",
+        "path": "skills/pptx",
+        "revision": "57546260929473d4e0d1c1bb75297be2fdfa1949"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_office_com_contract.py"
+        ],
+        "environment_dependent_commands": [
+          "powershell -ExecutionPolicy Bypass -File .\\pptx-win\\scripts\\smoke-test.ps1"
+        ]
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "repo-map-codex",
+      "path": "repo-map-codex",
+      "family": "planning",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when planning needs a durable project map before execution, especially unfamiliar codebases, no-git folders, business artifact projects, mixed business-coding work, dependency discovery, test command discovery, or evidence cataloging.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "repo-map-codex/SKILL.md",
+        "agent_metadata": "repo-map-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "medium-adaptation",
+        "repository": "dachent/cdc05151d047708c290bd4da0aaeed96",
+        "path": "deep_planning.txt",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_deep_planning_validator.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "theme-factory-codex",
+      "path": "theme-factory-codex",
+      "family": "visual",
+      "catalog_group": "design-pack",
+      "status": "supported",
+      "description": "Use when Codex needs to create, adapt, audit, or repair a visual theme, design tokens, color palette, typography scale, spacing system, CSS variables, or brand-like styling for a no-template frontend, web artifact, dashboard, or visual deliverable.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "theme-factory-codex/SKILL.md",
+        "agent_metadata": "theme-factory-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_visual_skills_contract.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "ultraplan-codex",
+      "path": "ultraplan-codex",
+      "family": "planning",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when the user says ultraplan, invokes $ultraplan-codex, wants a thorough plan before coding, needs architectural decisions, asks for a grounded implementation plan, or faces a complex multi-file implementation task.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "ultraplan-codex/SKILL.md",
+        "agent_metadata": "ultraplan-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "heavy-adaptation",
+        "repository": "6missedcalls/ultraplan",
+        "path": ".",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_deep_planning_validator.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "verification-plan-codex",
+      "path": "verification-plan-codex",
+      "family": "planning",
+      "catalog_group": "codex-ports",
+      "status": "supported",
+      "description": "Use when a plan needs proof criteria before execution, especially coding changes, business deliverables, mixed business-coding projects, acceptance criteria, rollback triggers, manual checks, or final validation design.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "verification-plan-codex/SKILL.md",
+        "agent_metadata": "verification-plan-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "medium-adaptation",
+        "repository": "dachent/cdc05151d047708c290bd4da0aaeed96",
+        "path": "deep_planning.txt",
+        "provenance_status": "revision-unresolved"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_deep_planning_validator.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "web-artifacts-builder-codex",
+      "path": "web-artifacts-builder-codex",
+      "family": "visual",
+      "catalog_group": "design-pack",
+      "status": "supported",
+      "description": "Use when Codex needs to create, package, revise, or verify a standalone web artifact such as an HTML report, dashboard, microsite, interactive explainer, data story, or browser-delivered deliverable with screenshots, console capture, and evidence packaging.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "prompt"
+      },
+      "packaging": {
+        "skill_file": "web-artifacts-builder-codex/SKILL.md",
+        "agent_metadata": "web-artifacts-builder-codex/agents/openai.yaml"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_visual_skills_contract.py"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
+      "name": "xlsx-win",
+      "path": "xlsx-win",
+      "family": "office",
+      "catalog_group": "native-extensions",
+      "status": "supported",
+      "description": "Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.",
+      "platforms": [
+        "windows"
+      ],
+      "agents": [
+        "codex",
+        "claude-code"
+      ],
+      "runtimes": {
+        "type": "office"
+      },
+      "packaging": {
+        "skill_file": "xlsx-win/SKILL.md",
+        "agent_metadata": "xlsx-win/agents/openai.yaml",
+        "provenance_file": "xlsx-win/PROVENANCE.md"
+      },
+      "source": {
+        "classification": "heavy-adaptation",
+        "repository": "anthropics/skills",
+        "path": "skills/xlsx",
+        "revision": "57546260929473d4e0d1c1bb75297be2fdfa1949"
+      },
+      "validation": {
+        "hosted_commands": [
+          "python .\\tools\\test_office_com_contract.py"
+        ],
+        "environment_dependent_commands": [
+          "powershell -ExecutionPolicy Bypass -File .\\xlsx-win\\scripts\\smoke-test.ps1"
+        ]
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    }
+  ]
+}

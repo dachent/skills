@@ -28,7 +28,9 @@ class ManifestValidatorTest(unittest.TestCase):
                 "supported_statuses": ["supported", "archived"],
                 "source_classifications": ["repo-owned-original"],
                 "required_packaging_for_supported": ["skill_file", "agent_metadata"],
+                "catalog_groups": [{"key": "test", "title": "Test", "description": "Test skills."}],
             },
+            "generated_mirrors": [],
             "shared_components": [
                 {"name": "runtime", "path": ".shared/runtime", "consumers": ["sample-skill"]}
             ],
@@ -37,6 +39,7 @@ class ManifestValidatorTest(unittest.TestCase):
                     "name": "sample-skill",
                     "path": "sample-skill",
                     "family": "test",
+                    "catalog_group": "test",
                     "status": "supported",
                     "description": "Sample.",
                     "platforms": ["linux"],
