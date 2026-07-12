@@ -1,6 +1,9 @@
 name: Validate
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - agent/issue-42-generated-repository-artifacts
