@@ -11,6 +11,30 @@ USES_RE = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)")
 RUNS_ON_RE = re.compile(r"^\s*runs-on:\s*([^#]+?)\s*$")
 APPROVED_RUNNERS = {"ubuntu-latest", "windows-latest", "macos-latest"}
 APPROVED_SELF_HOSTED_LABELS = {"self-hosted", "windows", "office"}
+OFFICE_COMPATIBLE_ACTIONS = {
+    "actions/checkout": "34e114876b0b11c390a56381ad16ebd13914f8d5",
+    "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+}
+
+
+def validate_office_runner_action_compatibility(text: str, rel: str) -> list[str]:
+    errors: list[str] = []
+    if rel != ".github/workflows/office-smoke.yml":
+        return errors
+
+    for action, expected_sha in OFFICE_COMPATIBLE_ACTIONS.items():
+        matches = re.findall(rf"uses:\s*{re.escape(action)}@([0-9a-f]{{40}})", text)
+        if len(matches) != 1:
+            errors.append(
+                f"{rel}: expected exactly one {action} use in the protected Office workflow, found {len(matches)}"
+            )
+            continue
+        if matches[0] != expected_sha:
+            errors.append(
+                f"{rel}: {action} must remain pinned to the certified Node 20-compatible SHA "
+                f"{expected_sha} until the Office runner is upgraded and a manual smoke run passes"
+            )
+    return errors
 
 
 def validate_workflows(root: Path = WORKFLOW_ROOT) -> list[str]:
@@ -66,6 +90,7 @@ def validate_workflows(root: Path = WORKFLOW_ROOT) -> list[str]:
                     )
         if "actions/checkout@" in text and "persist-credentials: false" not in text:
             errors.append(f"{rel}: checkout must set persist-credentials: false")
+        errors.extend(validate_office_runner_action_compatibility(text, rel))
     return errors
 
 
