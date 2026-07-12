@@ -12,18 +12,19 @@ permissions:
   contents: read
 
 jobs:
-  dump-manifest:
+  snapshot:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Upload repository inputs
+      - name: Upload repository snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: issue-42-inputs
+          name: issue-42-repository
           path: |
-            skills-manifest.json
-            README.md
+            .
+            !.git/**
+          include-hidden-files: true
           if-no-files-found: error
