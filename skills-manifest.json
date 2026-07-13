@@ -203,6 +203,40 @@
       "last_reviewed": "2026-07-12"
     },
     {
+      "name": "code-intelligence",
+      "path": "code-intelligence",
+      "family": "code-analysis",
+      "catalog_group": "repository-owned",
+      "status": "experimental",
+      "description": "Route repository understanding and change-impact work across direct source inspection, fresh Graphify discovery, Python-focused code-mapper analysis, selective CodeQL enrichment, and explicit durable repo-map planning. Use for unfamiliar repositories, architecture questions, locating implementations, Python blast radius, contracts, artifacts, lineage, security-flow triage, and graph freshness decisions.",
+      "platforms": [
+        "cross-platform"
+      ],
+      "agents": [
+        "codex"
+      ],
+      "runtimes": {
+        "type": "code-analysis"
+      },
+      "packaging": {
+        "skill_file": "code-intelligence/SKILL.md",
+        "agent_metadata": "code-intelligence/agents/openai.yaml",
+        "provenance_file": "code-intelligence/PROVENANCE.md"
+      },
+      "source": {
+        "classification": "repo-owned-original"
+      },
+      "validation": {
+        "ci_enabled": true,
+        "hosted_commands": [
+          "python -m unittest discover -s .\\code-intelligence\\scripts -p \"test_*.py\" -v"
+        ],
+        "environment_dependent_commands": []
+      },
+      "owner": "@dachent",
+      "last_reviewed": "2026-07-12"
+    },
+    {
       "name": "code-mapper-skill",
       "path": "code-mapper-skill",
       "family": "code-analysis",
@@ -276,7 +310,7 @@
       "family": "handoff",
       "catalog_group": "repository-owned",
       "status": "supported",
-      "description": "Create a comprehensive project handoff package \u2014 workfolder copy + dark-mode HTML memo \u2014 from Claude Code or Codex projects. Run at any project milestone.",
+      "description": "Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from Claude Code or Codex projects. Run at any project milestone.",
       "platforms": [
         "cross-platform"
       ],
