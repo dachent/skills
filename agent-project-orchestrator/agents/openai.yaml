@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Project Orchestrator"
-  short_description: "Design durable multi-harness agent project workflows"
-  default_prompt: "Assess or design this project as a durable human-agent operating system with explicit backlog, memory, evidence, sprint boundaries, provider QC, and terminal verification."
+  short_description: "Route durable projects through three certified harness/model scenarios"
+  default_prompt: "Assess or operate this project using the shared methodology, resolve the exact supported harness/model scenario, apply its control policy, and preserve backlog, memory, evidence, approvals, sprint boundaries, provider QC, and terminal verification."

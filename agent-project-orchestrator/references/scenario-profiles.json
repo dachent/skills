@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "status": "initial-three-scenario-mvp",
+  "policy_floor": {
+    "trusted_approval_provenance": "required",
+    "destructive_action_control": "required",
+    "evidence_traceability": "required",
+    "authoritative_state_policy": "runtime_when_available_single_writer_otherwise",
+    "terminal_verification": "required",
+    "silent_required_provider_fallback": "forbidden"
+  },
+  "scenarios": [
+    {
+      "id": "claude-code-opus-4.8",
+      "harness": "claude-code",
+      "model": {
+        "canonical": "claude-opus-4.8",
+        "aliases": ["claude-opus-4.8", "opus-4.8", "opus 4.8"]
+      },
+      "supported_profiles": ["standard", "autonomous"],
+      "scenario_reference": "references/scenario-claude-code-opus-4.8.md",
+      "orchestration": {
+        "instruction_style": "explicit_procedural",
+        "capability_selection": "router_preselected",
+        "continuation": "phase_bounded",
+        "gate_density": "high",
+        "state_update_frequency": "major_phase",
+        "provider_loading": "explicit",
+        "max_repair_attempts": 1,
+        "max_parallel_workers": 2,
+        "intermediate_artifact_detail": "comprehensive"
+      },
+      "approval_gates": [
+        "project_contract",
+        "post_investigation_when_material",
+        "design_selection",
+        "execution_plan",
+        "material_scope_change",
+        "destructive_or_external_action"
+      ],
+      "review": {
+        "minimum_independence_level": 3,
+        "preferred_mode": "fresh_context"
+      }
+    },
+    {
+      "id": "claude-code-sonnet-5",
+      "harness": "claude-code",
+      "model": {
+        "canonical": "claude-sonnet-5",
+        "aliases": ["claude-sonnet-5", "sonnet-5", "sonnet 5"]
+      },
+      "supported_profiles": ["standard", "autonomous"],
+      "scenario_reference": "references/scenario-claude-code-sonnet-5.md",
+      "orchestration": {
+        "instruction_style": "goal_bounded",
+        "capability_selection": "router_preselected_with_recorded_skips",
+        "continuation": "task_batch_or_bounded_sprint",
+        "gate_density": "medium",
+        "state_update_frequency": "task_batch",
+        "provider_loading": "selective",
+        "max_repair_attempts": 2,
+        "max_parallel_workers": 3,
+        "intermediate_artifact_detail": "moderate"
+      },
+      "approval_gates": [
+        "project_contract",
+        "material_architecture_decision",
+        "execution_sprint",
+        "material_scope_change",
+        "destructive_or_external_action"
+      ],
+      "review": {
+        "minimum_independence_level": 3,
+        "preferred_mode": "fresh_context"
+      }
+    },
+    {
+      "id": "codex-gpt-5.6-sol",
+      "harness": "codex",
+      "model": {
+        "canonical": "gpt-5.6-sol",
+        "aliases": ["gpt-5.6-sol", "gpt 5.6 sol", "sol-5.6", "sol 5.6"]
+      },
+      "supported_profiles": ["standard", "autonomous"],
+      "scenario_reference": "references/scenario-codex-gpt-5.6-sol.md",
+      "orchestration": {
+        "instruction_style": "outcome_contract",
+        "capability_selection": "adaptive_within_approved_graph",
+        "continuation": "bounded_sprint",
+        "gate_density": "low",
+        "state_update_frequency": "milestone_structured_delta",
+        "provider_loading": "lazy",
+        "max_repair_attempts": 2,
+        "max_parallel_workers": 3,
+        "intermediate_artifact_detail": "compact"
+      },
+      "approval_gates": [
+        "project_contract",
+        "reserved_human_decision",
+        "material_scope_change",
+        "destructive_or_external_action"
+      ],
+      "review": {
+        "minimum_independence_level": 3,
+        "preferred_mode": "sealed_or_fresh_context"
+      }
+    }
+  ]
+}
