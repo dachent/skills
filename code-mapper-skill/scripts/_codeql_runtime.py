@@ -1,6 +1,6 @@
 """Local-only CodeQL discovery, lifecycle, targeted query, and cache integration."""
 from __future__ import annotations
-import csv,hashlib,json,os,re,shutil,subprocess,tempfile,time
+import csv,hashlib,json,os,re,shutil,subprocess,sys,tempfile,time
 from pathlib import Path
 from typing import Any,Mapping
 from _codeql_policy import *
@@ -83,10 +83,33 @@ def _size_mb(path):
    if child.is_file():total+=child.stat().st_size
   except OSError:pass
  return total/1_000_000
+def _ensure_pack_lock(codeql,d,timeout=120.0):
+ """The generated query pack (ensure_query_pack) declares codeql/python-all but ships no
+ lock file. Both `database create --build-mode=none` (data-extension resolution) and
+ `query run` resolve that pack and fail hard without one ("no lock file is present ...").
+ Run `codeql pack install` once per cache to write codeql-pack.lock.yml and fetch deps into
+ ~/.codeql/packages (offline after the first fetch). Idempotent: skipped once the lock exists."""
+ lock=d/"codeql-pack.lock.yml"
+ if lock.exists() or not (d/"qlpack.yml").exists():return {"ok":True}
+ try:subprocess.run([codeql,"pack","install",str(d)],capture_output=True,text=True,timeout=timeout,check=True)
+ except (subprocess.SubprocessError,OSError) as exc:return {"ok":False,"error":(getattr(exc,"stderr","") or str(exc)).strip()}
+ return {"ok":True}
+def _codeql_build_env():
+ """Environment for `codeql database create`. CodeQL's Python extractor probes the
+ Windows `py` launcher (buildtools/version.py in the extractor); when `py` is absent
+ -- normal on pyenv-win, which installs only python.exe -- the build aborts with exit 4
+ ("The `py` launcher is required"). The extractor honors the documented
+ `python_executable_name` option, exposed as CODEQL_EXTRACTOR_PYTHON_OPTION_PYTHON_EXECUTABLE_NAME,
+ which bypasses the `py` probe and uses the named interpreter directly. Only set it when
+ `py` is genuinely missing, so machines that have the launcher keep their existing behavior."""
+ env=dict(os.environ)
+ if os.name=="nt" and shutil.which("py") is None and "CODEQL_EXTRACTOR_PYTHON_OPTION_PYTHON_EXECUTABLE_NAME" not in env:
+  env["CODEQL_EXTRACTOR_PYTHON_OPTION_PYTHON_EXECUTABLE_NAME"]=sys.executable
+ return env
 def build_database(codeql,root,d,fingerprint,version,timeout):
  if not supports_safe_python_build(version):return {"ok":False,"timeout":False,"error":f"CodeQL {version} lacks required safe Python --build-mode=none support (minimum 2.16.4)"}
  d.mkdir(parents=True,exist_ok=True);database=d/"database";tmp=d/"database-building";shutil.rmtree(tmp,ignore_errors=True);started=time.perf_counter();cmd=[codeql,"database","create","--language=python",f"--source-root={root.resolve()}","--build-mode=none","--overwrite","--",str(tmp)]
- try:subprocess.run(cmd,capture_output=True,text=True,timeout=timeout,check=True)
+ try:subprocess.run(cmd,capture_output=True,text=True,timeout=timeout,check=True,env=_codeql_build_env())
  except subprocess.TimeoutExpired:shutil.rmtree(tmp,ignore_errors=True);return {"ok":False,"timeout":True,"error":f"CodeQL database build exceeded {timeout:.1f}s"}
  except (subprocess.CalledProcessError,OSError) as exc:shutil.rmtree(tmp,ignore_errors=True);return {"ok":False,"timeout":False,"error":(getattr(exc,"stderr","") or str(exc)).strip()}
  elapsed=time.perf_counter()-started;shutil.rmtree(database,ignore_errors=True);os.replace(tmp,database);meta={"schemaVersion":DATABASE_SCHEMA_VERSION,"repoRoot":str(root.resolve()),"sourceFingerprint":fingerprint,"codeqlVersion":version,"buildSeconds":elapsed,"databaseMb":_size_mb(database),"buildMode":"none"};_write(d/"database-metadata.json",meta);return {"ok":True,"timeout":False,**meta}
@@ -166,6 +189,9 @@ def enrich_with_codeql(*,repo_root,cache_dir,graph,mode="existing",intent="mappi
  if not codeql:
   decision=select_codeql_action(mode=mode,intent=intent,metrics=metrics,environment={"cachedResultsCurrent":False,"codeqlInstalled":False,"currentDatabaseExists":False,"previousTimeout":timed_out,"buildSupported":False},history=history,repository=repo,budgets=budgets);return finish(decision)
  version=codeql_version(codeql);current=database_is_current(d,root,fingerprint,version);key=_result_key(fingerprint,version,qh,sinks);cached=_cached(d,key);env={"cachedResultsCurrent":cached is not None,"codeqlInstalled":True,"currentDatabaseExists":current,"previousTimeout":timed_out,"buildSupported":supports_safe_python_build(version)};decision=select_codeql_action(mode=mode,intent=intent,metrics=metrics,environment=env,history=history,repository=repo,budgets=budgets);build=query=None;rows=[]
+ if decision.action in (BUILD_AND_RUN,RUN_EXISTING_DATABASE):
+  lock=_ensure_pack_lock(codeql,d)
+  if not lock.get("ok"):return finish(decision,[],False,{"ok":False,"timeout":False,"error":"codeql pack install failed: "+lock.get("error","")},None)
  if decision.action==USE_CACHED_RESULTS:rows=cached.get("rows",[]) if cached else []
  elif decision.action==BUILD_AND_RUN:
   build=build_database(codeql,root,d,fingerprint,version,float(budgets["maxBuildSeconds"]))

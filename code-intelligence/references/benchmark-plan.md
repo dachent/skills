@@ -1,28 +1,22 @@
 # Benchmark Plan
 
-## Benchmark 1: Router overhead on code-mapper
+## Benchmark 1: Router overhead on code-mapper — RETIRED
 
-### Question
+The router is not a runtime process. `route.py` exposes `decide_route` as an
+importable, side-effect-free policy function; Claude applies the decision tree
+in-context by reading `routing-policy.md`. There is no CLI to invoke between the
+request and `code-mapper-skill`, so there is no per-call router overhead to
+measure and no gate to meet.
 
-How much latency and resource overhead does `code-intelligence` add when the correct route is directly to `code-mapper-skill`?
-
-### Conditions
-
-- baseline: invoke `code-mapper-skill/scripts/blast_radius.py` directly;
-- candidate: invoke through the router with identical mapper arguments;
-- fixtures: 11, 123, and at least 603 Python modules plus contracts;
-- modes: module-only and Jedi symbol references;
-- caches: warm and cold;
-- Graphify states: absent, installed without graph, fresh graph, stale flag, and large graph present.
-
-### Metrics and gates
-
-- median absolute overhead at most 75 ms;
-- median relative overhead at most 5 percent;
-- p95 absolute overhead at most 200 ms;
-- zero graph JSON reads;
-- zero Graphify subprocesses;
-- equivalent mapper output apart from route provenance.
+This benchmark previously measured invoking `route.py` as a subprocess ahead of
+the mapper. That path was removed: it added ~130 ms of interpreter and import
+startup per call (dominated by `argparse`→`shutil` and `dataclasses`→`inspect`
+imports) for zero routing benefit, and it failed its own 75 ms / 5 % / 200 ms
+gates by 2–5x when measured. Correctness of the policy is covered by
+`scripts/test_route.py`, which imports `decide_route` directly at ~0 ms marginal
+cost. The freshness / provider-independence invariants that used to ride on this
+benchmark (zero graph JSON reads, zero Graphify subprocesses on the known-target
+path) are asserted structurally by `test_route.py` / `test_preflight.py` instead.
 
 ## Benchmark 2: Discovery-provider value
 

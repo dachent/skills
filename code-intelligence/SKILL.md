@@ -42,7 +42,7 @@ Codebase-Memory is a benchmark candidate, not an active provider. Serena, Joern/
 
 ## Performance Boundaries
 
-The direct route to `code-mapper-skill` must not read or parse Graphify's graph and must not spawn Graphify. Target router overhead is at most 75 ms median, 200 ms p95, and 5 percent relative to the mapper baseline.
+The direct route to `code-mapper-skill` must not read or parse Graphify's graph and must not spawn Graphify. The router itself adds no runtime overhead: routing is a decision tree applied in-context, not a process. `route.py` is an importable policy function (`decide_route`), never a subprocess in the request path — there is no CLI to spawn between the request and the selected provider.
 
 ## Required References
 
@@ -57,9 +57,8 @@ The direct route to `code-mapper-skill` must not read or parse Graphify's graph 
 
 ## Bundled Scripts
 
-- `scripts/route.py`
-- `scripts/preflight.py`
-- `scripts/benchmark_router_overhead.py`
+- `scripts/route.py` — importable routing policy (`decide_route`); no CLI, not spawned at runtime
+- `scripts/preflight.py` — Graphify freshness / capability check, run only when graph-backed work is in scope
 - `scripts/test_route.py`
 - `scripts/test_preflight.py`
 

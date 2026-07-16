@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
 """Low-overhead local capability and Graphify freshness preflight.
 
+Unlike route.py this is a real runnable entry point on purpose: it does
+irreducible I/O (git rev-parse + status, GRAPH_REPORT.md read, `which` lookups)
+that Claude consumes by running the command and reading the JSON verdict.
+Bundling that work + the freshness state machine into one process is fewer
+spawns and round-trips than doing the checks piecemeal. argparse is avoided
+(one optional positional arg does not justify ~20ms of import startup);
+`inspect` stays importable for test_preflight.py.
+
 This script intentionally does not parse graph.json.
 """
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 BUILT_COMMIT = re.compile(r"Built from commit:\s*`?([0-9a-fA-F]{7,40})`?")
@@ -105,11 +113,13 @@ def inspect(repo: Path) -> dict:
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("repo", nargs="?", default=".")
-    args = parser.parse_args()
-    print(json.dumps(inspect(Path(args.repo)), indent=2, sort_keys=True))
+def main(argv: list[str] | None = None) -> None:
+    args = sys.argv[1:] if argv is None else argv
+    if args and args[0] in ("-h", "--help"):
+        print("usage: preflight.py [REPO]   # REPO defaults to '.'")
+        return
+    repo = args[0] if args else "."
+    print(json.dumps(inspect(Path(repo)), indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

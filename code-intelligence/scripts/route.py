@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Deterministic routing helper for the code-intelligence skill."""
+"""Deterministic routing helper for the code-intelligence skill.
+
+Importable policy only -- no CLI. Claude applies this decision tree in-context
+by reading references/routing-policy.md; `decide_route` is the executable
+reference implementation that test_route.py pins. It was never meant to be
+spawned as a subprocess (that cost ~130ms of interpreter+import startup per
+call for zero routing benefit), so no `main`/argparse entry point exists.
+"""
 from __future__ import annotations
 
-import argparse
-import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Iterable
 
 
@@ -110,39 +115,3 @@ def decide_route(
         warnings=[warning],
         must_load_graph=False,
     )
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--question", default="")
-    parser.add_argument("--language")
-    parser.add_argument("--target-file")
-    parser.add_argument("--symbol")
-    parser.add_argument("--repo-size", choices=("small", "medium", "large", "unknown"), default="unknown")
-    parser.add_argument(
-        "--graph-state",
-        choices=("fresh", "code_stale", "semantic_stale", "unknown", "missing", "corrupt"),
-        default="missing",
-    )
-    parser.add_argument("--providers", default="", help="comma-separated provider names")
-    parser.add_argument("--security-flow", action="store_true")
-    parser.add_argument("--artifact-lineage", action="store_true")
-    parser.add_argument("--durable-map", action="store_true")
-    args = parser.parse_args()
-    decision = decide_route(
-        question=args.question,
-        language=args.language,
-        target_file=args.target_file,
-        symbol=args.symbol,
-        repo_size=args.repo_size,
-        graph_state=args.graph_state,
-        providers=[p.strip() for p in args.providers.split(",") if p.strip()],
-        security_flow=args.security_flow,
-        artifact_lineage=args.artifact_lineage,
-        durable_map=args.durable_map,
-    )
-    print(json.dumps(asdict(decision), indent=2, sort_keys=True))
-
-
-if __name__ == "__main__":
-    main()
