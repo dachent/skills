@@ -1,5 +1,19 @@
 # Agent Project Orchestrator
 
+> [!WARNING]
+> **Evaluation finding: not currently high value; not better or more performant than the original gist scaffold.**
+> Real code in this package is limited to `scripts/doctor.py` and `scripts/resolve_scenario.py` — a package
+> validator and a harness/model policy lookup. None of the claimed value-add (durable backlog/memory/evidence
+> beating prose state) is implemented. A full Stage 1 (`projectctl` shadow-state) implementation was drafted,
+> then independently invalidated by an adversarial review (7/20 findings confirmed on re-verification) and a
+> spike against a real production project's actual scaffold output: the design's core premise (a fixed,
+> generically parseable Markdown grammar) does not match how the scaffold actually gets used, and the draft
+> had two real data-loss bugs besides. Using this package today over the raw gist adds ceremony and a
+> hard-stop on uncertified models, with no offsetting capability gained. Full finding: issue
+> [#62](https://github.com/dachent/skills/issues/62), resolution in PR
+> [#63](https://github.com/dachent/skills/pull/63). Re-evaluate only against a design grounded in real
+> captured scaffold output, not an assumed grammar.
+
 `agent-project-orchestrator` is an experimental architecture and control-plane skill for long-running human-agent projects.
 
 It generalizes a proven Claude Code deep-planning scaffold into a project operating model with:
