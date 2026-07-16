@@ -6,6 +6,19 @@ Do not replace the demonstrated scaffold in one cutover.
 
 Introduce deterministic behavior in shadow mode, verify parity, then transfer authority incrementally.
 
+## Status update: Stage 1 mirror-import rejected (issue #62)
+
+A drafted Stage 1 implementation used a `mirror-import` command as its primary write path, parsing the gist
+scaffold's Markdown output into the task/decision/evidence schema below. An adversarial review plus a spike
+against real production scaffold artifacts found the premise false: real Phase-1 catalogs and Dead Ends
+Registries are Markdown tables with per-project column sets, and handoffs are free prose under convention
+headers — not a fixed, generically parseable grammar. See
+`references/05-adversarial-architecture-review.md`'s "Generic mirror-import of scaffold Markdown into a
+fixed schema" rejected-design entry and issue #62 for the full finding.
+
+Stage 1 as described below has not been built. Any future attempt should design the state-capture mechanism
+against real captured scaffold output first, not an assumed grammar.
+
 ## Stage 0: package and source hygiene
 
 Complete before runtime implementation:

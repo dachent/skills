@@ -354,6 +354,24 @@ Rejected as premature complexity and supply-chain risk.
 
 Rejected initially because it would couple the proven workflow to an additional operational dependency before the shared state interface is stable.
 
+### Generic mirror-import of scaffold Markdown into a fixed schema
+
+Rejected after a drafted Stage 1 implementation, an independent adversarial review, and a spike against real
+production artifacts (issue #62). The design assumed the gist scaffold and its invoked tools produce a fixed,
+parseable Markdown grammar (headed sections with a specific bullet syntax) that a generic parser could mirror
+into a task/decision/evidence schema without changing the live session.
+
+Real scaffold output does not have this shape. Phase-1 catalogs and Dead Ends Registries are Markdown
+**tables** with column sets that vary per project; handoffs are free prose under convention section headers,
+not a fixed grammar. No generic parser can recover fixed-schema semantics from that without either guessing
+column meaning per project or requiring every session to adopt a new output convention — which itself
+changes the workflow the design was meant to leave alone.
+
+A real production project sampled for the spike already solves durable, resumable, human-readable state
+with a plain dated-file convention (`docs/{adr,decisions,memo}/`, `docs/superpowers/{handoffs,plans,specs,audit}/`)
+and no schema, parser, or CLI. Any future state-capture design should start from real captured scaffold
+output, not an assumed grammar.
+
 ## Final adversarial conclusion
 
 Preserve the operating model. Replace its weakest implementation assumptions:
