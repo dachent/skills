@@ -1,0 +1,7 @@
+{
+  "schema_version": "2.0",
+  "idempotency_key": "fixture-invalid-001",
+  "steps": [
+    { "type": "refresh" }
+  ]
+}

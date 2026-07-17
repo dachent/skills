@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/v2/result.schema.json",
+  "title": "xlsx-win v2 job result",
+  "description": "Computed outcome of a job. `ok` is derived by control-plane code (see result_contract.build_result) from step and invariant outcomes; it is never an independently-settable input and no job manifest may supply it.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "idempotency_key",
+    "final_state",
+    "steps",
+    "invariants",
+    "ok"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "2.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "idempotency_key": { "type": "string", "minLength": 1 },
+    "final_state": {
+      "type": "string",
+      "enum": ["SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"],
+      "description": "Must be one of the state machine's terminal states."
+    },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/step_result" }
+    },
+    "invariants": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/invariant_result" }
+    },
+    "ok": {
+      "type": "boolean",
+      "description": "true iff every step succeeded and every declared invariant passed. Computed, not producer-supplied."
+    }
+  },
+  "definitions": {
+    "error_detail": {
+      "type": "object",
+      "required": ["code", "message", "details"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" },
+        "details": { "type": "object" }
+      }
+    },
+    "step_result": {
+      "type": "object",
+      "required": ["step_index", "type", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "step_index": { "type": "integer", "minimum": 0 },
+        "type": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["succeeded", "failed", "skipped"] },
+        "message": { "type": "string" },
+        "error": { "$ref": "#/definitions/error_detail" }
+      }
+    },
+    "invariant_result": {
+      "type": "object",
+      "required": ["name", "passed"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "passed": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    }
+  }
+}
