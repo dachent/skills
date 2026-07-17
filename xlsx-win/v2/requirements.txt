@@ -1,2 +1,8 @@
 jsonschema>=4.18,<5
+
+# The two real backends issue #35 routes to (see control_plane/file_router.py
+# for the descope rationale -- no PyExcelerate, Aspose.Cells, fastexcel, or
+# Open XML SDK here). Not used by workbook_inventory.py itself, which
+# inspects OOXML packages directly rather than opening them with openpyxl.
 openpyxl>=3.1,<4
+xlsxwriter>=3.2,<4

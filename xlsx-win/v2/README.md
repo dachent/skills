@@ -1,8 +1,9 @@
 # xlsx-win v2 control plane -- contract, validation, and policy only
 
-This directory implements issue #34 (the LLM-facing job/result contract) and
-issue #38 (workbook validation contracts, macro policy, staging, and the
-audit manifest) for the xlsx-win v2 runtime, scoped to a single desktop per
+This directory implements issue #34 (the LLM-facing job/result contract),
+issue #35 (the deterministic file-backend router), and issue #38 (workbook
+validation contracts, macro policy, staging, and the audit manifest) for the
+xlsx-win v2 runtime, scoped to a single desktop per
 [RFC 0002](../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) (which
 amends [RFC 0001](../../docs/rfcs/0001-xlsx-win-runtime-v2.md)).
 
@@ -65,7 +66,9 @@ xlsx-win/v2/
     staging.py                # stage_copy(...) / publish(...) -- #38, RFC 0002 decision 9
     audit_manifest.py          # build_audit_manifest(...) -- #38
     legacy_adapter.py        # translate_refresh_and_recalc(job) -> PowerShell args
-    cli.py                    # `validate`, `dry-run`, `validate-contract` subcommands
+    workbook_inventory.py     # inspect_workbook(path) -- reads the OOXML package directly
+    file_router.py             # choose_backend(intent, inventory) -- deterministic routing
+    cli.py                    # `validate`, `dry-run`, `route`, `validate-contract` subcommands
   tests/
     fixtures/                 # on-disk manifests used by the CLI tests
     wb_fixtures.py             # shared openpyxl workbook-builder helper for tests
@@ -93,21 +96,26 @@ any) passed.
 pip install -r xlsx-win/v2/requirements.txt
 ```
 
-The dependencies are `jsonschema` (there is no JSON-Schema validator in the
-Python standard library, and RFC 0001 requires the contract to be
-JSON-Schema-backed) and `openpyxl` (used only by
-`invariant_evaluator.py`, to read a saved workbook's cached values --
-never to drive Excel).
+`jsonschema` backs the job/result contract (#34) -- there is no JSON-Schema
+validator in the Python standard library, and RFC 0001 requires the contract
+to be JSON-Schema-backed. `openpyxl` and `xlsxwriter` are the two real
+backends the router (#35) chooses between, and `openpyxl` is also what
+`invariant_evaluator.py` (#38) uses to read a saved workbook's cached
+values -- never to drive Excel. Neither is imported by
+`workbook_inventory.py` itself, which inspects OOXML packages directly
+instead of opening them.
 
 ## Using the CLI
 
-All three subcommands work with no Excel installed. `validate-contract`
-does read the workbook file itself (with openpyxl), but never launches
-Excel or touches COM.
+All four subcommands work with no Excel installed. `route` and
+`validate-contract` do read the workbook file itself (`route` via a direct
+OOXML package inspection, `validate-contract` with openpyxl), but neither
+launches Excel or touches COM.
 
 ```
 python xlsx-win/v2/control_plane/cli.py validate           <manifest.json>
 python xlsx-win/v2/control_plane/cli.py dry-run            <manifest.json>
+python xlsx-win/v2/control_plane/cli.py route              <workbook.xlsx> <create_new|edit_existing|convert_format>
 python xlsx-win/v2/control_plane/cli.py validate-contract  <workbook.xlsx> <contract.json>
 ```
 
@@ -115,7 +123,9 @@ python xlsx-win/v2/control_plane/cli.py validate-contract  <workbook.xlsx> <cont
 `{"valid": false, "error": {code, message, details}}` (exit code 1 on
 failure). `dry-run` does the same schema check, then prints the state
 sequence the job would traverse -- including, on a schema failure inside one
-of the steps, a `details.json_path` pointing at the offending step.
+of the steps, a `details.json_path` pointing at the offending step. `route`
+inspects the workbook's OOXML package and prints the resulting
+`RouterDecision` (`backend`, `reason`, `explain`) as JSON.
 
 `validate-contract` schema-checks the contract, evaluates every assertion it
 declares against the workbook's saved cached values, and prints
@@ -253,6 +263,85 @@ implementation. Documented here so a caller isn't surprised:
   with an explanatory reason instead of asserting something that didn't
   happen; every other staging behavior (same-volume publish, backup,
   empty/missing-file refusal) is covered unconditionally.
+
+## File-backend router (issue #35)
+
+Also contract-adjacent, still no Excel: deterministic routing for workbook
+creation, reading, and editing *before* any native Excel compute (#36).
+
+- `control_plane/workbook_inventory.py` -- `inspect_workbook(path)` reads a
+  workbook's raw OOXML package (`zipfile` + minimal namespace-agnostic XML
+  parsing) and returns a `WorkbookInventory` dataclass: `exists`,
+  `file_format`, `sheet_count`, and the risk flags `has_macros`, `is_signed`,
+  `has_external_links`, `has_data_model`, `has_pivots`, `has_slicers`,
+  `has_embedded_objects`, plus `is_classifiable` (False when an xlsx/xlsm-
+  named file can't be positively identified as a well-formed OOXML package).
+  It never imports openpyxl and never raises for a missing or corrupt file --
+  asking openpyxl's own object model whether a workbook is safe would be
+  circular, since part of the job here is deciding whether openpyxl is even
+  safe to open it with.
+- `control_plane/file_router.py` -- `choose_backend(intent, inventory)`
+  returns a `RouterDecision` (`backend`, `reason`, `explain`) using straight
+  boolean logic, no LLM judgment or heuristic scoring. `explain` names the
+  exact inventory fields that drove the decision, so a decision is
+  inspectable in JSON, not just a free-text reason.
+- `control_plane/cli.py route <workbook> <intent>` -- runs both and prints
+  the `RouterDecision` as JSON.
+
+### Single-user descope (RFC 0002) -- what this is, and is not
+
+RFC 0001's "File-backend routing" section lists a full matrix (XlsxWriter,
+PyExcelerate, pandas/Polars, fastexcel/calamine, openpyxl, a targeted OOXML
+patcher, Open XML SDK, Aspose.Cells, Path C bulk writes). RFC 0002 trims that
+to what a one-person desktop deployment actually needs, without evaluating
+or benchmarking the rest of the matrix up front. This issue implements
+exactly three outcomes:
+
+- **`xlsxwriter`** -- new workbook creation with no existing file to
+  preserve.
+- **`openpyxl`** -- editing an existing plain xlsx/xlsm with none of the
+  tracked risk features.
+- **`excel_required`** -- the fail-closed escape hatch for macros,
+  signatures, a Data Model, pivots, slicers, embedded objects, external
+  links, or any workbook this router cannot positively classify as safe.
+  RFC 0001 is explicit that a successful-looking edit is not evidence a
+  workbook was safe to touch outside Excel, so the router never guesses into
+  openpyxl for these.
+
+Plus two edge outcomes: **`convert_required`** for legacy binary `.xls`
+under `edit_existing` (must become `.xlsx` before any Python-side edit --
+this router does not perform the conversion itself; under `create_new` a
+legacy `.xls` target instead fails closed to `excel_required`, since there
+is no existing file for a convert-then-edit path to apply to), and
+**`not_applicable`** for `.csv`/`.tsv` under *any* intent -- plain delimited
+text is not an OOXML workbook, Excel adds no fidelity value over a direct
+text read/write, but neither xlsxwriter (OOXML creation-only) nor openpyxl
+(OOXML structure editing) is a fit for it either, so the router declines to
+claim routing authority over CSV/TSV rather than guessing, for `create_new`
+just as much as for `edit_existing`.
+
+**Explicitly out of scope for #35** (per the amendment):
+
+- PyExcelerate, Aspose.Cells, fastexcel/calamine, and Open XML SDK are not
+  implemented or evaluated here.
+- No benchmark corpus or fixture suite for backend comparison -- that is
+  issue #39's job. The only timing comparison here is one lightweight
+  xlsxwriter-vs-openpyxl sanity check for the new-workbook fast path
+  (`tests/test_file_router.py::test_xlsxwriter_new_workbook_creation_is_faster_than_openpyxl`),
+  not a corpus.
+- pandas is out of scope for routing decisions -- it is a data-shaping tool
+  the skill already uses per `SKILL.md`, not a routing target this module
+  chooses between.
+- The original issue's full inventory (drawings, queries/connections,
+  add-in dependencies, calculation settings, edit volume/shape) is not
+  detected here; only the fields the descoped routing rules actually
+  consume are.
+
+A package-diff test (`tests/test_package_diff.py`) creates a small workbook,
+copies it, makes a trivial openpyxl edit on the copy, and asserts the
+*meaningful* OOXML parts (worksheets, a defined name, a comment) survive the
+round trip -- not a byte-identical zip, since re-serialization churn
+(timestamps, calcChain, part order) is expected.
 
 ## Known gap against the original #34 acceptance criteria
 

@@ -6,6 +6,10 @@ prints the state sequence it would traverse. Neither needs Excel installed,
 and neither reads a workbook file: this module never imports pywin32 or
 anything that touches COM. That is issue #36's job.
 
+`route` (issue #35) inspects a workbook's OOXML package directly rather than
+opening it, via `workbook_inventory.py` (zipfile + minimal XML parsing) --
+no Excel needed, and it never imports openpyxl either.
+
 `validate-contract` (issue #38) does read a workbook file -- with openpyxl,
 never Excel/COM -- to evaluate a validation contract's declared invariants
 against it. It still never imports pywin32 or drives Excel.
@@ -14,6 +18,7 @@ against it. It still never imports pywin32 or drives Excel.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -28,13 +33,17 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from control_plane.dry_run import simulate_transitions
     from control_plane.errors import ContractError
+    from control_plane.file_router import KNOWN_INTENTS, choose_backend
     from control_plane.invariant_evaluator import evaluate_contract
     from control_plane.schemas import validate_job
+    from control_plane.workbook_inventory import inspect_workbook
 else:
     from .dry_run import simulate_transitions
     from .errors import ContractError
+    from .file_router import KNOWN_INTENTS, choose_backend
     from .invariant_evaluator import evaluate_contract
     from .schemas import validate_job
+    from .workbook_inventory import inspect_workbook
 
 
 def _load_json_file(path: Path) -> dict:
@@ -89,6 +98,13 @@ def cmd_dry_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_route(args: argparse.Namespace) -> int:
+    inventory = inspect_workbook(args.workbook)
+    decision = choose_backend(args.intent, inventory)
+    print(json.dumps(dataclasses.asdict(decision), indent=2))
+    return 0
+
+
 def cmd_validate_contract(args: argparse.Namespace) -> int:
     try:
         contract = _load_json_file(Path(args.contract))
@@ -119,6 +135,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dry_run_parser.add_argument("manifest", help="Path to a job manifest JSON file.")
     dry_run_parser.set_defaults(handler=cmd_dry_run)
+
+    route_parser = subparsers.add_parser(
+        "route",
+        help="Inspect a workbook and print the deterministic RouterDecision as JSON.",
+    )
+    route_parser.add_argument("workbook", help="Path to the workbook to inspect and route.")
+    route_parser.add_argument(
+        "intent", choices=sorted(KNOWN_INTENTS), help="What the caller intends to do with it."
+    )
+    route_parser.set_defaults(handler=cmd_route)
 
     validate_contract_parser = subparsers.add_parser(
         "validate-contract",
