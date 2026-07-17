@@ -2,14 +2,18 @@
 """xlsx-win v2 control-plane CLI.
 
 `validate` schema-checks a manifest. `dry-run` schema-checks a manifest and
-prints the state sequence it would traverse. Both work with no Excel
-installed: this module never imports pywin32, openpyxl, or anything else
-that touches a workbook file or COM. That is issue #36's job.
+prints the state sequence it would traverse. Neither touches Excel, and
+`route` (issue #35) inspects a workbook's OOXML package directly rather than
+opening it -- so all three subcommands work with no Excel installed. This
+module never imports pywin32 or otherwise touches COM; `route` reads OOXML
+packages via `workbook_inventory.py` (zipfile + minimal XML parsing) and
+never imports openpyxl either. Actually driving Excel is issue #36's job.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -24,11 +28,15 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from control_plane.dry_run import simulate_transitions
     from control_plane.errors import ContractError
+    from control_plane.file_router import KNOWN_INTENTS, choose_backend
     from control_plane.schemas import validate_job
+    from control_plane.workbook_inventory import inspect_workbook
 else:
     from .dry_run import simulate_transitions
     from .errors import ContractError
+    from .file_router import KNOWN_INTENTS, choose_backend
     from .schemas import validate_job
+    from .workbook_inventory import inspect_workbook
 
 
 def _load_manifest(path: Path) -> dict:
@@ -76,6 +84,13 @@ def cmd_dry_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_route(args: argparse.Namespace) -> int:
+    inventory = inspect_workbook(args.workbook)
+    decision = choose_backend(args.intent, inventory)
+    print(json.dumps(dataclasses.asdict(decision), indent=2))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xlsx-win-v2-control-plane",
@@ -93,6 +108,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dry_run_parser.add_argument("manifest", help="Path to a job manifest JSON file.")
     dry_run_parser.set_defaults(handler=cmd_dry_run)
+
+    route_parser = subparsers.add_parser(
+        "route",
+        help="Inspect a workbook and print the deterministic RouterDecision as JSON.",
+    )
+    route_parser.add_argument("workbook", help="Path to the workbook to inspect and route.")
+    route_parser.add_argument(
+        "intent", choices=sorted(KNOWN_INTENTS), help="What the caller intends to do with it."
+    )
+    route_parser.set_defaults(handler=cmd_route)
 
     return parser
 
