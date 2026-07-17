@@ -13,6 +13,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from wb_fixtures import save_workbook
+
 from control_plane.cli import main
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -77,6 +79,62 @@ def test_dry_run_reports_which_step_is_structurally_invalid(capsys) -> None:
 
 def test_validate_reports_missing_manifest_file(capsys) -> None:
     exit_code, payload = _run_main(capsys, ["validate", str(FIXTURES / "does_not_exist.json")])
+
+    assert exit_code == 1
+    assert payload["error"]["code"] == "SCHEMA_INVALID"
+
+
+def test_validate_contract_reports_passing_invariants_as_json(tmp_path, capsys) -> None:
+    workbook_path = save_workbook(
+        tmp_path / "wb.xlsx", lambda wb: wb.active.__setitem__("A1", "OK")
+    )
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "sentinel_cells": [{"sheet": "Sheet", "cell": "A1", "expected": "OK"}],
+                "prohibit_visible_errors": False,
+            }
+        )
+    )
+
+    exit_code, payload = _run_main(
+        capsys, ["validate-contract", str(workbook_path), str(contract_path)]
+    )
+
+    assert exit_code == 0
+    assert payload["all_passed"] is True
+    assert payload["invariants"] == [
+        {"name": "sentinel_cell:Sheet!A1", "passed": True}
+    ]
+
+
+def test_validate_contract_reports_a_failed_invariant_with_exit_code_2(tmp_path, capsys) -> None:
+    workbook_path = save_workbook(
+        tmp_path / "wb.xlsx", lambda wb: wb.active.__setitem__("A1", "NOT_OK")
+    )
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(
+        json.dumps({"sentinel_cells": [{"sheet": "Sheet", "cell": "A1", "expected": "OK"}]})
+    )
+
+    exit_code, payload = _run_main(
+        capsys, ["validate-contract", str(workbook_path), str(contract_path)]
+    )
+
+    assert exit_code == 2
+    assert payload["all_passed"] is False
+    assert payload["invariants"][0]["passed"] is False
+
+
+def test_validate_contract_reports_a_malformed_contract_as_an_error(tmp_path, capsys) -> None:
+    workbook_path = save_workbook(tmp_path / "wb.xlsx", lambda wb: None)
+    contract_path = tmp_path / "contract.json"
+    contract_path.write_text(json.dumps({"required_sheets": "not-a-list"}))
+
+    exit_code, payload = _run_main(
+        capsys, ["validate-contract", str(workbook_path), str(contract_path)]
+    )
 
     assert exit_code == 1
     assert payload["error"]["code"] == "SCHEMA_INVALID"

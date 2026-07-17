@@ -2,12 +2,17 @@
 """xlsx-win v2 control-plane CLI.
 
 `validate` schema-checks a manifest. `dry-run` schema-checks a manifest and
-prints the state sequence it would traverse. Neither touches Excel, and
+prints the state sequence it would traverse. Neither needs Excel installed,
+and neither reads a workbook file: this module never imports pywin32 or
+anything that touches COM. That is issue #36's job.
+
 `route` (issue #35) inspects a workbook's OOXML package directly rather than
-opening it -- so all three subcommands work with no Excel installed. This
-module never imports pywin32 or otherwise touches COM; `route` reads OOXML
-packages via `workbook_inventory.py` (zipfile + minimal XML parsing) and
-never imports openpyxl either. Actually driving Excel is issue #36's job.
+opening it, via `workbook_inventory.py` (zipfile + minimal XML parsing) --
+no Excel needed, and it never imports openpyxl either.
+
+`validate-contract` (issue #38) does read a workbook file -- with openpyxl,
+never Excel/COM -- to evaluate a validation contract's declared invariants
+against it. It still never imports pywin32 or drives Excel.
 """
 
 from __future__ import annotations
@@ -29,29 +34,38 @@ if __package__ in (None, ""):
     from control_plane.dry_run import simulate_transitions
     from control_plane.errors import ContractError
     from control_plane.file_router import KNOWN_INTENTS, choose_backend
+    from control_plane.invariant_evaluator import evaluate_contract
     from control_plane.schemas import validate_job
     from control_plane.workbook_inventory import inspect_workbook
 else:
     from .dry_run import simulate_transitions
     from .errors import ContractError
     from .file_router import KNOWN_INTENTS, choose_backend
+    from .invariant_evaluator import evaluate_contract
     from .schemas import validate_job
     from .workbook_inventory import inspect_workbook
 
 
-def _load_manifest(path: Path) -> dict:
+def _load_json_file(path: Path) -> dict:
+    """Read and parse a JSON file, normalizing I/O and parse failures to ContractError.
+
+    Used for job manifests, validation contracts, and any other on-disk
+    JSON document this CLI reads -- the failure shape (SCHEMA_INVALID: not
+    found / not valid JSON) is the same regardless of which kind of document
+    it is.
+    """
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
         raise ContractError(
-            "SCHEMA_INVALID", f"Manifest not found: {path}", {"path": str(path)}
+            "SCHEMA_INVALID", f"File not found: {path}", {"path": str(path)}
         ) from exc
 
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:
         raise ContractError(
-            "SCHEMA_INVALID", f"Manifest is not valid JSON: {exc}", {"path": str(path)}
+            "SCHEMA_INVALID", f"File is not valid JSON: {exc}", {"path": str(path)}
         ) from exc
 
 
@@ -61,7 +75,7 @@ def _print_error(exc: ContractError) -> None:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     try:
-        job = _load_manifest(Path(args.manifest))
+        job = _load_json_file(Path(args.manifest))
         validate_job(job)
     except ContractError as exc:
         _print_error(exc)
@@ -73,7 +87,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_dry_run(args: argparse.Namespace) -> int:
     try:
-        job = _load_manifest(Path(args.manifest))
+        job = _load_json_file(Path(args.manifest))
         validate_job(job)
         states = simulate_transitions(job)
     except ContractError as exc:
@@ -89,6 +103,19 @@ def cmd_route(args: argparse.Namespace) -> int:
     decision = choose_backend(args.intent, inventory)
     print(json.dumps(dataclasses.asdict(decision), indent=2))
     return 0
+
+
+def cmd_validate_contract(args: argparse.Namespace) -> int:
+    try:
+        contract = _load_json_file(Path(args.contract))
+        invariants = evaluate_contract(Path(args.workbook), contract)
+    except ContractError as exc:
+        _print_error(exc)
+        return 1
+
+    all_passed = all(item["passed"] for item in invariants)
+    print(json.dumps({"invariants": invariants, "all_passed": all_passed}, indent=2))
+    return 0 if all_passed else 2
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -118,6 +145,18 @@ def build_parser() -> argparse.ArgumentParser:
         "intent", choices=sorted(KNOWN_INTENTS), help="What the caller intends to do with it."
     )
     route_parser.set_defaults(handler=cmd_route)
+
+    validate_contract_parser = subparsers.add_parser(
+        "validate-contract",
+        help=(
+            "Evaluate a workbook validation contract's declared invariants against a "
+            "saved workbook and print the invariant results as JSON. Reads cached "
+            "values (openpyxl data_only=True), not live formulas."
+        ),
+    )
+    validate_contract_parser.add_argument("workbook", help="Path to the .xlsx/.xlsm workbook.")
+    validate_contract_parser.add_argument("contract", help="Path to a validation-contract JSON file.")
+    validate_contract_parser.set_defaults(handler=cmd_validate_contract)
 
     return parser
 

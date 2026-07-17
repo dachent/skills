@@ -27,9 +27,13 @@ def _load_schema(file_name: str) -> dict:
 
 JOB_SCHEMA = _load_schema("job.schema.json")
 RESULT_SCHEMA = _load_schema("result.schema.json")
+VALIDATION_CONTRACT_SCHEMA = _load_schema("validation_contract.schema.json")
+AUDIT_MANIFEST_SCHEMA = _load_schema("audit_manifest.schema.json")
 
 _JOB_VALIDATOR = validator_for(JOB_SCHEMA)(JOB_SCHEMA)
 _RESULT_VALIDATOR = validator_for(RESULT_SCHEMA)(RESULT_SCHEMA)
+_CONTRACT_VALIDATOR = validator_for(VALIDATION_CONTRACT_SCHEMA)(VALIDATION_CONTRACT_SCHEMA)
+_AUDIT_MANIFEST_VALIDATOR = validator_for(AUDIT_MANIFEST_SCHEMA)(AUDIT_MANIFEST_SCHEMA)
 
 
 def _known_step_type_violation(instance) -> ContractError | None:
@@ -94,6 +98,35 @@ def validate_result(instance: dict) -> None:
     """Validate a computed result document against the v2 result schema."""
     try:
         _RESULT_VALIDATOR.validate(instance)
+    except ValidationError as exc:
+        raise ContractError(
+            "SCHEMA_INVALID",
+            exc.message,
+            {"json_path": list(exc.absolute_path), "validator": exc.validator},
+        ) from exc
+
+
+def validate_contract(instance: dict) -> None:
+    """Validate a workbook validation-contract sidecar (issue #38) against its schema.
+
+    Raises ContractError on any failure. A malformed contract is a caller
+    bug -- distinct from any individual declared invariant failing once
+    control_plane.invariant_evaluator opens the workbook.
+    """
+    try:
+        _CONTRACT_VALIDATOR.validate(instance)
+    except ValidationError as exc:
+        raise ContractError(
+            "SCHEMA_INVALID",
+            exc.message,
+            {"json_path": list(exc.absolute_path), "validator": exc.validator},
+        ) from exc
+
+
+def validate_audit_manifest(instance: dict) -> None:
+    """Validate a computed audit manifest document against its schema."""
+    try:
+        _AUDIT_MANIFEST_VALIDATOR.validate(instance)
     except ValidationError as exc:
         raise ContractError(
             "SCHEMA_INVALID",

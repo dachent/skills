@@ -21,6 +21,23 @@ ERROR_CODES = frozenset(
         # The legacy PowerShell adapter cannot prove a manifest is equivalent to
         # the fixed legacy script behavior it would translate to.
         "LEGACY_TRANSLATION_UNSUPPORTED",
+        # invariant_evaluator could not open/read the target workbook at all
+        # (missing, corrupt, or an unsupported format) -- distinct from any
+        # individual declared invariant failing once the workbook is open.
+        "WORKBOOK_UNREADABLE",
+        # A macro allowlist entry passed to macro_policy.is_macro_approved is
+        # not a well-formed {workbook_sha256, entrypoint} object. Malformed
+        # entries are rejected loudly rather than silently skipped, since a
+        # silently-skipped entry could mask a broken allowlist behind an
+        # always-false result -- ambiguity in a security boundary is a
+        # vulnerability, not a convenience feature.
+        "MACRO_ALLOWLIST_INVALID",
+        # staging.stage_copy's source, or staging.publish's staged_path, does
+        # not exist, is not a file, or (for publish) is a zero-byte file.
+        "STAGING_INVALID",
+        # audit_manifest.build_audit_manifest could not hash input_path,
+        # output_path, or contract_path because the file does not exist.
+        "AUDIT_SOURCE_MISSING",
     }
 )
 

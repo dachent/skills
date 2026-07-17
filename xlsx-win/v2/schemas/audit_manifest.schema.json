@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/v2/audit_manifest.schema.json",
+  "title": "xlsx-win v2 audit manifest",
+  "description": "Links a run's input hash, output hash, validation contract (if any), and invariant results, for one job on one desktop (issue #38). Invariant messages are redacted before being written here -- see control_plane/audit_manifest.py.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "generated_at",
+    "input_path",
+    "input_sha256",
+    "output_path",
+    "output_sha256",
+    "invariant_results"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "generated_at": {
+      "type": "string",
+      "description": "ISO 8601 UTC timestamp of when this manifest was built."
+    },
+    "input_path": { "type": "string", "minLength": 1 },
+    "input_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "output_path": { "type": "string", "minLength": 1 },
+    "output_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "contract_path": { "type": "string", "minLength": 1 },
+    "contract_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "invariant_results": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/invariant_result" }
+    }
+  },
+  "definitions": {
+    "invariant_result": {
+      "type": "object",
+      "required": ["name", "passed"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "passed": { "type": "boolean" },
+        "message": { "type": "string" }
+      },
+      "description": "Matches xlsx-win v2 result.schema.json's invariant_result shape exactly (this is an independent copy, not a $ref across files, so audit_manifest.schema.json has no external dependency)."
+    }
+  }
+}
