@@ -1,0 +1,9 @@
+{
+  "schema_version": "2.0",
+  "idempotency_key": "fixture-valid-001",
+  "steps": [
+    { "type": "open", "workbook_path": "C:\\jobs\\input\\model.xlsx" },
+    { "type": "refresh", "connections": "all" },
+    { "type": "recalc" }
+  ]
+}

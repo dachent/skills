@@ -1,0 +1,125 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/v2/job.schema.json",
+  "title": "xlsx-win v2 job manifest",
+  "description": "An ordered list of steps for a single desktop Excel job, run one at a time on one machine. Contract-only: validating against this schema never executes anything. Unknown top-level fields and unknown step types are rejected.",
+  "type": "object",
+  "required": ["schema_version", "idempotency_key", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0",
+      "description": "Contract version this manifest was written against."
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9_:.-]+$",
+      "description": "Caller-supplied key. Re-submitting a job with the same key must be safe to retry."
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/definitions/step" },
+      "description": "Ordered steps sharing one Excel lifecycle. Executed in array order."
+    }
+  },
+  "definitions": {
+    "step": {
+      "oneOf": [
+        { "$ref": "#/definitions/open_step" },
+        { "$ref": "#/definitions/refresh_step" },
+        { "$ref": "#/definitions/recalc_step" },
+        { "$ref": "#/definitions/run_approved_macro_step" },
+        { "$ref": "#/definitions/save_as_step" }
+      ]
+    },
+    "open_step": {
+      "type": "object",
+      "required": ["type", "workbook_path"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "open" },
+        "workbook_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to the workbook to open."
+        },
+        "read_only": {
+          "type": "boolean",
+          "description": "Open without intent to save changes back."
+        },
+        "update_links": {
+          "type": "boolean",
+          "description": "Whether to update external links on open. Defaults to false (AskToUpdateLinks=False) per the amendment's dialog-prevention decision."
+        }
+      }
+    },
+    "refresh_step": {
+      "type": "object",
+      "required": ["type", "connections"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "refresh" },
+        "connections": {
+          "description": "Either the literal string 'all', or an explicit list of connection names to refresh.",
+          "oneOf": [
+            { "const": "all" },
+            {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
+        }
+      }
+    },
+    "recalc_step": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "recalc" },
+        "mode": {
+          "type": "string",
+          "enum": ["full_rebuild", "normal"],
+          "description": "Defaults to full_rebuild when omitted."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        }
+      }
+    },
+    "run_approved_macro_step": {
+      "type": "object",
+      "required": ["type", "macro_name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "run_approved_macro" },
+        "macro_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "description": "Exact allowlisted macro entrypoint name. No arbitrary code, no arguments, no COM method names."
+        }
+      }
+    },
+    "save_as_step": {
+      "type": "object",
+      "required": ["type", "output_path"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "save_as" },
+        "output_path": { "type": "string", "minLength": 1 },
+        "overwrite": { "type": "boolean" }
+      }
+    }
+  }
+}

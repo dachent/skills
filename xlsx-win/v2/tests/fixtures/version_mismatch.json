@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "idempotency_key": "fixture-version-001",
+  "steps": [
+    { "type": "open", "workbook_path": "model.xlsx" }
+  ]
+}
