@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Real Excel COM automation. Gated behind XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1;
+         see README.md "Running the integration tests for real". Every test
+         fixture in this project checks that gate, and separately checks that
+         no Excel process is already running, before doing anything else. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!-- Provides [SkippableFact] / Skip.If: runtime (not just declarative)
+         skipping, needed so the pre-flight "Excel already running" and
+         "opt-in env var" gates can skip cleanly from inside test/fixture
+         code instead of failing or (worse) proceeding. -->
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XlsxWinContracts\XlsxWinContracts.csproj" />
+    <ProjectReference Include="..\XlsxWinSupervisor\XlsxWinSupervisor.csproj" />
+    <ProjectReference Include="..\XlsxWinWorker\XlsxWinWorker.csproj" />
+  </ItemGroup>
+
+  <!-- Late-bound dynamic COM, same as XlsxWinWorker; see README.md,
+       "Early-bound vs late-bound COM". -->
+
+</Project>

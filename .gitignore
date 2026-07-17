@@ -3,3 +3,7 @@ __pycache__/
 Thumbs.db
 .shared/visual-runtime/node_modules/
 .shared/visual-runtime/out/
+
+# .NET build output (xlsx-win/v2/supervisor and any other .NET project)
+bin/
+obj/

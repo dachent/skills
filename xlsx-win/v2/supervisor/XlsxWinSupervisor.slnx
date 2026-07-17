@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="XlsxWinContracts/XlsxWinContracts.csproj" />
+  <Project Path="XlsxWinSupervisor.IntegrationTests/XlsxWinSupervisor.IntegrationTests.csproj" />
+  <Project Path="XlsxWinSupervisor.Tests/XlsxWinSupervisor.Tests.csproj" />
+  <Project Path="XlsxWinSupervisor/XlsxWinSupervisor.csproj" />
+  <Project Path="XlsxWinWorker.Tests/XlsxWinWorker.Tests.csproj" />
+  <Project Path="XlsxWinWorker/XlsxWinWorker.csproj" />
+</Solution>
