@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/v2/validation_contract.schema.json",
+  "title": "xlsx-win v2 workbook validation contract",
+  "description": "Sidecar per-workbook contract of declared invariants a caller writes down in advance (issue #38, RFC 0002 decision 6). This schema describes completion evidence plus declared invariants only -- it can never assert that a workbook's data is semantically correct, because there is no ground truth available to check that against. Every field is optional: an empty object {} is a valid (if useless) contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "required_sheets": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Sheet names that must exist in the workbook."
+    },
+    "required_defined_names": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Workbook-level defined-name strings that must exist."
+    },
+    "required_tables": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "description": "Excel Table (ListObject) names that must exist, on any sheet."
+    },
+    "min_row_counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "Maps a sheet or table name to the minimum number of non-empty rows (including any header row, for a plain sheet; excluding the table's own header row, for a Table) it must contain."
+    },
+    "sentinel_cells": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/sentinel_cell" },
+      "description": "Exact-match assertions on specific cells' cached values. Each entry becomes its own named invariant."
+    },
+    "freshness": {
+      "$ref": "#/definitions/freshness",
+      "description": "The named cell must contain a datetime/date value no older than max_age_hours from evaluation time."
+    },
+    "prohibit_visible_errors": {
+      "type": "boolean",
+      "default": true,
+      "description": "If true (the default), no cell anywhere in the workbook may contain one of the known Excel error values."
+    },
+    "expected_calculation_mode": {
+      "type": "string",
+      "enum": ["automatic", "manual"],
+      "description": "Matches Excel's own calculation-mode equivalent as exposed by openpyxl's calc properties, if openpyxl can read it. If it can't, evaluation reports a failed 'not checkable' outcome rather than silently passing or crashing."
+    }
+  },
+  "definitions": {
+    "sentinel_cell": {
+      "type": "object",
+      "required": ["sheet", "cell", "expected"],
+      "additionalProperties": false,
+      "properties": {
+        "sheet": { "type": "string", "minLength": 1 },
+        "cell": {
+          "type": "string",
+          "minLength": 2,
+          "pattern": "^[A-Za-z]{1,3}[0-9]+$"
+        },
+        "expected": {
+          "description": "The exact cached value expected in this cell. Any JSON scalar type."
+        }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "required": ["sheet", "cell", "max_age_hours"],
+      "additionalProperties": false,
+      "properties": {
+        "sheet": { "type": "string", "minLength": 1 },
+        "cell": {
+          "type": "string",
+          "minLength": 2,
+          "pattern": "^[A-Za-z]{1,3}[0-9]+$"
+        },
+        "max_age_hours": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
+  }
+}
