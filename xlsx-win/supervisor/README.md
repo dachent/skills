@@ -13,9 +13,9 @@ Related documents:
 - RFC 0002 (`docs/rfcs/0002-xlsx-win-v2-single-user-scope.md`) -- the
   single-desktop scope amendment; decisions 7 and 8 (dialog prevention,
   PID-tracked termination) are load-bearing for this code.
-- `xlsx-win/v2/schemas/job.schema.json` / `result.schema.json` -- the JSON
+- `xlsx-win/schemas/job.schema.json` / `result.schema.json` -- the JSON
   contract from issue #34 this supervisor consumes/produces.
-- `xlsx-win/v2/control_plane/state_machine.py` -- the state names this code's
+- `xlsx-win/control_plane/state_machine.py` -- the state names this code's
   `JobStates` (C#) is a direct port of.
 
 ## Projects
@@ -32,7 +32,7 @@ Related documents:
 ## Build
 
 ```powershell
-dotnet build C:\Dev\worktrees\dachent-skills\xlsx-win\v2\supervisor\XlsxWinSupervisor.slnx
+dotnet build xlsx-win\supervisor\XlsxWinSupervisor.slnx
 ```
 
 Targets `net10.0-windows` throughout (the only SDK installed at the time this
@@ -41,7 +41,7 @@ was written is 10.0.302).
 ## Running the unit tests (safe, no Excel, no preconditions)
 
 ```powershell
-dotnet test C:\Dev\worktrees\dachent-skills\xlsx-win\v2\supervisor\XlsxWinSupervisor.slnx
+dotnet test xlsx-win\supervisor\XlsxWinSupervisor.slnx
 ```
 
 This runs `XlsxWinWorker.Tests`, `XlsxWinSupervisor.Tests`, **and**
@@ -63,7 +63,7 @@ just something to eyeball once):**
 
 ```powershell
 $env:XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS = "1"
-dotnet test C:\Dev\worktrees\dachent-skills\xlsx-win\v2\supervisor\XlsxWinSupervisor.IntegrationTests\XlsxWinSupervisor.IntegrationTests.csproj
+dotnet test xlsx-win\supervisor\XlsxWinSupervisor.IntegrationTests\XlsxWinSupervisor.IntegrationTests.csproj
 ```
 
 After every test, `ExcelIntegrationGate.AssertNoExcelProcessSurvives()` polls
@@ -88,12 +88,12 @@ XlsxWinSupervisor.exe <job.json> <events.jsonl> <result.json>
 The supervisor forwards all three paths verbatim to the worker it launches
 (plus `XLSXWIN_WORKER_EXE_PATH` to tell it which worker binary to run --
 see "Locating the worker executable" below). A future Python control-plane
-caller (`xlsx-win/v2/control_plane/cli.py`) would shell out to
+caller (`xlsx-win/control_plane/cli.py`) would shell out to
 `XlsxWinSupervisor.exe` with these three paths; wiring that up is explicitly
 out of scope for this issue (see "Explicitly deferred" below).
 
 - **job.json**: parsed by `XlsxWinContracts.JobManifest`. Shape matches
-  `xlsx-win/v2/schemas/job.schema.json` (`schema_version`, `idempotency_key`,
+  `xlsx-win/schemas/job.schema.json` (`schema_version`, `idempotency_key`,
   `steps`) plus one addition -- see "Known gap vs job.schema.json" below.
 - **events.jsonl**: one JSON object per line, appended by the worker as it
   moves through phases, using the exact state names from
@@ -105,7 +105,7 @@ out of scope for this issue (see "Explicitly deferred" below).
   Job Object too.
 - **result.json**: written once, by the worker on a clean exit or by the
   supervisor itself on a forced termination. Shape matches
-  `xlsx-win/v2/schemas/result.schema.json` (`schema_version`, `run_id`,
+  `xlsx-win/schemas/result.schema.json` (`schema_version`, `run_id`,
   `idempotency_key`, `final_state`, `steps[]`, `invariants[]`, `ok`). `ok` is
   always computed from `steps`/`invariants` (`ResultDocument.Build`), never
   independently settable, mirroring `result_contract.py`.
@@ -257,7 +257,7 @@ to a path inside that same staging directory, so the real save target is
 never written to directly either; `staging.publish` swaps the staged
 output into the real target only once `result.json` reports `ok: true`. See
 `control_plane/cli.py`'s `cmd_run`/`_stage_job_for_run` docstrings and
-`xlsx-win/v2/README.md`'s "Running a job for real" section for the full
+`xlsx-win/README.md`'s "Running a job for real" section for the full
 sequence -- this file's own C# supervisor/worker code is unchanged by this:
 staging happens entirely one process boundary away, in the Python
 control-plane layer, before the supervisor is ever launched.
@@ -409,7 +409,7 @@ this code exists to provide worked correctly each time it was needed.
 
 **RESOLVED (later session): root cause found and fixed, not just re-verified
 as still open.** The `power_query_minimal` item added to
-`xlsx-win/v2/certification/`'s corpus (a genuine Power Query M connection,
+`xlsx-win/certification/`'s corpus (a genuine Power Query M connection,
 not this test's plainer `WorkbookConnection`) reproduced this exact
 phenomenon twice, at two different `close_seconds` budgets. That prompted
 actual web research (this is a well-documented category of .NET/COM interop
@@ -503,7 +503,7 @@ properly.
   `AutomationSecurity` narrowly around the macro call plus allowlist
   verification by exact macro name, which is real, separate work this
   increment does not do.
-- ~~**Wiring the Python `xlsx-win/v2/control_plane/cli.py` to shell out to this
+- ~~**Wiring the Python `xlsx-win/control_plane/cli.py` to shell out to this
   supervisor.**~~ **Done (issue #71).** `cli.py run <manifest.json>` now
   validates the manifest, resolves the built executables, and invokes this
   supervisor using exactly the file-path contract described above. See
@@ -536,7 +536,7 @@ timings are pasted verbatim (not summarized/rounded by hand).
 ### Build
 
 ```
-dotnet build C:\Dev\worktrees\dachent-skills\xlsx-win\v2\supervisor\XlsxWinSupervisor.slnx
+dotnet build xlsx-win\supervisor\XlsxWinSupervisor.slnx
 ```
 
 ```
@@ -549,7 +549,7 @@ Time Elapsed 00:00:09.72
 ### Unit tests (no Excel, `XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS` unset)
 
 ```
-dotnet test C:\Dev\worktrees\dachent-skills\xlsx-win\v2\supervisor\XlsxWinSupervisor.slnx
+dotnet test xlsx-win\supervisor\XlsxWinSupervisor.slnx
 ```
 
 ```
@@ -569,7 +569,7 @@ immediately before each run below.
 
 ```
 $env:XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS = "1"
-dotnet test C:\Dev\worktrees\dachent-skills\xlsx-win\v2\supervisor\XlsxWinSupervisor.IntegrationTests\XlsxWinSupervisor.IntegrationTests.csproj
+dotnet test xlsx-win\supervisor\XlsxWinSupervisor.IntegrationTests\XlsxWinSupervisor.IntegrationTests.csproj
 ```
 
 Final run in this session (after raising `PerConnectionRefreshTests`'

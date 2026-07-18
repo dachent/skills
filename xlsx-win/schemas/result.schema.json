@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://dachent-skills.example/xlsx-win/v2/result.schema.json",
+  "$id": "https://dachent-skills.example/xlsx-win/result.schema.json",
   "title": "xlsx-win v2 job result",
   "description": "Computed outcome of a job. `ok` is derived by control-plane code (see result_contract.build_result) from step and invariant outcomes; it is never an independently-settable input and no job manifest may supply it.",
   "type": "object",

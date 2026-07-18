@@ -28,14 +28,14 @@ repair/recovery UI reacts to them on a machine the owner actively uses.
 connection's OOXML representation (`xl/connections.xml` plus a `customXml`
 query-definition part) is not something this issue attempts to hand-craft
 the way the macro/external-link/table-connection placeholders above do --
-instead,
-`build_power_query_item` shells out to the repo's existing, already-tested
-`xlsx-win/scripts/power_query_excel.ps1` (`upsert-query` then
-`load-worksheet`) against a blank workbook, which means it genuinely
-launches Excel (twice) to build this one fixture. Callers MUST have already
-satisfied `excel_safety`'s preflight gate before calling it -- see
-run_corpus.py's main(), which is also the only place that decides whether
-this item is built at all.
+instead, `build_power_query_item` shells out to
+`fixtures/build_power_query_fixture.ps1` (a small, test-fixture-only helper;
+see issue #78 -- it is NOT part of the shipped skill, since Power Query M
+authoring is a documented gap in the v2 job contract) against a blank
+workbook, which means it genuinely launches Excel once to build this one
+fixture. Callers MUST have already satisfied `excel_safety`'s preflight gate
+before calling it -- see run_corpus.py's main(), which is also the only
+place that decides whether this item is built at all.
 """
 
 from __future__ import annotations
@@ -48,9 +48,7 @@ from pathlib import Path
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-_LEGACY_POWER_QUERY_SCRIPT = (
-    Path(__file__).resolve().parent.parent.parent / "scripts" / "power_query_excel.ps1"
-)
+_POWER_QUERY_FIXTURE_SCRIPT = Path(__file__).resolve().parent / "fixtures" / "build_power_query_fixture.ps1"
 
 # Marker text written into a dedicated, otherwise-unused cell in a couple of
 # corpus items, purely so a validation contract has an unambiguous literal
@@ -214,46 +212,42 @@ def _build_failing_contract_workbook(path: Path) -> None:
     wb.save(path)
 
 
-def _run_legacy_power_query_script(
+def _run_power_query_fixture_script(
     workbook_path: Path,
-    action: str,
     query_name: str,
-    *,
-    mformula_path: Path | None = None,
-    worksheet_name: str | None = None,
+    mformula_path: Path,
+    worksheet_name: str,
 ) -> None:
-    """Invoke the existing xlsx-win/scripts/power_query_excel.ps1 as a
-    subprocess. Launches Excel. Caller must have already satisfied
-    excel_safety's preflight gate."""
+    """Invoke fixtures/build_power_query_fixture.ps1 as a subprocess to build
+    one genuine query + worksheet load. Launches Excel. Caller must have
+    already satisfied excel_safety's preflight gate."""
     args = [
         "powershell",
         "-ExecutionPolicy",
         "Bypass",
         "-File",
-        str(_LEGACY_POWER_QUERY_SCRIPT),
+        str(_POWER_QUERY_FIXTURE_SCRIPT),
         "-WorkbookPath",
         str(workbook_path),
-        "-Action",
-        action,
         "-QueryName",
         query_name,
+        "-MFormulaPath",
+        str(mformula_path),
+        "-WorksheetName",
+        worksheet_name,
     ]
-    if mformula_path is not None:
-        args += ["-MFormulaPath", str(mformula_path)]
-    if worksheet_name is not None:
-        args += ["-WorksheetName", worksheet_name]
 
     result = subprocess.run(args, capture_output=True, text=True, timeout=180, check=False)
     if result.returncode != 0:
         raise RuntimeError(
-            f"power_query_excel.ps1 -Action {action} failed (exit {result.returncode}): "
+            f"build_power_query_fixture.ps1 failed (exit {result.returncode}): "
             f"stdout={result.stdout!r} stderr={result.stderr!r}"
         )
 
 
 def build_power_query_item(directory: str | Path) -> CorpusItem:
     """Build the one corpus item with a genuine Power Query M connection, by
-    shelling out to the existing power_query_excel.ps1 (see module
+    shelling out to fixtures/build_power_query_fixture.ps1 (see module
     docstring). Launches Excel. Caller MUST have already satisfied
     excel_safety's preflight gate -- this function performs no safety check
     of its own and is not called by build_corpus().
@@ -275,8 +269,9 @@ def build_power_query_item(directory: str | Path) -> CorpusItem:
     directory.mkdir(parents=True, exist_ok=True)
 
     path = directory / "power_query_minimal.xlsx"
-    # power_query_excel.ps1 opens an existing workbook (Workbooks.Open) --
-    # it does not create one -- so a blank workbook must exist first.
+    # build_power_query_fixture.ps1 opens an existing workbook
+    # (Workbooks.Open) -- it does not create one -- so a blank workbook must
+    # exist first.
     Workbook().save(path)
 
     m_formula = (
@@ -291,8 +286,7 @@ def build_power_query_item(directory: str | Path) -> CorpusItem:
     m_path = directory / "power_query_minimal.m"
     m_path.write_text(m_formula, encoding="utf-8")
 
-    _run_legacy_power_query_script(path, "upsert-query", "SyntheticSource", mformula_path=m_path)
-    _run_legacy_power_query_script(path, "load-worksheet", "SyntheticSource", worksheet_name="Loaded")
+    _run_power_query_fixture_script(path, "SyntheticSource", m_path, "Loaded")
 
     return CorpusItem(
         name="power_query_minimal",
@@ -302,7 +296,8 @@ def build_power_query_item(directory: str | Path) -> CorpusItem:
         description=(
             "Workbook with a genuine, self-contained Power Query M connection "
             "(Table.FromRows -- no external file or network dependency), built via the "
-            "existing power_query_excel.ps1 rather than a hand-crafted placeholder part. "
+            "test-fixture-only build_power_query_fixture.ps1 rather than a hand-crafted "
+            "placeholder part. "
             "Expected router decision: excel_required -- FIXED (issue #70): this used to be "
             "the same known gap as table_connection (workbook connections were not a "
             "tracked risk field), confirmed against a genuine M-code-backed connection "

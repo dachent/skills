@@ -27,9 +27,12 @@ Documentation, static validation, Python helper checks, and provenance checks ca
 
 | Upstream behavior | Local behavior | Reason | Test coverage |
 | --- | --- | --- | --- |
-| General spreadsheet skill behavior in `skills/xlsx` | Windows Excel COM-first workflow in `xlsx-win` | Excel desktop COM provides native recalculation, Power Query, cached values, PivotTable, and workbook connection fidelity | `xlsx-win/scripts/self_test_xlsx_win.ps1`, `xlsx-win/scripts/check_formula_errors.ps1`; hosted syntax validation |
+| General spreadsheet skill behavior in `skills/xlsx` | Windows Excel COM-first workflow in `xlsx-win` | Excel desktop COM provides native recalculation, Power Query, cached values, PivotTable, and workbook connection fidelity | `xlsx-win/tests/` (pytest), `xlsx-win/supervisor/` C# unit + integration test projects, `xlsx-win/certification/run_corpus.py` / `smoke_test.ps1`; hosted syntax validation |
 | Upstream implementation choices may use non-COM tooling | Local wrappers route COM work through shared preflight and desktop-user guidance | Codex sandbox sessions can be the wrong Windows logon context for Office COM | `.shared/office-com/scripts/office_com_preflight.ps1`; Office smoke workflow |
 | Upstream guidance does not define a no-template chart-data reliability rubric | Local `references/workbook-quality-map.md` adds a workbook-quality behavior map for source data, formulas, refresh, Power Query, and chart-ready outputs | Codex needs explicit data reliability judgment before it builds no-template charts, dashboards, decks, or reports | `tools/test_office_com_contract.py`; hosted reference validation |
+| v1's per-operation PowerShell scripts (`refresh_excel.ps1`, `power_query_excel.ps1`, `check_formula_errors.ps1`, `self_test_xlsx_win.ps1`, `invoke-xlsx-win.ps1`) | A versioned JSON job/result contract, a Python control plane, and a C# Windows supervisor that drives Excel COM against that contract | RFC-driven rewrite (`docs/rfcs/0001-xlsx-win-runtime-v2.md`, `docs/rfcs/0002-xlsx-win-v2-single-user-scope.md`; roadmap issue #33) for a bounded, auditable job contract instead of ad hoc script invocations. The old scripts were deleted outright, not kept alongside the new contract | `xlsx-win/tests/`, `xlsx-win/supervisor/` test projects, `xlsx-win/certification/`; see `xlsx-win/README.md` |
+
+**Known regression accepted by this rewrite, not carried forward:** v1's `power_query_excel.ps1` could create, edit, or delete a Power Query M definition and change its load target. The v2 job contract can only refresh an *existing* connection -- authoring is not supported. Accepted deliberately rather than blocking the cutover on rebuilding that capability; tracked in issue #78.
 
 ## Last Alignment Review
 

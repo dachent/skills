@@ -51,9 +51,9 @@ from pathlib import Path
 
 # Runnable directly as a script (`python cli.py ...`) as well as as part of
 # the control_plane package (`python -m control_plane.cli ...` with cwd set
-# to xlsx-win/v2). Direct execution has no package context, so relative
-# imports would fail; fall back to inserting v2/ onto sys.path and importing
-# control_plane absolutely. ("xlsx-win" contains a hyphen, so it can never be
+# to xlsx-win). Direct execution has no package context, so relative
+# imports would fail; fall back to inserting xlsx-win/ onto sys.path and
+# importing control_plane absolutely. ("xlsx-win" contains a hyphen, so it can never be
 # part of a dotted `-m` module path from the repo root.)
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

@@ -33,7 +33,6 @@ bool, "message": str (optional)}`, so these can be dropped straight into a
 
 from __future__ import annotations
 
-import importlib.util
 from datetime import date, datetime
 from pathlib import Path
 
@@ -44,10 +43,6 @@ from openpyxl.utils.exceptions import InvalidFileException
 from .errors import ContractError
 from .schemas import validate_contract
 
-_CHECK_FORMULA_ERRORS_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "scripts" / "check_formula_errors.py"
-)
-
 # Excel calculation modes that count as "automatic" for expected_calculation_mode.
 # openpyxl exposes the raw OOXML calcPr@calcMode values ("auto", "autoNoTable",
 # "manual"); the contract's friendly enum is just "automatic"/"manual".
@@ -56,27 +51,19 @@ _CALC_MODE_ALIASES = {
     "manual": frozenset({"manual"}),
 }
 
-
-def _load_excel_errors() -> frozenset:
-    """Import EXCEL_ERRORS from xlsx-win/scripts/check_formula_errors.py, by file path.
-
-    That script lives outside this package (xlsx-win/scripts, not
-    xlsx-win/v2/control_plane), and "xlsx-win" contains a hyphen, so it can
-    never be a dotted `-m` import target (see cli.py's own comment on this).
-    Loading it by path -- rather than copying its EXCEL_ERRORS list -- means
-    this module automatically tracks the repo's one canonical list of
-    significant Excel error values instead of maintaining a second one that
-    could drift out of sync.
-    """
-    spec = importlib.util.spec_from_file_location(
-        "_xlsx_win_check_formula_errors", _CHECK_FORMULA_ERRORS_PATH
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return frozenset(module.EXCEL_ERRORS)
-
-
-EXCEL_ERRORS = _load_excel_errors()
+EXCEL_ERRORS = frozenset(
+    {
+        "#VALUE!",
+        "#DIV/0!",
+        "#REF!",
+        "#NAME?",
+        "#NULL!",
+        "#NUM!",
+        "#N/A",
+        "#SPILL!",
+        "#CALC!",
+    }
+)
 
 
 def _open_workbook(workbook_path: Path):

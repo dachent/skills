@@ -35,7 +35,7 @@ _SUPERVISOR_ROOT = Path(__file__).resolve().parent.parent / "supervisor"
 
 # Deployment-override environment variables: if set, used verbatim instead
 # of searching the dev-tree bin/** layout `dotnet build` produces. See
-# xlsx-win/v2/README.md, "Locating the built supervisor/worker executables",
+# xlsx-win/README.md, "Locating the built supervisor/worker executables",
 # for the full deployment story. XLSXWIN_WORKER_EXE_PATH is also the
 # variable run_supervisor sets on the child process's environment to tell
 # XlsxWinSupervisor.exe which worker binary to launch (see
@@ -74,7 +74,7 @@ def find_built_exe(project_name: str) -> Path:
        falling back to a dev-tree search that could resolve to a different,
        unintended build.
     2. The newest `<project_name>.exe` under
-       `xlsx-win/v2/supervisor/<project_name>/bin/**` -- the layout a plain
+       `xlsx-win/supervisor/<project_name>/bin/**` -- the layout a plain
        `dotnet build` produces.
 
     Raises FileNotFoundError with a clear message (naming the offending env
@@ -125,7 +125,7 @@ def run_supervisor(
     extra_env: dict | None = None,
 ) -> SupervisorRunResult:
     """Launch the built XlsxWinSupervisor.exe against a job/events/result path
-    triple, per xlsx-win/v2/supervisor/README.md's file-path contract.
+    triple, per xlsx-win/supervisor/README.md's file-path contract.
 
     Resolves both executables via find_built_exe (raising FileNotFoundError
     if either is missing) before launching anything. The caller is

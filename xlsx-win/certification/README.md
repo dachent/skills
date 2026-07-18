@@ -7,7 +7,12 @@ issue #39 (durable queue, multiple isolated Windows workers,
 quarantine/recycle, soak testing) as moot for "one machine running one job
 at a time." This directory builds only what RFC 0002 leaves in scope: a
 corpus generator, two new fault-injection tests in the existing supervisor
-test project, one end-to-end pipeline script, and one benchmark script.
+test project, and one end-to-end pipeline script (`run_corpus.py`, which
+also serves as this skill's CI smoke-test entrypoint via `smoke_test.ps1`).
+It also built one benchmark script (`benchmark.py`), later removed in the
+v2-to-flattened-`xlsx-win` cutover once its only comparison target
+(`refresh_excel.ps1`) was retired -- see "`benchmark.py` (retired)" below for
+the numbers it produced while it existed.
 
 Related documents:
 
@@ -55,7 +60,7 @@ Applied here:
    supervisor_check.skipped`, is independently meaningful rather than a
    three-way dispatch that only had two real outcomes).
 
-Re-verified after the fixes: all Python unit tests (`pytest xlsx-win/v2/tests`),
+Re-verified after the fixes: all Python unit tests (`pytest xlsx-win/tests`),
 the C# unit test projects, the two new fault-injection integration tests,
 `run_corpus.py`, and `benchmark.py` (both with and without
 `XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1`) -- see the re-run benchmark numbers
@@ -143,14 +148,29 @@ documenting the gap. Because that part is a placeholder rather than a
 genuine connection declaration, this item stays router-decision-only
 (`exercise_supervisor=False`) -- it is no longer pushed through the real
 supervisor. The end-to-end "drive a refresh step against a Table-bearing
-workbook through the real supervisor" proof this item used to provide is
-still covered, unaffected, by `benchmark.py`'s own direct use of the
-underlying connection-free `_build_table_workbook` shape (see "Running
-`benchmark.py`" below).
+workbook through the real supervisor" proof this item used to provide was,
+at the time, covered separately by `benchmark.py`'s own direct use of the
+underlying connection-free `_build_table_workbook` shape. `benchmark.py` was
+later removed in the cutover (see "`benchmark.py` (retired)" below); that
+exact connection-free scenario is not separately covered elsewhere, but
+`power_query_minimal` (below) exercises the same open/refresh/recalc/save
+flow through the real supervisor with a genuine connection, and the C#
+`HappyPathTests` integration test covers the generic flow.
 
 ### `power_query_minimal`: a genuine Power Query connection -- a real bug found, root-caused, and fixed
 
-Added after the original five corpus items, at the requester's direction, specifically because none of the other five (including `table_connection`) exercise real Power Query M code -- `table_connection` uses a plain worksheet Table with **no connection at all**. `power_query_minimal` is built by shelling out to the existing `xlsx-win/scripts/power_query_excel.ps1` (`upsert-query` then `load-worksheet`) against a blank workbook -- launching Excel twice -- rather than hand-crafting the `xl/connections.xml` + `customXml` query-definition parts the way the `macro_enabled`/`external_link` items fabricate their placeholder OOXML entries; Power Query's real representation is not something this issue attempts to reproduce by hand. This is the one corpus item whose *generation*, not just its exercise through the supervisor, requires real Excel -- gated in `run_corpus.py`'s `main()`, not inside `corpus.py` (which otherwise stays Excel-free).
+Added after the original five corpus items, at the requester's direction, specifically because none of the other five (including `table_connection`) exercise real Power Query M code -- `table_connection` uses a plain worksheet Table with **no connection at all**. `power_query_minimal` is built by shelling out to `fixtures/build_power_query_fixture.ps1` -- a small, test-fixture-only helper (see issue #78; it is **not** part of the shipped skill) that creates the query and loads it to a worksheet in one Excel session -- against a blank workbook, rather than hand-crafting the `xl/connections.xml` + `customXml` query-definition parts the way the `macro_enabled`/`external_link` items fabricate their placeholder OOXML entries; Power Query's real representation is not something this issue attempts to reproduce by hand. This is the one corpus item whose *generation*, not just its exercise through the supervisor, requires real Excel -- gated in `run_corpus.py`'s `main()`, not inside `corpus.py` (which otherwise stays Excel-free).
+
+Prior to the xlsx-win v2 cutover, this same fixture was built by shelling out
+to the (since-retired) `xlsx-win/scripts/power_query_excel.ps1` -- launching
+Excel twice (`upsert-query` then `load-worksheet`). `power_query_excel.ps1`
+also supported creating/editing/deleting queries and changing their load
+target as a general-purpose, agent-facing capability; that capability itself
+was **not** carried forward into the v2 job contract (a real, documented
+regression -- see issue #78 and `xlsx-win/SKILL.md`'s "Known gaps"). The
+fixture helper that replaced it here is deliberately narrow -- one query,
+one worksheet load, one Excel session -- and exists only to keep this corpus
+item buildable, not to close that gap.
 
 Router decision: `excel_required` -- **fixed by issue #70**, same as `table_connection` immediately above. This was originally the same known gap as `table_connection`, confirmed against a genuine M-code-backed connection instead of only a plain Table, and more consequential here: `SKILL.md`'s own existing guidance is explicit that Power Query M work must go through Excel COM, never file-only libraries, so the original misrouting to `openpyxl` was not merely suboptimal but contrary to the skill's own documented rule. Now that `workbook_inventory.py` detects this file's genuine `xl/connections.xml` part (`has_connections`) and `file_router.py` fails closed on it, this item's router-decision check proves the routing fix rather than documenting the gap.
 
@@ -167,7 +187,7 @@ Router decision: `excel_required` -- **fixed by issue #70**, same as `table_conn
 ## Two new fault-injection tests (C#, existing project)
 
 Added to the **existing**
-`xlsx-win/v2/supervisor/XlsxWinSupervisor.IntegrationTests/` project --
+`xlsx-win/supervisor/XlsxWinSupervisor.IntegrationTests/` project --
 same house style, same `ExcelIntegrationGate` preflight/postflight, same
 `SupervisorRunner`/`TestTempDir` helpers as `HappyPathTests`,
 `TimeoutKillTests`, `DialogPreventionTests`, `PerConnectionRefreshTests`.
@@ -207,7 +227,7 @@ Both were run for real against the built executables this session (see
 ## Running `run_corpus.py`
 
 ```powershell
-python xlsx-win/v2/certification/run_corpus.py
+python xlsx-win/certification/run_corpus.py
 ```
 
 Without `XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1` set, every check that
@@ -222,7 +242,7 @@ To run everything for real:
 
 ```powershell
 $env:XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS = "1"
-python xlsx-win/v2/certification/run_corpus.py
+python xlsx-win/certification/run_corpus.py
 ```
 
 `certification/excel_safety.py` is the Python-side equivalent of the C#
@@ -236,15 +256,18 @@ executable as a subprocess and, as a last-resort test-level safety net,
 kills the exact subprocess it itself started if it somehow doesn't exit
 within a hard wall-clock timeout (never a by-name kill).
 
-## Running `benchmark.py`
+## `benchmark.py` (retired) -- historical numbers
 
-```powershell
-$env:XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS = "1"
-python xlsx-win/v2/certification/benchmark.py
-```
+`benchmark.py` compared this supervisor's wall-clock time against the
+legacy `refresh_excel.ps1` script for an identically-shaped job. It was
+removed in the xlsx-win v2 cutover once `refresh_excel.ps1` itself was
+deleted -- there is no longer a second leg to compare against. The numbers
+and analysis below are preserved as a historical record of what it measured
+while both legs still existed; nothing here can be re-run today.
 
-Same safety gate as `run_corpus.py`. Refuses to run at all (rather than
-running only one leg) if the env var isn't set or Excel is already running.
+Same safety gate as `run_corpus.py`. Refused to run at all (rather than
+running only one leg) if the env var wasn't set or Excel was already
+running.
 
 ### Benchmark scope deviation: no live connection in the timed workbook
 

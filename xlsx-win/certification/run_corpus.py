@@ -25,7 +25,7 @@ kept local to this script, per the issue's own instruction not to touch
 `control_plane/cli.py`.
 
 Usage:
-    python xlsx-win/v2/certification/run_corpus.py
+    python xlsx-win/certification/run_corpus.py
 
 Set XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1 first to allow the one corpus item
 that launches real Excel (via the supervisor) to actually run; without it,
@@ -43,9 +43,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-_V2_ROOT = Path(__file__).resolve().parent.parent
-if str(_V2_ROOT) not in sys.path:
-    sys.path.insert(0, str(_V2_ROOT))
+_XLSX_WIN_ROOT = Path(__file__).resolve().parent.parent
+if str(_XLSX_WIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_XLSX_WIN_ROOT))
 _CERT_ROOT = Path(__file__).resolve().parent
 if str(_CERT_ROOT) not in sys.path:
     sys.path.insert(0, str(_CERT_ROOT))
