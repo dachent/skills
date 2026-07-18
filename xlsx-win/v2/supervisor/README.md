@@ -288,6 +288,41 @@ Critically, the safety-critical property held in all four runs regardless:
 test-reliability/environment gap, not a supervision failure -- the mechanism
 this code exists to provide worked correctly each time it was needed.
 
+**RESOLVED (later session): root cause found and fixed, not just re-verified
+as still open.** The `power_query_minimal` item added to
+`xlsx-win/v2/certification/`'s corpus (a genuine Power Query M connection,
+not this test's plainer `WorkbookConnection`) reproduced this exact
+phenomenon twice, at two different `close_seconds` budgets. That prompted
+actual web research (this is a well-documented category of .NET/COM interop
+issue, not something new or unsolvable) rather than continuing to guess at a
+bigger timeout. Root cause: `StepRunner.cs`'s `RunRefresh` obtained
+`Workbook.Connections`, each `Connection`, and each
+`OLEDBConnection`/`ODBCConnection` via COM property access and never
+released any of them with `Marshal.ReleaseComObject` -- only the top-level
+`Workbook`/`Application` were ever released, in `ExcelSession.cs`.
+`Application.Quit()` only *requests* an exit; Excel will not actually
+terminate until every outstanding COM reference (RCW) is released, and
+relying on the .NET GC alone to get there can take multiple collection
+cycles -- or, for a genuine Power-Query/Mashup-backed connection
+specifically, apparently never resolve within any budget tried. Fixed by
+explicit `Marshal.ReleaseComObject` on every one of those intermediate
+objects (in `finally` blocks, surviving exceptions) plus strengthening this
+class's `GC.Collect(); GC.WaitForPendingFinalizers();` to the standard
+double-collect pattern (`GC.Collect(); GC.WaitForPendingFinalizers();
+GC.Collect();` -- the second pass sweeps what the finalizer thread only
+detached, not yet reclaimed). Reverified against `power_query_minimal`
+after the fix, twice, both times identical: `SUCCEEDED`, `ok=true`, in 12.5
+seconds -- down from timing out past every budget tried (up to 300s).
+`PerConnectionRefreshTests` itself (this file) was updated to match: its
+`close_seconds` no longer needs to be inflated to 900s, and its own
+`Assert.DoesNotContain("RefreshAll", ...)` check -- which had never
+actually run before, since this test always timed out before reaching it --
+turned out to be a separate, unrelated, pre-existing assertion bug (the
+success message legitimately contains the substring "RefreshAll" as part of
+"(no RefreshAll)"), fixed alongside. See
+`certification/README.md`'s "power_query_minimal" section for the full
+before/after evidence.
+
 ### Startup-vs-hang deadline race
 
 `start_excel_seconds` has to comfortably exceed realistic (non-hung) Excel

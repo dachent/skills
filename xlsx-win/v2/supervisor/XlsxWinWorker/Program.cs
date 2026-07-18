@@ -12,6 +12,16 @@ internal static class Program
     // production job manifest has no way to set this.
     private const string SimulateHangEnvVar = "XLSXWIN_TEST_SIMULATE_HANG_SECONDS";
 
+    // Test-only crash simulation, per issue #39: makes the worker throw a
+    // genuinely unhandled exception after completing exactly N steps but
+    // before the final result.json is ever written, so the supervisor's
+    // "worker exited without a trustworthy result" handling (Program.cs
+    // WorkerExitedWithoutResult, added for the #36 review's blocker finding)
+    // can be proven through a real end-to-end supervisor invocation, not just
+    // a unit test. Never read outside test runs; a production job manifest
+    // has no way to set this.
+    private const string SimulateCrashEnvVar = "XLSXWIN_TEST_SIMULATE_CRASH_AFTER_STEP";
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -89,6 +99,8 @@ internal static class Program
             {
                 anyFailed = true;
             }
+
+            MaybeSimulateCrashAfterStep(events, runId, completedStepCount: i + 1);
         }
 
         var finalState = anyFailed ? "FAILED" : "SUCCEEDED";
@@ -144,5 +156,42 @@ internal static class Program
         // returns, which is exactly the scenario cooperative shutdown cannot
         // recover from and only the supervisor's Job Object can terminate.
         Thread.Sleep(TimeSpan.FromSeconds(seconds));
+    }
+
+    private static void MaybeSimulateCrashAfterStep(EventWriter events, string runId, int completedStepCount)
+    {
+        var raw = Environment.GetEnvironmentVariable(SimulateCrashEnvVar);
+        if (string.IsNullOrWhiteSpace(raw) || !int.TryParse(raw, out var crashAfter) || crashAfter <= 0)
+        {
+            return;
+        }
+
+        if (completedStepCount != crashAfter)
+        {
+            return;
+        }
+
+        events.Emit(new WorkerEvent
+        {
+            RunId = runId,
+            Phase = "APPLYING_EDITS",
+            Message = $"{SimulateCrashEnvVar}={crashAfter}: about to simulate an unhandled worker " +
+                      "crash (test-only) after completing this many steps, before this run's " +
+                      "result.json is written.",
+        });
+
+        // Suppress the OS's "program has stopped working" crash dialog (and
+        // any registered JIT debugger prompt) for this process before
+        // throwing -- see NativeMethods.SetErrorMode's doc comment. Without
+        // this, a genuinely unhandled exception here could in principle
+        // surface blocking UI on a real, actively-used desktop, which the
+        // safety rules for this issue explicitly rule out risking.
+        NativeMethods.SetErrorMode(NativeMethods.SemFailCriticalErrors | NativeMethods.SemNoGpFaultErrorBox);
+
+        throw new InvalidOperationException(
+            $"{SimulateCrashEnvVar}={crashAfter}: simulated unhandled worker crash (test-only), " +
+            "deliberately thrown before this run's result.json is written. If the supervisor " +
+            "reports this run as a stale/prior success rather than a failure, that is the exact " +
+            "regression this test exists to catch.");
     }
 }

@@ -132,8 +132,15 @@ internal sealed class ExcelSession : IDisposable
 
         ReleaseComObject(ref _app);
 
+        // Double-collect: the first pass finds RCWs with no remaining
+        // references and queues their finalizers; WaitForPendingFinalizers
+        // blocks until those run; the second pass sweeps the now-finalized
+        // objects the first pass could only detect, not yet reclaim. A
+        // single Collect()+WaitForPendingFinalizers() (the prior code here)
+        // is a well-documented half-measure for exactly this reason.
         GC.Collect();
         GC.WaitForPendingFinalizers();
+        GC.Collect();
 
         if (_excelProcessId is int pid)
         {
@@ -198,8 +205,15 @@ internal sealed class ExcelSession : IDisposable
 
         ReleaseComObject(ref _app);
 
+        // Double-collect: the first pass finds RCWs with no remaining
+        // references and queues their finalizers; WaitForPendingFinalizers
+        // blocks until those run; the second pass sweeps the now-finalized
+        // objects the first pass could only detect, not yet reclaim. A
+        // single Collect()+WaitForPendingFinalizers() (the prior code here)
+        // is a well-documented half-measure for exactly this reason.
         GC.Collect();
         GC.WaitForPendingFinalizers();
+        GC.Collect();
     }
 
     private static void ReleaseComObject(ref dynamic? comObject)

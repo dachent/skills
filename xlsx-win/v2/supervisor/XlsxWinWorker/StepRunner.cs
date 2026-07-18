@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using XlsxWinContracts;
 
 namespace XlsxWinWorker;
@@ -68,61 +69,92 @@ internal sealed class StepRunner
         var failures = new List<string>();
         var refreshedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        dynamic connections;
+        dynamic? connections = null;
         try
         {
-            connections = workbook.Connections;
-        }
-        catch (Exception ex)
-        {
-            // A transient RPC/disconnected COM error accessing the
-            // Connections property itself must not propagate out of
-            // StepRunner.Run: unlike every other step handler in this file,
-            // this used to be unguarded, so a COM hiccup here would crash the
-            // worker process outright with no FAILED step recorded and no
-            // final result.json written for this run.
-            return Fail(index, "refresh", "REFRESH_FAILED", $"Failed to access workbook connections: {ex.Message}");
-        }
-
-        try
-        {
-            foreach (dynamic connection in connections)
+            try
             {
-                string connectionName;
-                try
-                {
-                    connectionName = connection.Name;
-                }
-                catch (Exception ex)
-                {
-                    failures.Add($"<unknown connection>: failed to read connection name: {ex.Message}");
-                    continue;
-                }
+                connections = workbook.Connections;
+            }
+            catch (Exception ex)
+            {
+                // A transient RPC/disconnected COM error accessing the
+                // Connections property itself must not propagate out of
+                // StepRunner.Run: unlike every other step handler in this file,
+                // this used to be unguarded, so a COM hiccup here would crash the
+                // worker process outright with no FAILED step recorded and no
+                // final result.json written for this run.
+                return Fail(index, "refresh", "REFRESH_FAILED", $"Failed to access workbook connections: {ex.Message}");
+            }
 
-                try
+            try
+            {
+                foreach (dynamic connection in connections)
                 {
-                    if (wanted is not null && !wanted.Contains(connectionName))
+                    try
                     {
-                        continue;
-                    }
+                        string connectionName;
+                        try
+                        {
+                            connectionName = connection.Name;
+                        }
+                        catch (Exception ex)
+                        {
+                            failures.Add($"<unknown connection>: failed to read connection name: {ex.Message}");
+                            continue;
+                        }
 
-                    RefreshOneConnection(connection, deadline);
-                    refreshedNames.Add(connectionName);
-                }
-                catch (Exception ex)
-                {
-                    failures.Add($"{connectionName}: {ex.Message}");
+                        try
+                        {
+                            if (wanted is not null && !wanted.Contains(connectionName))
+                            {
+                                continue;
+                            }
+
+                            RefreshOneConnection(connection, deadline);
+                            refreshedNames.Add(connectionName);
+                        }
+                        catch (Exception ex)
+                        {
+                            failures.Add($"{connectionName}: {ex.Message}");
+                        }
+                    }
+                    finally
+                    {
+                        // Release this Connection RCW before the enumerator
+                        // advances. Confirmed root cause (not a guess): a
+                        // genuine Power-Query/OLEDB-backed connection object
+                        // left unreleased here keeps EXCEL.EXE alive for
+                        // minutes after Application.Quit(), even though the
+                        // refresh itself already completed in seconds -- see
+                        // README.md's power_query_minimal finding. This is
+                        // the standard COM-interop rule (every intermediate
+                        // object obtained via property/collection access
+                        // needs an explicit Marshal.ReleaseComObject; a
+                        // variable going out of scope is not enough, since
+                        // Excel won't exit until every outstanding COM
+                        // reference is released, and the .NET GC alone can
+                        // take multiple collection cycles to get there).
+                        ReleaseComObject(connection);
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                // The foreach enumerator itself (MoveNext/Current on the COM
+                // collection) can throw independently of any per-connection
+                // work. Converting this to a REFRESH_FAILED step result -- rather
+                // than letting it crash the worker process -- is exactly the
+                // robustness this supervisor exists to add.
+                return Fail(index, "refresh", "REFRESH_FAILED", $"Failed while enumerating workbook connections: {ex.Message}");
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            // The foreach enumerator itself (MoveNext/Current on the COM
-            // collection) can throw independently of any per-connection
-            // work. Converting this to a REFRESH_FAILED step result -- rather
-            // than letting it crash the worker process -- is exactly the
-            // robustness this supervisor exists to add.
-            return Fail(index, "refresh", "REFRESH_FAILED", $"Failed while enumerating workbook connections: {ex.Message}");
+            if (connections is not null)
+            {
+                ReleaseComObject(connections);
+            }
         }
 
         if (wanted is not null)
@@ -168,9 +200,10 @@ internal sealed class StepRunner
 
     private static void TrySetBackgroundQueryOff(dynamic connection)
     {
+        dynamic? oledb = null;
         try
         {
-            var oledb = connection.OLEDBConnection;
+            oledb = connection.OLEDBConnection;
             if (oledb is not null)
             {
                 oledb.BackgroundQuery = false;
@@ -180,10 +213,18 @@ internal sealed class StepRunner
         {
             // Not every connection exposes OLEDBConnection; ignore.
         }
+        finally
+        {
+            if (oledb is not null)
+            {
+                ReleaseComObject(oledb);
+            }
+        }
 
+        dynamic? odbc = null;
         try
         {
-            var odbc = connection.ODBCConnection;
+            odbc = connection.ODBCConnection;
             if (odbc is not null)
             {
                 odbc.BackgroundQuery = false;
@@ -193,13 +234,21 @@ internal sealed class StepRunner
         {
             // Not every connection exposes ODBCConnection; ignore.
         }
+        finally
+        {
+            if (odbc is not null)
+            {
+                ReleaseComObject(odbc);
+            }
+        }
     }
 
     private static bool IsStillRefreshing(dynamic connection)
     {
+        dynamic? oledb = null;
         try
         {
-            var oledb = connection.OLEDBConnection;
+            oledb = connection.OLEDBConnection;
             if (oledb is not null && (bool)oledb.Refreshing)
             {
                 return true;
@@ -209,10 +258,18 @@ internal sealed class StepRunner
         {
             // Connection type does not expose OLEDBConnection at all.
         }
+        finally
+        {
+            if (oledb is not null)
+            {
+                ReleaseComObject(oledb);
+            }
+        }
 
+        dynamic? odbc = null;
         try
         {
-            var odbc = connection.ODBCConnection;
+            odbc = connection.ODBCConnection;
             if (odbc is not null && (bool)odbc.Refreshing)
             {
                 return true;
@@ -222,10 +279,46 @@ internal sealed class StepRunner
         {
             // Connection type does not expose ODBCConnection at all.
         }
+        finally
+        {
+            if (odbc is not null)
+            {
+                ReleaseComObject(odbc);
+            }
+        }
 
         // Worksheet/text/model/etc. connection types don't expose a Refreshing
         // flag at all -- treat Refresh() having returned as completion.
         return false;
+    }
+
+    /// <summary>Releases one COM RCW, best-effort. Every intermediate COM
+    /// object this file obtains via property/collection access on a
+    /// Workbook/Connections/Connection (never just the top-level
+    /// Workbook/Application ExcelSession.cs already handles) needs this --
+    /// letting a local `dynamic` variable go out of scope is not enough;
+    /// Excel will not actually exit until every outstanding COM reference is
+    /// released, and relying on the .NET GC alone to get there can take
+    /// multiple collection cycles. See RunRefresh's finally blocks for the
+    /// confirmed real-world consequence of skipping this.</summary>
+    private static void ReleaseComObject(object? comObject)
+    {
+        if (comObject is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (Marshal.IsComObject(comObject))
+            {
+                Marshal.ReleaseComObject(comObject);
+            }
+        }
+        catch
+        {
+            // best-effort, mirroring ExcelSession.cs's own ReleaseComObject.
+        }
     }
 
     private StepResult RunRecalc(int index, RecalcStep step)
