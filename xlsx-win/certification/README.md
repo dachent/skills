@@ -26,6 +26,9 @@ Related documents:
   below).
 - `../control_plane/` -- `file_router.py` (#35), `invariant_evaluator.py` /
   `macro_policy.py` (#38) this directory chains together.
+- [`external-test-corpus.md`](external-test-corpus.md) -- a catalog of
+  public, downloadable real-world workbooks for manual exploratory testing
+  (not part of this automated corpus or CI).
 
 ## Adversarial review fixes (issue #39 follow-up)
 
@@ -422,6 +425,8 @@ Beyond the synthetic corpus, the repo maintainer provided two real, external pro
 Both files were staged to a local temp copy before any Excel automation touched them; neither original was ever opened, written to, or had the supervisor's `save_as` step point at its real location. Neither was run through the crash-simulation or forced-kill fault-injection tests -- those stay scoped to the synthetic corpus; these two only exercised the real happy-path pipeline.
 
 **Why Workbook B matters beyond "it worked":** it's the real-world case the `power_query_minimal` finding above predicted would be at risk -- a large workbook with genuine, multi-source Power Query connections is exactly the shape that reproduced the Excel-not-exiting bug on the minimal synthetic fixture. Workbook B succeeding cleanly, with all 10 connections refreshed and the process exiting promptly, is the strongest evidence available on this machine that the COM-release fix generalizes beyond the minimal repro case rather than only fixing that one specific fixture.
+
+Workbooks A and B can't be shared (confidential). For further manual real-world testing with files that *can* be shared, see [`external-test-corpus.md`](external-test-corpus.md) -- a catalog of public, downloadable `.xlsx`/`.xlsm` files (Power Query, VBA/macros, and larger datasets), each verified live and annotated with what it exercises and its licensing status. Like Workbooks A and B, these are for manual exploration only, not part of `run_corpus.py` or CI.
 
 ## Explicitly out of scope for this issue (RFC 0002 decision 2)
 
