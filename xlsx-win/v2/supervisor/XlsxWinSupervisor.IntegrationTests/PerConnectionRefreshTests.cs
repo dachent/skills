@@ -38,29 +38,23 @@ public class PerConnectionRefreshTests
                 RefreshTotalSeconds = 60,
                 CalculationSeconds = 30,
                 SaveSeconds = 30,
-                // Generous on purpose: real verification on this machine found
-                // that after a WorkbookConnection.Refresh(), EXCEL.EXE can take
-                // anywhere from a few seconds to several minutes to actually
-                // exit after Quit() returns (see README.md, "Known limitation:
-                // connection-refresh shutdown latency"). This is the deadline
-                // the *worker* waits against (via ExcelSession.CloseAndWait)
-                // before the supervisor's Job Object would step in.
-                //
-                // NOTE: raised from 600 to 900 during a later re-verification
-                // pass, but this did NOT make the test reliably pass on this
-                // machine -- four independent measurements that session (three
-                // at a 600s budget, one at 900s) each exceeded their
-                // configured deadline by roughly the same ~47-49s margin
-                // before the supervisor's own Job-Object kill fired. That
-                // pattern is consistent with this specific Power-Query-backed
-                // fixture's EXCEL.EXE simply not exiting on its own on this
-                // machine within any of the budgets tried, rather than the
-                // deadline just being set too tight. No number tried here is
-                // known to be reliably sufficient; see README.md's "Known
-                // limitations" update for the full evidence and why this is
-                // left as an open, pre-existing, environment-specific issue
-                // rather than "fixed" by this edit.
-                CloseSeconds = 900,
+                // FIXED (was 900s, previously an open, pre-existing,
+                // environment-specific issue that no timeout number tried
+                // reliably cleared -- see git history on this file and
+                // certification/README.md's "power_query_minimal" section for
+                // the full before/after). Root cause: StepRunner.cs's
+                // RunRefresh obtained Workbook.Connections, each Connection,
+                // and each OLEDBConnection/ODBCConnection via COM property
+                // access and never released any of them -- classic
+                // unreleased-RCW behavior that keeps EXCEL.EXE alive past
+                // Application.Quit() regardless of how long you wait. Fixed
+                // by explicit Marshal.ReleaseComObject on every one of those
+                // objects. Reverified after the fix: this test's own workbook
+                // (a plain WorkbookConnection, not genuine Power Query M)
+                // now completes and exits well within a generous 120s, so
+                // this deadline is a real bound again, not a number chosen to
+                // outlast an unresolved hang.
+                CloseSeconds = 120,
             },
             Steps = new List<JobStep>
             {
@@ -73,7 +67,7 @@ public class PerConnectionRefreshTests
 
         // Hard test-level ceiling, comfortably above CloseSeconds so the
         // supervisor's own deadline enforcement is what governs, not this.
-        var runResult = SupervisorRunner.Run(jobPath, eventsPath, resultPath, TimeSpan.FromMinutes(17));
+        var runResult = SupervisorRunner.Run(jobPath, eventsPath, resultPath, TimeSpan.FromMinutes(5));
 
         try
         {
@@ -85,8 +79,17 @@ public class PerConnectionRefreshTests
 
             var refreshResult = Assert.Single(resultDoc.Steps, s => s.Type == "refresh");
             Assert.Equal("succeeded", refreshResult.Status);
+            // Proves the positive (refreshed individually), not a negative
+            // substring-absence check: the success message legitimately says
+            // "...individually (no RefreshAll)." -- a DoesNotContain("RefreshAll")
+            // check here would fail on that literal phrasing despite it being
+            // exactly the correct, intended message. This assertion never ran
+            // to completion before the connection-refresh shutdown-latency fix
+            // (see supervisor/README.md, certification/README.md): this test
+            // always timed out first, so the now-fixed message was never
+            // actually reached until real EXCEL.EXE process-exit stopped
+            // outlasting the deadline.
             Assert.Contains("individually", refreshResult.Message ?? "");
-            Assert.DoesNotContain("RefreshAll", refreshResult.Message ?? "", StringComparison.OrdinalIgnoreCase);
 
             var events = File.ReadAllLines(eventsPath)
                 .Select(WorkerEvent.TryParse)

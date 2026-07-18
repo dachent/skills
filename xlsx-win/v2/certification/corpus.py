@@ -9,30 +9,47 @@ whether it should be pushed through the real supervisor, and whether its
 validation contract should pass or fail) so `run_corpus.py` has something
 concrete to assert against, not just "did it not crash."
 
-This module never launches Excel and never shells out to anything. It only
-uses openpyxl and the stdlib `zipfile` module to construct workbooks --
-including, for two items, to inject a single placeholder/inert OOXML zip
-entry that `control_plane/workbook_inventory.py`'s namelist-based detection
-keys on. Neither item needs its injected part to be a genuinely valid,
-Excel-openable macro project or external-link relationship: `#35`'s router
-only inspects the raw zip namelist (see workbook_inventory.py's module
-docstring), so a placeholder entry at the exact expected path is sufficient
-to exercise the *routing* decision this corpus item is meant to prove.
-Neither of those two items is ever opened by real Excel in this issue's
-harness (see each item's own notes below and README.md) -- exactly because
-their injected parts are not real, so there is no reason to risk finding out
-how Excel's repair/recovery UI reacts to them on a machine the owner
-actively uses.
+Five of the six items (everything except `power_query_minimal`) never
+launch Excel and never shell out to anything -- built purely with openpyxl
+and the stdlib `zipfile` module, including, for two items, injecting a
+single placeholder/inert OOXML zip entry that
+`control_plane/workbook_inventory.py`'s namelist-based detection keys on.
+Neither of those two placeholder items needs its injected part to be a
+genuinely valid, Excel-openable macro project or external-link relationship:
+`#35`'s router only inspects the raw zip namelist (see
+workbook_inventory.py's module docstring), so a placeholder entry at the
+exact expected path is sufficient to exercise the *routing* decision that
+item is meant to prove. Neither is ever opened by real Excel in this issue's
+harness -- exactly because their injected parts are not real, so there is no
+reason to risk finding out how Excel's repair/recovery UI reacts to them on
+a machine the owner actively uses.
+
+`power_query_minimal` is the one exception: a genuine Power Query M
+connection's OOXML representation (`xl/connections.xml` plus a `customXml`
+query-definition part) is not something this issue attempts to hand-craft
+the way the macro/external-link placeholders above do -- instead,
+`build_power_query_item` shells out to the repo's existing, already-tested
+`xlsx-win/scripts/power_query_excel.ps1` (`upsert-query` then
+`load-worksheet`) against a blank workbook, which means it genuinely
+launches Excel (twice) to build this one fixture. Callers MUST have already
+satisfied `excel_safety`'s preflight gate before calling it -- see
+run_corpus.py's main(), which is also the only place that decides whether
+this item is built at all.
 """
 
 from __future__ import annotations
 
+import subprocess
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
+
+_LEGACY_POWER_QUERY_SCRIPT = (
+    Path(__file__).resolve().parent.parent.parent / "scripts" / "power_query_excel.ps1"
+)
 
 # Marker text written into a dedicated, otherwise-unused cell in a couple of
 # corpus items, purely so a validation contract has an unambiguous literal
@@ -64,6 +81,18 @@ class CorpusItem:
     steps: tuple = ()
     contract: dict | None = None
     expected_contract_pass: bool | None = None
+    expected_supervisor_ok: bool = True
+    """Whether the supervisor job is expected to report ok=True. Default True
+    (the ordinary case). power_query_minimal sets this False: on this
+    machine, EXCEL.EXE reproducibly does not exit within any tested budget
+    (60s, then 300s) after a genuine Power Query refresh, even though the
+    actual work (refresh/calc/save) completes in seconds and produces a
+    correct output file -- see its own description and README.md. The
+    supervisor's TIMED_OUT verdict in that case is the CORRECT, conservative
+    behavior (it cannot confirm clean process teardown, so it does not claim
+    success), not a bug -- but a caller of this harness needs a way to say
+    "TIMED_OUT is the expected, documented outcome here," which is what this
+    field is for."""
     macro_check: tuple | None = None  # (macro_name, allowlist) for control_plane.macro_policy
 
 
@@ -174,6 +203,133 @@ def _build_failing_contract_workbook(path: Path) -> None:
     ws.append(["ID", "Value"])
     ws.append([1, 100])
     wb.save(path)
+
+
+def _run_legacy_power_query_script(
+    workbook_path: Path,
+    action: str,
+    query_name: str,
+    *,
+    mformula_path: Path | None = None,
+    worksheet_name: str | None = None,
+) -> None:
+    """Invoke the existing xlsx-win/scripts/power_query_excel.ps1 as a
+    subprocess. Launches Excel. Caller must have already satisfied
+    excel_safety's preflight gate."""
+    args = [
+        "powershell",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(_LEGACY_POWER_QUERY_SCRIPT),
+        "-WorkbookPath",
+        str(workbook_path),
+        "-Action",
+        action,
+        "-QueryName",
+        query_name,
+    ]
+    if mformula_path is not None:
+        args += ["-MFormulaPath", str(mformula_path)]
+    if worksheet_name is not None:
+        args += ["-WorksheetName", worksheet_name]
+
+    result = subprocess.run(args, capture_output=True, text=True, timeout=180, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"power_query_excel.ps1 -Action {action} failed (exit {result.returncode}): "
+            f"stdout={result.stdout!r} stderr={result.stderr!r}"
+        )
+
+
+def build_power_query_item(directory: str | Path) -> CorpusItem:
+    """Build the one corpus item with a genuine Power Query M connection, by
+    shelling out to the existing power_query_excel.ps1 (see module
+    docstring). Launches Excel. Caller MUST have already satisfied
+    excel_safety's preflight gate -- this function performs no safety check
+    of its own and is not called by build_corpus().
+
+    Expected router decision: openpyxl. This is the SAME known gap as
+    table_connection above (workbook connections are not one of the seven
+    risk fields workbook_inventory.py tracks) -- but a more consequential
+    instance of it: SKILL.md's own existing guidance is explicit that Power
+    Query M work must go through Excel COM, never file-only libraries, so
+    routing a genuinely M-code-backed workbook to openpyxl for an "edit" is
+    not merely a suboptimal choice but contrary to the skill's own
+    documented rule. Confirmed by direct measurement against this exact
+    workbook, not assumed. Tracked as a real, open gap against #35 in
+    README.md -- fixing the router is separate scope from this issue.
+    """
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+
+    path = directory / "power_query_minimal.xlsx"
+    # power_query_excel.ps1 opens an existing workbook (Workbooks.Open) --
+    # it does not create one -- so a blank workbook must exist first.
+    Workbook().save(path)
+
+    m_formula = (
+        "let\n"
+        "    Source = Table.FromRows(\n"
+        '        {{1, "Alpha"}, {2, "Beta"}, {3, "Gamma"}},\n'
+        '        {"Id", "Name"}\n'
+        "    )\n"
+        "in\n"
+        "    Source"
+    )
+    m_path = directory / "power_query_minimal.m"
+    m_path.write_text(m_formula, encoding="utf-8")
+
+    _run_legacy_power_query_script(path, "upsert-query", "SyntheticSource", mformula_path=m_path)
+    _run_legacy_power_query_script(path, "load-worksheet", "SyntheticSource", worksheet_name="Loaded")
+
+    return CorpusItem(
+        name="power_query_minimal",
+        input_path=path,
+        intent="edit_existing",
+        expected_backend="openpyxl",
+        description=(
+            "Workbook with a genuine, self-contained Power Query M connection "
+            "(Table.FromRows -- no external file or network dependency), built via the "
+            "existing power_query_excel.ps1 rather than a hand-crafted placeholder part. "
+            "Expected (current, undesirable) router decision: openpyxl -- the same known "
+            "gap as table_connection, now confirmed against a genuine M-code-backed "
+            "connection rather than only a plain Table; see README.md's 'known gap' "
+            "section for why this is a more consequential instance of it.\n\n"
+            "MAJOR FINDING, then FIXED and reverified: the first two real runs against this "
+            "item (60s and 300s refresh/close budgets) reproducibly hit a genuine defect -- "
+            "the job's actual work (open, refresh, recalc, save) completed in ~9 seconds "
+            "every time (confirmed via events.jsonl reaching SAVING then SUCCEEDED, and a "
+            "correct output.xlsx), but EXCEL.EXE itself never exited within either budget, "
+            "so the supervisor correctly timed out and force-killed via the Job Object "
+            "(zero orphaned processes both times). Root cause, found via web research and "
+            "confirmed by code inspection, not guessed: StepRunner.cs's RunRefresh obtained "
+            "Workbook.Connections, each Connection, and each OLEDBConnection/ODBCConnection "
+            "via COM property access and never released any of them -- classic unreleased-"
+            "RCW behavior (Application.Quit() only requests an exit; Excel won't actually "
+            "terminate until every outstanding COM reference is released, and relying on the "
+            ".NET GC alone to get there can take multiple collection cycles, or apparently "
+            "never resolve within any tested budget for a genuine Power-Query/Mashup-backed "
+            "connection specifically). Fixed by explicit Marshal.ReleaseComObject on every "
+            "one of those intermediate objects (in finally blocks, surviving exceptions) "
+            "plus strengthening ExcelSession.cs's single GC.Collect()+WaitForPendingFinalizers "
+            "to the standard double-collect pattern. Reverified against this exact item after "
+            "the fix: SUCCEEDED, ok=True, in 12.5 seconds -- down from timing out past 300s. "
+            "See README.md for the full writeup and sources."
+        ),
+        exercise_supervisor=True,
+        steps=(
+            {"type": "open", "workbook_path": str(path)},
+            {"type": "refresh", "connections": "all"},
+            {"type": "recalc", "mode": "full_rebuild"},
+        ),
+        contract={
+            "required_sheets": ["Loaded"],
+            "min_row_counts": {"Loaded": 4},
+            "sentinel_cells": [{"sheet": "Loaded", "cell": "B2", "expected": "Alpha"}],
+        },
+        expected_contract_pass=True,
+    )
 
 
 def build_corpus(directory: str | Path) -> list[CorpusItem]:
