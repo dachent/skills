@@ -58,6 +58,7 @@ def test_plain_xlsx_has_no_risk_features_and_is_classifiable(tmp_path) -> None:
     assert inventory.has_pivots is False
     assert inventory.has_slicers is False
     assert inventory.has_embedded_objects is False
+    assert inventory.has_connections is False
 
 
 def test_vba_project_part_sets_has_macros(tmp_path) -> None:
@@ -138,6 +139,18 @@ def test_embeddings_part_sets_has_embedded_objects(tmp_path) -> None:
     inventory = inspect_workbook(embed_path)
 
     assert inventory.has_embedded_objects is True
+
+
+def test_connections_part_sets_has_connections(tmp_path) -> None:
+    plain = tmp_path / "plain.xlsx"
+    _make_plain_workbook(plain)
+    connections_path = tmp_path / "connections.xlsx"
+    _copy_with_extra_entry(plain, connections_path, "xl/connections.xml")
+
+    inventory = inspect_workbook(connections_path)
+
+    assert inventory.has_connections is True
+    assert inventory.has_macros is False
 
 
 def test_corrupted_xlsx_fails_closed_as_unclassifiable_instead_of_raising(tmp_path) -> None:

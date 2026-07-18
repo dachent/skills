@@ -73,20 +73,21 @@ repo), each with a documented expected outcome:
 | --- | --- | --- | --- |
 | `plain_formulas` | Plain xlsx, formulas, no risk features | `openpyxl` | Passes a validation contract (required sheet, min row count, sentinel cell) evaluated directly against the file -- no Excel involved |
 | `macro_enabled` | `.xlsm` with a placeholder `xl/vbaProject.bin` part | `excel_required` | Confirms `workbook_inventory.inspect_workbook(...).has_macros` is `True` for this file, and that `macro_policy.is_macro_approved` returns `False` against an empty allowlist. **Not** a proof of Excel-level macro rejection -- see below |
-| `table_connection` | Worksheet Table, two data rows, no live connection | `openpyxl` | Deliberately still pushed through the real supervisor (open, refresh(all), recalc, save_as) -- see "known gap" below for why the router says `openpyxl` here and why that's not a bug |
+| `table_connection` | Worksheet Table, two data rows, plus a placeholder `xl/connections.xml` part | `excel_required` | **FIXED (issue #70)** -- see "known gap, now fixed" below. Router-decision-only; never opened by real Excel (placeholder part, same reasoning as `macro_enabled`/`external_link`) |
 | `external_link` | Plain xlsx + a placeholder `xl/externalLinks/*.xml` part | `excel_required` | Router-decision-only; never opened by real Excel (see corpus.py) |
 | `failing_contract` | Otherwise-plain xlsx | `openpyxl` | Paired with a contract requiring 50 rows against 2 actual -- proves the harness detects and reports a failure, not just happy paths |
 
-Two items (`macro_enabled`, `external_link`) inject a single placeholder
-zip entry at the exact OOXML path `workbook_inventory.py`'s namelist-based
-detection keys on (`xl/vbaProject.bin`, `xl/externalLinks/*.xml`), rather
-than fabricating a genuinely valid compiled VBA project or external-link
-relationship. That's sufficient to prove the *router's* decision (which only
-inspects the raw zip namelist -- see `workbook_inventory.py`'s own module
-docstring) without needing real Excel to ever open either file. Neither
-item is opened by real Excel anywhere in this issue's harness -- see each
-build function's docstring in `corpus.py` for the specific reasoning per
-item.
+Three items (`macro_enabled`, `external_link`, `table_connection`) inject a
+single placeholder zip entry at the exact OOXML path
+`workbook_inventory.py`'s namelist-based detection keys on
+(`xl/vbaProject.bin`, `xl/externalLinks/*.xml`, `xl/connections.xml`),
+rather than fabricating a genuinely valid compiled VBA project,
+external-link relationship, or workbook connection. That's sufficient to
+prove the *router's* decision (which only inspects the raw zip namelist --
+see `workbook_inventory.py`'s own module docstring) without needing real
+Excel to ever open any of the three files. None of the three is opened by
+real Excel anywhere in this issue's harness -- see each build function's
+docstring in `corpus.py` for the specific reasoning per item.
 
 ### What `macro_enabled` does and does not prove
 
@@ -118,28 +119,40 @@ macro rejection is an open gap**, tracked here alongside the
 `run_approved_macro` non-implementation, not something this corpus item or
 check stands in for.
 
-### Known gap surfaced by `table_connection`
+### Known gap surfaced by `table_connection` -- now fixed (issue #70)
 
 `file_router.py`'s seven tracked risk fields
 (`has_macros`, `is_signed`, `has_data_model`, `has_pivots`, `has_slicers`,
-`has_embedded_objects`, `has_external_links`) do not include "has a
+`has_embedded_objects`, `has_external_links`) did not include "has a
 workbook connection." A workbook with a real Power-Query/OLEDB connection
-loaded into a worksheet table -- and, this corpus item confirms, even one
-with just a plain Table and no connection at all -- routes to `openpyxl`,
-not `excel_required`, under the currently-merged #35 router. This is a real,
-verified finding (not assumed from reading the code -- `run_corpus.py`
-actually asserts and prints this decision), not a defect introduced by this
-issue. Fixing #35's router to track connections is out of scope here;
-`run_corpus.py` documents the gap by exercising this item through the
-supervisor via an explicit per-item override (`exercise_supervisor=True`,
-independent of the router's decision) rather than silently assuming
-`excel_required` would fire.
+loaded into a worksheet table -- and, this corpus item originally confirmed,
+even one with just a plain Table and no connection at all -- routed to
+`openpyxl`, not `excel_required`, under the then-merged #35 router. This was
+a real, verified finding (not assumed from reading the code -- `run_corpus.py`
+actually asserted and printed this decision), not a defect introduced by
+that issue.
+
+**Fixed by issue #70**: `workbook_inventory.py` now detects `xl/connections.xml`
+(`has_connections`, the same exact-zip-namelist-match style as the other
+seven fields), and `file_router.py` fails closed on it exactly like the
+other seven risk fields. `table_connection`'s corpus fixture was updated to
+carry a placeholder `xl/connections.xml` part (inert, not wired into any
+real relationship -- see `corpus.py`'s `build_corpus()`) so its
+router-decision check now proves the fix (`excel_required`) instead of
+documenting the gap. Because that part is a placeholder rather than a
+genuine connection declaration, this item stays router-decision-only
+(`exercise_supervisor=False`) -- it is no longer pushed through the real
+supervisor. The end-to-end "drive a refresh step against a Table-bearing
+workbook through the real supervisor" proof this item used to provide is
+still covered, unaffected, by `benchmark.py`'s own direct use of the
+underlying connection-free `_build_table_workbook` shape (see "Running
+`benchmark.py`" below).
 
 ### `power_query_minimal`: a genuine Power Query connection -- a real bug found, root-caused, and fixed
 
 Added after the original five corpus items, at the requester's direction, specifically because none of the other five (including `table_connection`) exercise real Power Query M code -- `table_connection` uses a plain worksheet Table with **no connection at all**. `power_query_minimal` is built by shelling out to the existing `xlsx-win/scripts/power_query_excel.ps1` (`upsert-query` then `load-worksheet`) against a blank workbook -- launching Excel twice -- rather than hand-crafting the `xl/connections.xml` + `customXml` query-definition parts the way the `macro_enabled`/`external_link` items fabricate their placeholder OOXML entries; Power Query's real representation is not something this issue attempts to reproduce by hand. This is the one corpus item whose *generation*, not just its exercise through the supervisor, requires real Excel -- gated in `run_corpus.py`'s `main()`, not inside `corpus.py` (which otherwise stays Excel-free).
 
-Router decision: `openpyxl` -- the same known gap as `table_connection` immediately above, now confirmed against a genuine M-code-backed connection instead of only a plain Table. More consequential here: `SKILL.md`'s own existing guidance is explicit that Power Query M work must go through Excel COM, never file-only libraries, so this specific misrouting is not merely suboptimal but contrary to the skill's own documented rule.
+Router decision: `excel_required` -- **fixed by issue #70**, same as `table_connection` immediately above. This was originally the same known gap as `table_connection`, confirmed against a genuine M-code-backed connection instead of only a plain Table, and more consequential here: `SKILL.md`'s own existing guidance is explicit that Power Query M work must go through Excel COM, never file-only libraries, so the original misrouting to `openpyxl` was not merely suboptimal but contrary to the skill's own documented rule. Now that `workbook_inventory.py` detects this file's genuine `xl/connections.xml` part (`has_connections`) and `file_router.py` fails closed on it, this item's router-decision check proves the routing fix rather than documenting the gap.
 
 **Bug found, then fixed and reverified.** The job's actual work -- open, refresh, recalc, save -- always completed in ~9 seconds (confirmed via `events.jsonl` reaching `SAVING` then `SUCCEEDED`, and a correct `output.xlsx`), but the first two real runs (60s, then 300s budgets) both saw `EXCEL.EXE` never exit afterward, forcing the supervisor's Job-Object kill every time (zero orphaned processes both times, but a genuine `TIMED_OUT` verdict on a job that had actually succeeded). This is the same phenomenon `supervisor/README.md` already documented from earlier `PerConnectionRefreshTests` observations, now confirmed against a **genuine Power Query M / Mashup-provider connection** specifically -- and, unlike those earlier observations, actually root-caused instead of left open:
 
@@ -199,10 +212,11 @@ python xlsx-win/v2/certification/run_corpus.py
 
 Without `XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1` set, every check that
 doesn't need Excel still runs (router decisions, macro-policy rejection,
-contract evaluation against the four items that don't need Excel); the one
-item that's pushed through the real supervisor (`table_connection`) reports
-its two Excel-dependent checks as `SKIP` (not a failure) with an explicit
-message naming the env var.
+contract evaluation against the items that don't need Excel); the one item
+that's pushed through the real supervisor as of issue #70
+(`power_query_minimal`) reports its Excel-dependent checks as `SKIP` (not a
+failure) with an explicit message naming the env var, and is not even built
+in the first place without the opt-in (see `run_corpus.py`'s `main()`).
 
 To run everything for real:
 

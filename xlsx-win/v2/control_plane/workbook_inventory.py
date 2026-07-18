@@ -10,11 +10,11 @@ tool to have opened it with. So this module reads the raw OOXML package
 
 Detection is deliberately narrow and matches only the fields the single-user
 descope (RFC 0002) actually routes on: macros, digital signatures, external
-links, a Data Model part, pivot caches, slicer caches, and embedded objects.
-The original issue's full inventory (drawings, queries/connections,
-add-in dependencies, calculation settings, edit volume/shape) is out of
-scope here -- see the module docstring in file_router.py and the xlsx-win/v2
-README for the descope rationale.
+links, a Data Model part, pivot caches, slicer caches, embedded objects, and
+(per issue #70) workbook connections. The original issue's full inventory
+(drawings, add-in dependencies, calculation settings, edit volume/shape) is
+out of scope here -- see the module docstring in file_router.py and the
+xlsx-win/v2 README for the descope rationale.
 """
 
 from __future__ import annotations
@@ -41,11 +41,14 @@ _EXTENSION_TO_FORMAT = {
 
 # Zip entries that, if present, positively indicate the corresponding risk
 # feature. Prefix-matched (case-insensitive) against the package namelist,
-# except _VBA_PROJECT_ENTRY which is matched exactly. These are the OOXML
+# except _VBA_PROJECT_ENTRY and _CONNECTIONS_ENTRY, which are matched
+# exactly (single-file parts, not a directory group). These are the OOXML
 # package locations named in issue #35: xl/vbaProject.bin, an
 # OPC digital-signature origin part, xl/externalLinks, the Power Pivot Data
 # Model part group (xl/model/), xl/pivotCache, xl/slicerCaches, and
-# xl/embeddings.
+# xl/embeddings -- plus, per issue #70, xl/connections.xml (the single-file
+# OOXML part for Workbook.Connections, covering both a Power Query
+# connection and a legacy QueryTable/OLEDB/ODBC connection).
 _VBA_PROJECT_ENTRY = "xl/vbaproject.bin"
 _SIGNATURE_PREFIX = "_xmlsignatures/"
 _EXTERNAL_LINKS_PREFIX = "xl/externallinks/"
@@ -53,6 +56,7 @@ _DATA_MODEL_PREFIX = "xl/model/"
 _PIVOT_CACHE_PREFIX = "xl/pivotcache/"
 _SLICER_CACHE_PREFIX = "xl/slicercaches/"
 _EMBEDDINGS_PREFIX = "xl/embeddings/"
+_CONNECTIONS_ENTRY = "xl/connections.xml"
 
 _CONTENT_TYPES_ENTRY = "[Content_Types].xml"
 
@@ -88,6 +92,7 @@ class WorkbookInventory:
     has_pivots: bool = False
     has_slicers: bool = False
     has_embedded_objects: bool = False
+    has_connections: bool = False
     is_classifiable: bool = True
 
 
@@ -134,6 +139,7 @@ def _inspect_ooxml_package(path: Path, file_format: str) -> WorkbookInventory:
                 has_pivots=_has_prefix(namelist, _PIVOT_CACHE_PREFIX),
                 has_slicers=_has_prefix(namelist, _SLICER_CACHE_PREFIX),
                 has_embedded_objects=_has_prefix(namelist, _EMBEDDINGS_PREFIX),
+                has_connections=_has_exact(namelist, _CONNECTIONS_ENTRY),
             )
     except _DETECTION_FAILURE_EXCEPTIONS:
         # Fail closed rather than raise: an xlsx/xlsm-named file that can't
