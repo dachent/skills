@@ -58,11 +58,12 @@ from control_plane.macro_policy import is_macro_approved  # noqa: E402
 from control_plane.workbook_inventory import inspect_workbook  # noqa: E402
 
 # Bounded, generous timeouts for items exercised through the real
-# supervisor. table_connection has no live workbook connection, so
-# supervisor/README.md's "connection-refresh shutdown latency" issue does
-# not apply to it -- but power_query_minimal DOES have a genuine Power Query
-# connection, and a first run at a tighter budget (60s) reproduced that
-# exact same documented issue against it (TIMED_OUT at 69.4s elapsed; no
+# supervisor. As of issue #70, power_query_minimal is the only item that
+# reaches this path (table_connection became router-decision-only once it
+# gained a placeholder xl/connections.xml part -- see corpus.py). It DOES
+# have a genuine Power Query connection, and a first run at a tighter
+# budget (60s) reproduced supervisor/README.md's documented "connection-
+# refresh shutdown latency" issue against it (TIMED_OUT at 69.4s elapsed; no
 # orphaned Excel process afterward -- the supervisor's kill still worked
 # correctly). Budget widened here accordingly; see README.md's own note on
 # the actual number this required.

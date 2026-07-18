@@ -11,23 +11,24 @@ concrete to assert against, not just "did it not crash."
 
 Five of the six items (everything except `power_query_minimal`) never
 launch Excel and never shell out to anything -- built purely with openpyxl
-and the stdlib `zipfile` module, including, for two items, injecting a
+and the stdlib `zipfile` module, including, for three items, injecting a
 single placeholder/inert OOXML zip entry that
 `control_plane/workbook_inventory.py`'s namelist-based detection keys on.
-Neither of those two placeholder items needs its injected part to be a
-genuinely valid, Excel-openable macro project or external-link relationship:
-`#35`'s router only inspects the raw zip namelist (see
-workbook_inventory.py's module docstring), so a placeholder entry at the
-exact expected path is sufficient to exercise the *routing* decision that
-item is meant to prove. Neither is ever opened by real Excel in this issue's
-harness -- exactly because their injected parts are not real, so there is no
-reason to risk finding out how Excel's repair/recovery UI reacts to them on
-a machine the owner actively uses.
+None of those three placeholder items needs its injected part to be a
+genuinely valid, Excel-openable macro project, external-link relationship,
+or workbook connection: `#35`/`#70`'s router only inspects the raw zip
+namelist (see workbook_inventory.py's module docstring), so a placeholder
+entry at the exact expected path is sufficient to exercise the *routing*
+decision that item is meant to prove. None of the three is ever opened by
+real Excel in this issue's harness -- exactly because their injected parts
+are not real, so there is no reason to risk finding out how Excel's
+repair/recovery UI reacts to them on a machine the owner actively uses.
 
 `power_query_minimal` is the one exception: a genuine Power Query M
 connection's OOXML representation (`xl/connections.xml` plus a `customXml`
 query-definition part) is not something this issue attempts to hand-craft
-the way the macro/external-link placeholders above do -- instead,
+the way the macro/external-link/table-connection placeholders above do --
+instead,
 `build_power_query_item` shells out to the repo's existing, already-tested
 `xlsx-win/scripts/power_query_excel.ps1` (`upsert-query` then
 `load-worksheet`) against a blank workbook, which means it genuinely
@@ -65,11 +66,14 @@ class CorpusItem:
 
     `exercise_supervisor` is an explicit, independent flag -- not derived
     from `expected_backend == "excel_required"`. See run_corpus.py and
-    README.md for why: two of the `excel_required` items here are
-    deliberately *not* pushed through the real supervisor (a macro-policy
-    rejection and a router-only external-link check don't need Excel to
-    prove their documented outcome, and one of them carries a placeholder
-    part not safe to hand to real Excel -- see the module docstring above).
+    README.md for why: three of the `excel_required` items here
+    (`macro_enabled`, `table_connection`, `external_link`) are deliberately
+    *not* pushed through the real supervisor -- each carries a placeholder
+    part not safe to hand to real Excel (see the module docstring above),
+    and a macro-policy rejection / router-only connection or external-link
+    check doesn't need Excel to prove its documented outcome. The fourth
+    `excel_required` item, `power_query_minimal`, carries a genuine
+    (not placeholder) connection and IS pushed through the real supervisor.
     """
 
     name: str
@@ -144,13 +148,18 @@ def _build_table_workbook(path: Path) -> None:
     """A plain xlsx with one worksheet Table (ListObject) holding two data
     rows. No workbook connection -- a real live Power-Query-backed
     connection refresh is already proven by the C# integration test
-    PerConnectionRefreshTests (#36); this item's purpose (see README.md) is
-    narrower: prove run_corpus.py's own pipeline correctly drives a
-    `refresh` step end-to-end against a Table-bearing workbook through the
-    real supervisor, not to duplicate live-connection-content fidelity
-    proof. Expected router decision: openpyxl (no risk feature this
-    router tracks is present -- workbook connections are not one of the
-    seven tracked risk fields; see README.md's "known gap" note)."""
+    PerConnectionRefreshTests (#36).
+
+    This exact connection-free shape is deliberately shared by two
+    independent callers, and must stay connection-free for both:
+    `benchmark.py` calls this function directly and relies on it producing
+    zero connections (see its own "Benchmark scope deviation" docstring/
+    README section). `build_corpus()` below also calls this function for
+    the `table_connection` corpus item's base shape, then separately layers
+    a placeholder `xl/connections.xml` part onto the file it wrote -- as a
+    build_corpus()-local step, not inside this function -- specifically to
+    prove the issue #70 `has_connections` routing fix. Do not add a
+    connection here; add it at that call site instead."""
     wb = Workbook()
     ws = wb.active
     ws.title = "Sales"
@@ -249,16 +258,18 @@ def build_power_query_item(directory: str | Path) -> CorpusItem:
     excel_safety's preflight gate -- this function performs no safety check
     of its own and is not called by build_corpus().
 
-    Expected router decision: openpyxl. This is the SAME known gap as
-    table_connection above (workbook connections are not one of the seven
-    risk fields workbook_inventory.py tracks) -- but a more consequential
-    instance of it: SKILL.md's own existing guidance is explicit that Power
-    Query M work must go through Excel COM, never file-only libraries, so
-    routing a genuinely M-code-backed workbook to openpyxl for an "edit" is
-    not merely a suboptimal choice but contrary to the skill's own
-    documented rule. Confirmed by direct measurement against this exact
-    workbook, not assumed. Tracked as a real, open gap against #35 in
-    README.md -- fixing the router is separate scope from this issue.
+    Expected router decision: excel_required (FIXED by issue #70). This used
+    to be the SAME known gap as table_connection above (workbook connections
+    were not one of the seven risk fields workbook_inventory.py tracked) --
+    and a more consequential instance of it: SKILL.md's own existing
+    guidance is explicit that Power Query M work must go through Excel COM,
+    never file-only libraries, so routing a genuinely M-code-backed
+    workbook to openpyxl for an "edit" was not merely a suboptimal choice
+    but contrary to the skill's own documented rule. Confirmed by direct
+    measurement against this exact workbook, not assumed. Now that
+    workbook_inventory.py detects xl/connections.xml (has_connections) and
+    file_router.py treats it as a risk field, this item's router-decision
+    check proves the fix instead of documenting the gap.
     """
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
@@ -287,15 +298,17 @@ def build_power_query_item(directory: str | Path) -> CorpusItem:
         name="power_query_minimal",
         input_path=path,
         intent="edit_existing",
-        expected_backend="openpyxl",
+        expected_backend="excel_required",
         description=(
             "Workbook with a genuine, self-contained Power Query M connection "
             "(Table.FromRows -- no external file or network dependency), built via the "
             "existing power_query_excel.ps1 rather than a hand-crafted placeholder part. "
-            "Expected (current, undesirable) router decision: openpyxl -- the same known "
-            "gap as table_connection, now confirmed against a genuine M-code-backed "
-            "connection rather than only a plain Table; see README.md's 'known gap' "
-            "section for why this is a more consequential instance of it.\n\n"
+            "Expected router decision: excel_required -- FIXED (issue #70): this used to be "
+            "the same known gap as table_connection (workbook connections were not a "
+            "tracked risk field), confirmed against a genuine M-code-backed connection "
+            "rather than only a plain Table; now that workbook_inventory.py's has_connections "
+            "detects xl/connections.xml and file_router.py fails closed on it, this item's "
+            "router-decision check proves the fix rather than documenting the gap.\n\n"
             "MAJOR FINDING, then FIXED and reverified: the first two real runs against this "
             "item (60s and 300s refresh/close budgets) reproducibly hit a genuine defect -- "
             "the job's actual work (open, refresh, recalc, save) completed in ~9 seconds "
@@ -347,6 +360,23 @@ def build_corpus(directory: str | Path) -> list[CorpusItem]:
 
     table_path = directory / "table_connection.xlsx"
     _build_table_workbook(table_path)
+    # Issue #70: layer a placeholder, inert xl/connections.xml part onto the
+    # table workbook -- same pattern as the macro/external-link placeholders
+    # above (not wired into any real relationship/content-type declaration;
+    # workbook_inventory.py's has_connections detection is an exact
+    # zip-namelist match, so a placeholder at the exact path is sufficient
+    # to prove this item's router decision). Added here, not inside
+    # _build_table_workbook itself, so benchmark.py's own direct call to
+    # that function stays genuinely connection-free (see that function's
+    # docstring). Because this part is a placeholder, not a real connection
+    # declaration, this item is router-decision-only below -- never opened
+    # by real Excel in this harness (see the "table_connection" CorpusItem).
+    with zipfile.ZipFile(table_path, "a", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            "xl/connections.xml",
+            b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            b'<connections xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>',
+        )
 
     external_link_path = directory / "external_link.xlsx"
     _build_external_link_workbook(external_link_path)
@@ -404,29 +434,26 @@ def build_corpus(directory: str | Path) -> list[CorpusItem]:
             name="table_connection",
             input_path=table_path,
             intent="edit_existing",
-            expected_backend="openpyxl",
+            expected_backend="excel_required",
             description=(
-                "Worksheet Table with two data rows, no live connection. Expected router "
-                "decision: openpyxl (workbook connections are not a tracked risk field -- "
-                "see README.md's 'known gap' note). Deliberately still exercised through "
-                "the real supervisor (open, refresh(all), recalc, save_as) regardless of "
-                "the router's decision, because this item's documented purpose is to "
-                "prove the pipeline drives a refresh step end-to-end against a "
-                "Table-bearing workbook -- not to test routing. The output is then "
-                "validated against a contract requiring the Table and its row count."
+                "Worksheet Table with two data rows, plus a placeholder xl/connections.xml "
+                "part (not wired into any real relationship/content-type declaration -- see "
+                "build_corpus()). FIXED (issue #70): this item used to document a real gap -- "
+                "file_router.py had no tracked field for 'has a workbook connection', so a "
+                "connection-bearing workbook routed to openpyxl instead of excel_required. "
+                "Now that workbook_inventory.py detects xl/connections.xml and file_router.py "
+                "treats has_connections as a risk field, this item's router-decision check "
+                "proves the fix: expected router decision is excel_required. Router-decision-"
+                "only -- because the injected part is a placeholder, not a genuine connection "
+                "declaration, this item is deliberately never pushed through real Excel in "
+                "this harness (same reasoning as the macro_enabled/external_link items). The "
+                "original 'drive a refresh step end-to-end against a Table-bearing workbook "
+                "through the real supervisor' purpose this item used to serve is still "
+                "covered, unaffected, by benchmark.py's own direct use of the underlying "
+                "connection-free _build_table_workbook shape (both its supervisor and legacy "
+                "legs)."
             ),
-            exercise_supervisor=True,
-            steps=(
-                {"type": "open", "workbook_path": str(table_path)},
-                {"type": "refresh", "connections": "all"},
-                {"type": "recalc", "mode": "full_rebuild"},
-            ),
-            contract={
-                "required_tables": ["SalesData"],
-                "min_row_counts": {"SalesData": 2},
-                "sentinel_cells": [{"sheet": "Sales", "cell": "B2", "expected": 100}],
-            },
-            expected_contract_pass=True,
+            exercise_supervisor=False,
         ),
         CorpusItem(
             name="external_link",

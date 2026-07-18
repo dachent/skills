@@ -137,6 +137,18 @@ def test_each_remaining_risk_feature_alone_routes_to_excel_required(field) -> No
     assert decision.explain.get(field) is True
 
 
+def test_workbook_connection_routes_to_excel_required_with_explain() -> None:
+    # Issue #70: a detected workbook connection (Power Query or legacy
+    # QueryTable/OLEDB/ODBC) must fail closed exactly like the other seven
+    # risk fields, regardless of every other field being unset.
+    inventory = _inventory(has_connections=True)
+
+    decision = choose_backend("edit_existing", inventory)
+
+    assert decision.backend == BACKEND_EXCEL_REQUIRED
+    assert decision.explain.get("has_connections") is True
+
+
 def test_multiple_risk_features_are_all_named_in_explain() -> None:
     inventory = _inventory(has_macros=True, has_pivots=True)
 
