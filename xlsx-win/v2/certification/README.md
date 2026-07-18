@@ -375,6 +375,17 @@ overhead" target was framed around (eliminating *multiple* Excel launches
 for one logical operation), not a single equivalent job against an
 already-single-lifecycle legacy script.
 
+## Real-world validation against production workbooks
+
+Beyond the synthetic corpus, the repo maintainer provided two real, external production workbooks for validation -- not committed to this repo (confidentiality; they're the maintainer's own business data, on their own machine) and not part of the automated corpus, but run through the same pipeline (`workbook_inventory` -> `file_router` -> the real supervisor) for real, once per file, on this machine:
+
+- **Workbook A** -- small, self-contained, all data inside the file. Router: correctly detected real PivotTables and routed to `excel_required` (no macros/signature/data-model/external-links/slicers/embedded-objects). Run through the supervisor (open, refresh, recalc, save-as to a new output): `SUCCEEDED`, `ok=true`. Zero connections to refresh (matches "all data inside the file"). Output verified structurally intact (same sheet names/count as the input) before discarding.
+- **Workbook B** -- large (100 sheets, ~38MB), with a genuine Data Model, external workbook links, PivotTables, and 10 real Power Query connections pulling data from other files on the same drive. Router: correctly detected all three tracked risk features simultaneously (`has_data_model`, `has_external_links`, `has_pivots`) and routed to `excel_required`. Run through the supervisor: `SUCCEEDED`, `ok=true`, all 10 connections refreshed individually, full recalculation reached `xlDone`, saved to a new output (38,547,943 bytes vs. the 38,560,372-byte input -- normal resave variance, not data loss). Total wall-clock ~3 minutes (open ~8s, refresh of all 10 connections ~2m39s, calc+save ~10s). Zero orphaned Excel processes after either workbook.
+
+Both files were staged to a local temp copy before any Excel automation touched them; neither original was ever opened, written to, or had the supervisor's `save_as` step point at its real location. Neither was run through the crash-simulation or forced-kill fault-injection tests -- those stay scoped to the synthetic corpus; these two only exercised the real happy-path pipeline.
+
+**Why Workbook B matters beyond "it worked":** it's the real-world case the `power_query_minimal` finding above predicted would be at risk -- a large workbook with genuine, multi-source Power Query connections is exactly the shape that reproduced the Excel-not-exiting bug on the minimal synthetic fixture. Workbook B succeeding cleanly, with all 10 connections refreshed and the process exiting promptly, is the strongest evidence available on this machine that the COM-release fix generalizes beyond the minimal repro case rather than only fixing that one specific fixture.
+
 ## Explicitly out of scope for this issue (RFC 0002 decision 2)
 
 Per the issue's own instruction, listed here with one-line reasons rather
