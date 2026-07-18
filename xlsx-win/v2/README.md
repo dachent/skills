@@ -2,9 +2,12 @@
 
 This directory implements issue #34 (the LLM-facing job/result contract),
 issue #35 (the deterministic file-backend router), issue #38 (workbook
-validation contracts, macro policy, staging, and the audit manifest), and
-issue #71 (`cli.py run`, wiring the CLI to the real C# supervisor) for the
-xlsx-win v2 runtime, scoped to a single desktop per
+validation contracts, macro policy, staging, and the audit manifest), issue
+#71 (`cli.py run`, wiring the CLI to the real C# supervisor), and issue #72
+(wiring #38's staging/publish primitives into `run`'s own call path, plus
+IMessageFilter COM-retry handling and a refresh heartbeat on the C# side --
+see `supervisor/README.md`) for the xlsx-win v2 runtime, scoped to a single
+desktop per
 [RFC 0002](../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) (which
 amends [RFC 0001](../../docs/rfcs/0001-xlsx-win-runtime-v2.md)).
 
@@ -15,7 +18,7 @@ validation, and policy only -- no Excel, no COM.** The one exception:
 `cli.py run` resolves and invokes the built `XlsxWinSupervisor.exe` (#36) as
 a subprocess, which is what actually drives Excel -- one process boundary
 away, never inside this Python process itself. See "Using the CLI" and
-"Running a job for real (`run`, issue #71)" below.
+"Running a job for real (`run`, issues #71/#72)" below.
 
 - JSON Schema for job manifests, results, workbook validation contracts, and
   audit manifests (`schemas/`).
@@ -152,7 +155,7 @@ only for a genuine caller error (a malformed contract, or a workbook that
 can't be opened at all) -- printed the same `{"error": {code, message,
 details}}` shape as `validate` and `dry-run`.
 
-## Running a job for real (`run`, issue #71)
+## Running a job for real (`run`, issues #71/#72)
 
 `run` is the one subcommand that ends up driving real Excel -- indirectly,
 by invoking the built `XlsxWinSupervisor.exe` (#36) as a subprocess. It is
@@ -167,24 +170,53 @@ What it does, in order:
 
 1. Loads and schema-validates the manifest exactly like `validate` does
    (`schemas.validate_job`). **If this fails, it fails closed and returns
-   before ever resolving or touching the supervisor** -- prints the same
-   `{"valid": false, "error": {code, message, details}}` shape, exit code 1.
-2. Resolves the built `XlsxWinSupervisor.exe`/`XlsxWinWorker.exe` and
+   before ever resolving, staging, or touching the supervisor** -- prints
+   the same `{"valid": false, "error": {code, message, details}}` shape,
+   exit code 1.
+2. **Pre-touch staging (issue #72, RFC 0002 decision 9).** If the manifest
+   has an `open` step, its `workbook_path` is staged into a fresh local
+   temp copy via the already-existing, already-tested #38
+   `staging.stage_copy` -- built once and reused here, not reimplemented --
+   and an *in-memory* copy of the parsed job dict has that step's
+   `workbook_path` rewritten to point at the staged copy. **The caller's
+   on-disk manifest file itself is never mutated**, and the manifest's real
+   input path is never opened directly -- every step from here on runs
+   against the staged copy. Any `save_as` step's `output_path` is likewise
+   rewritten to a path inside that same staging directory, so the real save
+   target is never written to directly either. A manifest with no `open`
+   step degrades gracefully: nothing is staged, and `run` invokes the
+   supervisor against the caller's original manifest file exactly as issue
+   #71 did before staging existed.
+3. Resolves the built `XlsxWinSupervisor.exe`/`XlsxWinWorker.exe` and
    invokes the supervisor as a subprocess
-   (`control_plane/supervisor_runner.py`), passing it the manifest path plus
-   an events path and a result path (see "Job/result JSON file-path
-   contract" in `supervisor/README.md`). If the executables can't be found,
-   or the supervisor subprocess doesn't exit within a generous wall-clock
-   safety-net timeout, `run` prints `{"valid": false, "error": {"code":
-   "SUPERVISOR_INVOCATION_FAILED", ...}}` and returns exit code 1 -- still
-   without ever having started Excel.
-3. On a real invocation, reads back `result.json` and prints it verbatim,
-   then **exits with the supervisor's own exit code, unmodified** -- `run`
-   never reinterprets or wraps it (see supervisor/README.md's own exit-code
-   contract: `0` success, `1` forced timeout kill, `2` argument/manifest
-   error). A caller must read the printed result document's
-   `final_state`/`ok` fields to learn the *job's* outcome; the process exit
-   code alone only tells you whether the supervisor itself ran cleanly.
+   (`control_plane/supervisor_runner.py`) against the *staged* manifest (or
+   the original, if nothing was staged), passing it an events path and a
+   result path (see "Job/result JSON file-path contract" in
+   `supervisor/README.md` -- these still default next to the *original*
+   manifest path, not the staged one, so they stay discoverable). If the
+   executables can't be found, or the supervisor subprocess doesn't exit
+   within a generous wall-clock safety-net timeout, `run` prints
+   `{"valid": false, "error": {"code": "SUPERVISOR_INVOCATION_FAILED",
+   ...}}` and returns exit code 1 -- still without ever having started
+   Excel.
+4. Reads back `result.json`. **Only if it reports `ok: true` and the job had
+   one or more `save_as` steps**, calls `staging.publish` for each one,
+   atomically swapping that step's staged output into its real, original
+   `output_path` (backing up any existing file there first -- see
+   `staging.py`). If the job failed (`ok: false`, or the result document
+   couldn't even be read), **nothing is published and every original
+   `save_as.output_path` is left completely untouched** -- this is RFC 0002
+   decision 9's whole point, not a best-effort partial write.
+5. Prints the result document and **exits with the supervisor's own exit
+   code, unmodified** -- `run` never reinterprets or wraps it (see
+   supervisor/README.md's own exit-code contract: `0` success, `1` forced
+   timeout kill, `2` argument/manifest error). A caller must read the
+   printed result document's `final_state`/`ok` fields to learn the *job's*
+   outcome; the process exit code alone only tells you whether the
+   supervisor itself ran cleanly. (Exception: if step 4's `staging.publish`
+   itself fails -- a rare last-ditch sanity-check failure, e.g. a zero-byte
+   staged output -- `run` prints that error instead and returns exit code 1
+   regardless of the supervisor's own exit code.)
 
 `run` does **not** call `file_router.choose_backend` and does not dispatch
 to a non-Excel backend -- a job manifest's steps (`open`/`refresh`/
@@ -326,7 +358,13 @@ Three more small modules round out issue #38, each with one job:
   zero-byte file, backs up any existing destination file to a timestamped
   path first, and swaps atomically (`os.replace`, with a
   copy-into-destination-directory-then-`os.replace` fallback when the
-  staged file and destination are on different volumes).
+  staged file and destination are on different volumes). Issue #72 is the
+  first real caller of these two functions from the actual job-execution
+  path: `cli.py run` calls `stage_copy` on the manifest's `open` step before
+  ever invoking the supervisor, and `publish` on any `save_as` step's
+  staged output once (and only once) the supervisor reports `ok: true` --
+  see "Running a job for real" above. Their own signatures/behavior are
+  unchanged by #72; only the call site is new.
 - **`audit_manifest.build_audit_manifest(run_id, input_path, output_path,
   contract_path, invariant_results)`** -- links a run's input/output content
   hashes, the validation contract's path/hash if one was used, and the

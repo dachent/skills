@@ -145,14 +145,133 @@ reconciling in a follow-up to #34 so the Python side validates it too.
 
 ## Architecture notes
 
+### IMessageFilter COM-retry handling (issue #72)
+
+`ComMessageFilter.cs` implements the standard, well-known `IOleMessageFilter`
+COM interop pattern (documented in numerous Microsoft KB articles about
+Office automation hangs) and registers it via `CoRegisterMessageFilter`
+immediately after `Program.cs`'s `Main` parses `WorkerArgs` -- before Excel
+is ever started -- and revokes it (`CoRegisterMessageFilter(null, ...)`) in a
+`finally` block that runs on every exit path, including exceptions.
+
+- `HandleInComingCall` always returns `SERVERCALL_ISHANDLED` (0).
+- `RetryRejectedCall`: `SERVERCALL_REJECTED` (1) fails the call immediately
+  (`-1`) -- not retryable. `SERVERCALL_RETRYLATER` (2) is retried with a
+  fixed 200ms delay, up to `ComMessageFilter.MaxRetryAttempts` (10) attempts,
+  after which it also returns `-1` so the caller gets a clear COM exception
+  instead of retrying forever.
+- `MessagePending` always returns `PENDINGMSG_WAITDEFPROCESS` (2).
+
+The retry counter is reset once per job step (`StepRunner.Run`, before
+dispatching to the step's handler) rather than once per outgoing COM call or
+once for the whole job -- a deliberate choice so each step's own result
+message can report *that step's* retry count via
+`StepRunner.AppendRetrySuffix`: `"Opened '...'. (retried COM call 3 times)"`,
+appended to the step's existing success/failure message whenever
+`RetryAttempts > 0` after the step runs. Covered by
+`ComMessageFilterTests.cs` (pure logic, no COM/Excel): bound enforcement,
+the three constant return values, and per-step reset.
+
+### Heartbeat (issue #72)
+
+`StepRunner.RefreshOneConnection`'s post-`Refresh()` polling loop (the same
+loop that already calls `IsStillRefreshing`/`MessagePump.PumpingDelay` every
+200ms) now also emits a `WorkerEvent` roughly every 5 seconds
+(`StepRunner`'s `DefaultHeartbeatInterval`, overridable via an optional
+`StepRunner` constructor parameter for tests) while the loop is still
+running -- not on every 200ms tick, which would be noise, not a heartbeat.
+It reuses the existing `REFRESHING_CONNECTIONS` phase name (rather than
+inventing a new `JobStates`/`state_machine.py` phase -- there is no
+"heartbeat" phase in either, deliberately, to avoid ever duplicating or
+conflicting with that shared state list) with a distinguishing
+`message: "heartbeat: still refreshing."` instead.
+
+One side effect worth calling out explicitly: `XlsxWinSupervisor`'s own
+`Program.cs` resets `lastTransitionUtc` on *every* event with a non-empty
+`Phase`, including a same-phase heartbeat (see `EventTailer`/`Program.cs`
+around `if (!string.IsNullOrEmpty(evt.Phase)) { currentPhase = evt.Phase;
+lastTransitionUtc = DateTime.UtcNow; }`). So a refresh that keeps emitting
+heartbeats also keeps the supervisor's own independent phase-deadline clock
+from firing early relative to the worker's own internal
+`refresh_total_seconds` deadline (`RunRefresh`'s own `deadline` variable,
+computed once and shared across all connections in one refresh step) --
+this is a deliberate, welcome side effect of reusing the phase field, not a
+bug: the two clocks now stay in lockstep instead of racing to expire at
+the same original timestamp.
+
+**Real-world caveat, confirmed by direct COM probing, not guessed:** this
+polling loop only gets a chance to run long enough to emit a heartbeat for
+a connection/provider where `WorkbookConnection.Refresh()` itself returns
+before the underlying data fetch is actually done, with `.Refreshing`
+continuing to report `true` for a while afterward. Probing the exact
+Power-Query/Mashup OLEDB connection type this codebase's own certification
+fixtures use (`FixtureWorkbookBuilder.CreateWorkbookWithConnection`,
+`certification/corpus.py`'s `power_query_minimal`) directly against a
+query with an injected 12-second `Function.InvokeAfter` delay showed
+`Refresh()` itself blocking synchronously for the *entire* 17.7 of those
+seconds it took, with only ~0.07s of subsequent polling before
+`Refreshing` read back `false` -- i.e., `TrySetBackgroundQueryOff`'s
+`BackgroundQuery = false` request is fully honored by this provider, and
+the post-`Refresh()` loop simply never has meaningful time to run for it.
+**No heartbeat is visible in `events.jsonl` for that connection type in
+this environment, and that is the loop working correctly, not a defect --
+there is no "still waiting" period left to report once `Refresh()` has
+already returned with the work done.** The mechanism itself (the interval
+check and the `Emit` call) is proven correct and deterministic against a
+fake `dynamic` connection object in `RefreshHeartbeatTests.cs`, which
+exercises a connection that keeps reporting `Refreshing = true` past the
+configured interval (simulating a provider that does not fully honor
+synchronous mode) and asserts at least one heartbeat event is written, plus
+a companion test proving the immediate-completion case emits none. This is
+the honest scope of what this increment's heartbeat placement (dictated by
+the issue: reuse the existing polling loop, no separate timer thread) can
+prove end-to-end with the connection types this codebase currently builds
+real fixtures for.
+
+**Acceptance-criteria scope, stated plainly:** no `events.jsonl` from any
+real, non-synthetic run in this repository currently shows a heartbeat
+event actually firing. The heartbeat mechanism (the interval check and the
+`Emit` call) is verified only against a synthetic fake `dynamic` connection
+object in `RefreshHeartbeatTests.cs`, with an artificially shortened
+interval and a connection double engineered to keep reporting
+`Refreshing = true`. It has not been observed to fire for any connection
+type this codebase's own certification fixtures exercise -- the one real
+connection type probed (`power_query_minimal`'s Power-Query/Mashup OLEDB
+connection) blocks synchronously in `Refresh()` for its entire duration and
+leaves no "still waiting" window for the loop to emit into. Treat the
+heartbeat as mechanically-correct-by-unit-test, not yet demonstrated on any
+real job this codebase can currently run end-to-end; closing that gap needs
+a connection/provider confirmed to keep `Refreshing = true` past 5 seconds
+after `Refresh()` returns (e.g. a provider that does not fully honor
+`BackgroundQuery = false`), which no corpus item here currently provides.
+
+### Pre-touch staging (issue #72)
+
+`control_plane/cli.py`'s `run` subcommand now stages the manifest's `open`
+step before ever invoking the supervisor: `staging.stage_copy` (#38, RFC
+0002 decision 9) copies the real `workbook_path` into a fresh local temp
+directory, and an *in-memory* copy of the parsed job dict (never the
+caller's on-disk manifest file) has that step's `workbook_path` rewritten
+to the staged copy. A `save_as` step's `output_path` is likewise rewritten
+to a path inside that same staging directory, so the real save target is
+never written to directly either; `staging.publish` swaps the staged
+output into the real target only once `result.json` reports `ok: true`. See
+`control_plane/cli.py`'s `cmd_run`/`_stage_job_for_run` docstrings and
+`xlsx-win/v2/README.md`'s "Running a job for real" section for the full
+sequence -- this file's own C# supervisor/worker code is unchanged by this:
+staging happens entirely one process boundary away, in the Python
+control-plane layer, before the supervisor is ever launched.
+
 ### STA thread and message pump
 
 `XlsxWinWorker`'s `Main` is `[STAThread]`. `UseWindowsForms` is enabled
 purely to get `System.Windows.Forms.Application.DoEvents()` for a minimal
 message pump (`MessagePump.PumpingDelay`), called during refresh/calculation
 polling loops and while waiting for Excel's own process to exit. This is the
-whole of this increment's "message pump" support -- `IMessageFilter`-based
-COM retry handling is explicitly deferred (see below).
+whole of this increment's ambient/passive message pumping. Bounded,
+policy-driven retry handling for a busy/rejected COM call specifically is a
+separate, complementary mechanism -- `IMessageFilter` (issue #72, see
+"IMessageFilter COM-retry handling" above).
 
 ### Early-bound vs late-bound COM
 
@@ -339,17 +458,39 @@ properly.
 
 ## Explicitly deferred to a later increment
 
-- **`IMessageFilter` COM-retry handling for rejected calls.** Not
+- ~~**`IMessageFilter` COM-retry handling for rejected calls.** Not
   implemented. This increment's message pump is limited to periodic
-  `Application.DoEvents()` calls during polling loops.
+  `Application.DoEvents()` calls during polling loops.~~ **Done (issue
+  #72).** See "IMessageFilter COM-retry handling" above --
+  `ComMessageFilter.cs`, registered/revoked around the worker's whole job
+  run, retries `SERVERCALL_RETRYLATER` up to 10 times with a 200ms backoff,
+  fails `SERVERCALL_REJECTED` immediately, and surfaces the per-step retry
+  count in that step's result message.
 - **UI-Automation/WinEvent modal-dialog detection and screenshot capture.**
   Not implemented. Prevention-first (RFC 0002 decision 7) covers the dialogs
   this increment's step types can trigger; this is the fallback for what
-  prevention can't cover (e.g. credential prompts), deferred pending evidence
-  from #39's fault injection that it's actually needed.
-- **Heartbeat file / liveness ping separate from phase-deadline tracking.**
+  prevention can't cover (e.g. credential prompts). Explicitly parked as its
+  own issue, #74 -- not part of #72's light scope.
+- ~~**Heartbeat file / liveness ping separate from phase-deadline tracking.**
   Not implemented. The event-stream tailer's phase-deadline mechanism is the
-  only liveness signal this increment has.
+  only liveness signal this increment has.~~ **Done (issue #72), with a
+  documented real-world caveat.** See "Heartbeat" above --
+  `RefreshOneConnection`'s polling loop emits a periodic still-alive
+  `WorkerEvent` (reusing the `REFRESHING_CONNECTIONS` phase, distinguished
+  by `message: "heartbeat: still refreshing."`) while a connection refresh
+  is still in progress. Confirmed, via direct COM probing, that this loop
+  gets essentially no time to run (and so emits no heartbeat) for the
+  Power-Query/Mashup OLEDB connections this codebase's own fixtures use,
+  because `Refresh()` itself blocks synchronously for the connection's
+  entire duration once `TrySetBackgroundQueryOff` forces
+  `BackgroundQuery = false` -- proven correct instead against a fake
+  connection object in `RefreshHeartbeatTests.cs`. **Acceptance criteria,
+  narrowed to match current evidence:** the heartbeat is verified
+  mechanically via that synthetic test double only; no real,
+  non-synthetic `events.jsonl` in this repository demonstrates it firing,
+  and it is not observed to fire for any connection type this codebase's
+  own certification fixtures cover. See "Heartbeat" above for the full
+  real-Excel probe this is based on.
 - **Worker quarantine/recycle across multiple jobs.** Not applicable at this
   scope: the supervisor only ever runs one worker process at a time, by
   construction -- there is no pool to quarantine or recycle from.
@@ -368,25 +509,22 @@ properly.
   supervisor using exactly the file-path contract described above. See
   `../control_plane/supervisor_runner.py` and `../README.md`'s "Using the
   CLI" section.
-- **Staging/local-copy of the input workbook before `Open`, and swap-back
+- ~~**Staging/local-copy of the input workbook before `Open`, and swap-back
   after `save_as` (RFC 0002 decision 9).** Not implemented. `OpenStep`/
   `ExcelSession.Open` opens whatever `workbook_path` the manifest supplies
   directly, in place -- a workbook on a OneDrive/SharePoint-synced path is
   **not** protected by this increment against the sync/AutoSave interaction
-  problems decision 9 describes. This was omitted from this list in an
-  earlier draft of this README; it is a real, undocumented gap, not a
-  non-issue. It is deferred rather than partially implemented here because
-  decision 9's own text ties the swap-back specifically to "after validation
-  passes," and validation/publication gates (#38) are explicitly out of scope
-  for this issue (see decision 3 above and "Validation scope" in RFC 0002).
-  Building a stage-and-swap path now, with no real invariant-checking gate to
-  condition the swap-back on, would mean either swapping back unconditionally
-  (no better than today, just with extra copy overhead) or inventing an
-  ad hoc placeholder gate that #38 would then have to replace. Land this once
-  #38 exists so the swap-back condition is the real one, not a stand-in.
-  Until then: **do not point `workbook_path` (or a `save_as` `output_path`)
-  at a path under an active OneDrive/SharePoint sync root** for jobs run
-  through this increment.
+  problems decision 9 describes.~~ **Done (issue #72), at the Python
+  control-plane layer, not in this C# code.** `control_plane/cli.py`'s `run`
+  subcommand now stages the `open` step's `workbook_path` (and any `save_as`
+  step's `output_path`) via the already-existing, already-tested #38
+  `staging.stage_copy`/`staging.publish` primitives *before* ever invoking
+  this supervisor -- see "Pre-touch staging" above and
+  `../README.md`'s "Running a job for real" section. This C# supervisor/
+  worker code itself is unchanged: it still just opens/saves whatever path
+  its job.json says, exactly as before -- the staging now happens one layer
+  up, so by the time this code ever sees a `workbook_path`, it is already a
+  local staged copy, not the manifest's real input path.
 
 ## Verification performed
 

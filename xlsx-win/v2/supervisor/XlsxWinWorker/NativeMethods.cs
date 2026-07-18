@@ -23,4 +23,13 @@ internal static partial class NativeMethods
 
     internal const uint SemFailCriticalErrors = 0x0001;
     internal const uint SemNoGpFaultErrorBox = 0x0002;
+
+    // Standard COM message-filter registration (Ole32.dll), used by
+    // ComMessageFilter.Register/Revoke to install/remove the IOleMessageFilter
+    // documented there (RFC-issue #72's IMessageFilter scope). Classic
+    // [DllImport] rather than [LibraryImport]: the source-generated marshaling
+    // behind LibraryImport does not support a COM-interface `out` parameter
+    // like this one.
+    [DllImport("Ole32.dll")]
+    internal static extern int CoRegisterMessageFilter(IOleMessageFilter newFilter, out IOleMessageFilter oldFilter);
 }
