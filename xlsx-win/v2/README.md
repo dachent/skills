@@ -1,16 +1,21 @@
-# xlsx-win v2 control plane -- contract, validation, and policy only
+# xlsx-win v2 control plane -- contract, validation, policy, and the CLI that runs a job for real
 
 This directory implements issue #34 (the LLM-facing job/result contract),
-issue #35 (the deterministic file-backend router), and issue #38 (workbook
-validation contracts, macro policy, staging, and the audit manifest) for the
+issue #35 (the deterministic file-backend router), issue #38 (workbook
+validation contracts, macro policy, staging, and the audit manifest), and
+issue #71 (`cli.py run`, wiring the CLI to the real C# supervisor) for the
 xlsx-win v2 runtime, scoped to a single desktop per
 [RFC 0002](../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) (which
 amends [RFC 0001](../../docs/rfcs/0001-xlsx-win-runtime-v2.md)).
 
 ## Scope
 
-**This is contract, validation, and policy only. Nothing here drives Excel
-via COM.**
+**Everything in this directory except one subcommand is contract,
+validation, and policy only -- no Excel, no COM.** The one exception:
+`cli.py run` resolves and invokes the built `XlsxWinSupervisor.exe` (#36) as
+a subprocess, which is what actually drives Excel -- one process boundary
+away, never inside this Python process itself. See "Using the CLI" and
+"Running a job for real (`run`, issue #71)" below.
 
 - JSON Schema for job manifests, results, workbook validation contracts, and
   audit manifests (`schemas/`).
@@ -33,18 +38,25 @@ via COM.**
 - An audit manifest linking a run's input/output hashes, validation
   contract, and (redacted) invariant results
   (`control_plane/audit_manifest.py`).
-- A CLI that validates and dry-runs manifests, and evaluates workbook
-  validation contracts (`control_plane/cli.py`).
+- A CLI that validates and dry-runs manifests, evaluates workbook validation
+  contracts, and (via `run`) actually invokes the built supervisor
+  (`control_plane/cli.py`).
+- Executable-resolution and subprocess-invocation for the built
+  `XlsxWinSupervisor.exe`/`XlsxWinWorker.exe`, shared between `cli.py run`
+  and the certification scripts
+  (`control_plane/supervisor_runner.py` -- issue #71).
 - A thin, narrowly-scoped adapter that translates one recognized job shape
   into the legacy `refresh_excel.ps1` argument list, for migration
   (`control_plane/legacy_adapter.py`).
 
-No module in this directory imports `pywin32` or calls Excel COM.
+No module in this directory imports `pywin32` or calls Excel COM directly.
 `invariant_evaluator.py` is the one module that reads a workbook file (with
-openpyxl, read-only, cached values); everything else here is pure Python
-over JSON documents and the filesystem. Building the runtime that actually
-drives Excel against this contract is issue **#36**, a separate, later
-workstream.
+openpyxl, read-only, cached values); `supervisor_runner.py` is the one
+module that can cause Excel to run, indirectly, by launching the built
+`XlsxWinSupervisor.exe` as a subprocess -- the actual Excel COM automation
+happens entirely inside that separate executable (issue **#36**), never in
+this Python process. Everything else here is pure Python over JSON
+documents and the filesystem.
 
 ## Layout
 
@@ -68,7 +80,8 @@ xlsx-win/v2/
     legacy_adapter.py        # translate_refresh_and_recalc(job) -> PowerShell args
     workbook_inventory.py     # inspect_workbook(path) -- reads the OOXML package directly
     file_router.py             # choose_backend(intent, inventory) -- deterministic routing
-    cli.py                    # `validate`, `dry-run`, `route`, `validate-contract` subcommands
+    supervisor_runner.py        # find_built_exe(...) / run_supervisor(...) -- #71, no Excel gate
+    cli.py                    # `validate`, `dry-run`, `route`, `validate-contract`, `run` subcommands
   tests/
     fixtures/                 # on-disk manifests used by the CLI tests
     wb_fixtures.py             # shared openpyxl workbook-builder helper for tests
@@ -107,16 +120,18 @@ instead of opening them.
 
 ## Using the CLI
 
-All four subcommands work with no Excel installed. `route` and
+Four of the five subcommands work with no Excel installed. `route` and
 `validate-contract` do read the workbook file itself (`route` via a direct
 OOXML package inspection, `validate-contract` with openpyxl), but neither
-launches Excel or touches COM.
+launches Excel or touches COM. `run` is the exception -- see the next
+section.
 
 ```
 python xlsx-win/v2/control_plane/cli.py validate           <manifest.json>
 python xlsx-win/v2/control_plane/cli.py dry-run            <manifest.json>
 python xlsx-win/v2/control_plane/cli.py route              <workbook.xlsx> <create_new|edit_existing|convert_format>
 python xlsx-win/v2/control_plane/cli.py validate-contract  <workbook.xlsx> <contract.json>
+python xlsx-win/v2/control_plane/cli.py run                <manifest.json> [--events PATH] [--result PATH] [--hard-timeout-seconds N]
 ```
 
 `validate` schema-checks the manifest and prints `{"valid": true}` or
@@ -137,6 +152,99 @@ only for a genuine caller error (a malformed contract, or a workbook that
 can't be opened at all) -- printed the same `{"error": {code, message,
 details}}` shape as `validate` and `dry-run`.
 
+## Running a job for real (`run`, issue #71)
+
+`run` is the one subcommand that ends up driving real Excel -- indirectly,
+by invoking the built `XlsxWinSupervisor.exe` (#36) as a subprocess. It is
+the thing that lets a single CLI invocation take a job manifest all the way
+from schema validation to a real Excel-driven result:
+
+```
+python xlsx-win/v2/control_plane/cli.py run manifest.json
+```
+
+What it does, in order:
+
+1. Loads and schema-validates the manifest exactly like `validate` does
+   (`schemas.validate_job`). **If this fails, it fails closed and returns
+   before ever resolving or touching the supervisor** -- prints the same
+   `{"valid": false, "error": {code, message, details}}` shape, exit code 1.
+2. Resolves the built `XlsxWinSupervisor.exe`/`XlsxWinWorker.exe` and
+   invokes the supervisor as a subprocess
+   (`control_plane/supervisor_runner.py`), passing it the manifest path plus
+   an events path and a result path (see "Job/result JSON file-path
+   contract" in `supervisor/README.md`). If the executables can't be found,
+   or the supervisor subprocess doesn't exit within a generous wall-clock
+   safety-net timeout, `run` prints `{"valid": false, "error": {"code":
+   "SUPERVISOR_INVOCATION_FAILED", ...}}` and returns exit code 1 -- still
+   without ever having started Excel.
+3. On a real invocation, reads back `result.json` and prints it verbatim,
+   then **exits with the supervisor's own exit code, unmodified** -- `run`
+   never reinterprets or wraps it (see supervisor/README.md's own exit-code
+   contract: `0` success, `1` forced timeout kill, `2` argument/manifest
+   error). A caller must read the printed result document's
+   `final_state`/`ok` fields to learn the *job's* outcome; the process exit
+   code alone only tells you whether the supervisor itself ran cleanly.
+
+`run` does **not** call `file_router.choose_backend` and does not dispatch
+to a non-Excel backend -- a job manifest's steps (`open`/`refresh`/
+`recalc`/`save_as`/`run_approved_macro`) are already inherently Excel-COM
+operations by construction. Deciding whether Excel is even needed for a
+given piece of work is a separate, earlier decision a caller makes via
+`route`, before ever building a job manifest -- not something `run`
+second-guesses.
+
+### Choosing events/result paths
+
+`--events`/`--result` default to sibling files next to the manifest:
+`<manifest-stem>.events.jsonl` and `<manifest-stem>.result.json` in the same
+directory as the manifest (e.g. `job.json` -> `job.events.jsonl` /
+`job.result.json`). Pass `--events`/`--result` explicitly to point
+elsewhere (a temp directory, a per-run subdirectory, etc.) -- useful for
+running the same manifest repeatedly without each run's events/result
+overwriting the last one's in place.
+
+### Locating the built executables (`control_plane/supervisor_runner.py`)
+
+`supervisor_runner.find_built_exe(project_name)` resolves each executable in
+this order:
+
+1. **A deployment-override environment variable** --
+   `XLSXWIN_SUPERVISOR_EXE_PATH` for `XlsxWinSupervisor.exe`,
+   `XLSXWIN_WORKER_EXE_PATH` for `XlsxWinWorker.exe` -- if set, must point at
+   an existing file (a missing target raises immediately, never silently
+   falls back). This is the intended real-deployment story: `dotnet publish`
+   the two executables somewhere stable outside this dev checkout, then set
+   both env vars once in the environment `cli.py run` runs in.
+   `XLSXWIN_WORKER_EXE_PATH` is also the exact variable the supervisor
+   itself reads to learn which worker binary to launch (see
+   `supervisor/README.md`, "Locating the worker executable") -- the same
+   value serves both purposes, so there's one source of truth, not two.
+2. **The dev-tree convention** -- the newest `<project_name>.exe` found
+   under `xlsx-win/v2/supervisor/<project_name>/bin/**`, i.e. whatever a
+   plain `dotnet build` (see `supervisor/README.md`) most recently produced
+   in this checkout. This is what a developer working directly in this repo
+   gets with no configuration.
+
+**If neither resolves**, `find_built_exe` raises `FileNotFoundError` with a
+message that both names the path it searched and points at the fix: build
+the solution first with
+`dotnet build xlsx-win/v2/supervisor/XlsxWinSupervisor.slnx`. `cli.py run`
+surfaces that message inside its normal `{"error": {...}}` JSON shape
+(`SUPERVISOR_INVOCATION_FAILED`) rather than letting a raw Python traceback
+reach the caller.
+
+`certification/excel_safety.py` now imports `find_built_exe` and the core of
+`run_supervisor` from `supervisor_runner.py` instead of maintaining its own
+copy -- it layers its Excel-launch safety gate (opt-in env var, preflight,
+postflight) on top, which `cli.py run` deliberately does not apply itself
+(see that module's own docstring for why: `run` is an explicit,
+one-shot, interactively-invoked command, the same trust model as a human
+opening Excel by hand -- not an unattended test harness). A caller that
+wants the same guardrails around `run` can layer
+`excel_safety.preflight_or_raise()` / `excel_safety.assert_no_excel_survives()`
+around it exactly as `run_corpus.py`/`benchmark.py` do.
+
 ## Running the tests
 
 ```
@@ -146,6 +254,14 @@ python -m pytest xlsx-win/v2/tests/
 
 (Run from the repository root, or from `xlsx-win/v2/` -- `tests/conftest.py`
 puts `xlsx-win/v2/` on `sys.path` either way.)
+
+`tests/test_run_subcommand.py` covers `run`'s manifest-validation and
+executable-resolution failure paths unconditionally (no Excel needed), plus
+one real end-to-end invocation against the actual built supervisor, gated
+behind `XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1` and
+`certification/excel_safety.py`'s existing preflight/postflight (skips
+cleanly, not a failure, when the env var isn't set or Excel is already
+running).
 
 ## What "validation" means here (and does not)
 

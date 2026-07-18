@@ -38,6 +38,15 @@ ERROR_CODES = frozenset(
         # audit_manifest.build_audit_manifest could not hash input_path,
         # output_path, or contract_path because the file does not exist.
         "AUDIT_SOURCE_MISSING",
+        # cli.py's `run` subcommand could not invoke the supervisor at the
+        # process level -- the built XlsxWinSupervisor.exe/XlsxWinWorker.exe
+        # could not be located (supervisor_runner.find_built_exe raised
+        # FileNotFoundError), or the supervisor subprocess did not exit
+        # within the caller's hard wall-clock timeout
+        # (supervisor_runner.SupervisorLaunchError). Distinct from a job
+        # that ran to completion and reported failure in result.json --
+        # that is not an error at this layer.
+        "SUPERVISOR_INVOCATION_FAILED",
     }
 )
 

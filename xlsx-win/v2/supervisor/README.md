@@ -362,9 +362,12 @@ properly.
   `AutomationSecurity` narrowly around the macro call plus allowlist
   verification by exact macro name, which is real, separate work this
   increment does not do.
-- **Wiring the Python `xlsx-win/v2/control_plane/cli.py` to shell out to this
-  supervisor.** Out of scope for this issue; the file-path contract above is
-  intended to make that wiring straightforward once undertaken.
+- ~~**Wiring the Python `xlsx-win/v2/control_plane/cli.py` to shell out to this
+  supervisor.**~~ **Done (issue #71).** `cli.py run <manifest.json>` now
+  validates the manifest, resolves the built executables, and invokes this
+  supervisor using exactly the file-path contract described above. See
+  `../control_plane/supervisor_runner.py` and `../README.md`'s "Using the
+  CLI" section.
 - **Staging/local-copy of the input workbook before `Open`, and swap-back
   after `save_as` (RFC 0002 decision 9).** Not implemented. `OpenStep`/
   `ExcelSession.Open` opens whatever `workbook_path` the manifest supplies
