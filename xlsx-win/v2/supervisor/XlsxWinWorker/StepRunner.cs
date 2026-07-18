@@ -10,21 +10,43 @@ namespace XlsxWinWorker;
 /// </summary>
 internal sealed class StepRunner
 {
+    // How often RefreshOneConnection's polling loop emits a still-alive
+    // heartbeat event while a single connection's refresh is still in
+    // progress -- independent of, and much less frequent than, the 200ms
+    // polling tick itself (a heartbeat every 200ms would be noise, not a
+    // heartbeat). See RefreshOneConnection. Production always uses this
+    // default; the constructor's optional override exists purely so
+    // XlsxWinWorker.Tests can exercise the exact same heartbeat-emission
+    // code path deterministically and quickly (see RefreshHeartbeatTests),
+    // without waiting on a real 5-second interval or depending on a real
+    // Excel connection's own refresh timing (which -- see
+    // supervisor/README.md's "Heartbeat" notes -- is often not something a
+    // test can control).
+    private static readonly TimeSpan DefaultHeartbeatInterval = TimeSpan.FromSeconds(5);
+
     private readonly ExcelSession _session;
     private readonly EventWriter _events;
     private readonly string _runId;
     private readonly JobTimeouts _timeouts;
+    private readonly TimeSpan _heartbeatInterval;
 
-    public StepRunner(ExcelSession session, EventWriter events, string runId, JobTimeouts timeouts)
+    public StepRunner(ExcelSession session, EventWriter events, string runId, JobTimeouts timeouts, TimeSpan? heartbeatInterval = null)
     {
         _session = session;
         _events = events;
         _runId = runId;
         _timeouts = timeouts;
+        _heartbeatInterval = heartbeatInterval ?? DefaultHeartbeatInterval;
     }
 
     public StepResult Run(int index, JobStep step)
     {
+        // Reset once per step (not once per job, not once per outgoing COM
+        // call): each step's own result message should report only that
+        // step's own retry count -- see ComMessageFilter's doc comment and
+        // AppendRetrySuffix below.
+        ComMessageFilter.Current?.ResetRetryAttempts();
+
         return step switch
         {
             OpenStep s => RunOpen(index, s),
@@ -176,7 +198,12 @@ internal sealed class StepRunner
         return Succeed(index, "refresh", $"Refreshed {refreshedNames.Count} connection(s) individually (no RefreshAll).");
     }
 
-    private static void RefreshOneConnection(dynamic connection, DateTime deadline)
+    /// <summary>Internal (not private) purely so RefreshHeartbeatTests can
+    /// drive this exact code path against a plain fake `dynamic` connection
+    /// object -- no real Excel/COM involved -- to prove the heartbeat
+    /// mechanism itself deterministically. Real callers only ever reach this
+    /// through RunRefresh.</summary>
+    internal void RefreshOneConnection(dynamic connection, DateTime deadline)
     {
         // Prefer synchronous refresh where the connection type honors
         // BackgroundQuery; poll .Refreshing afterwards regardless, since some
@@ -185,11 +212,40 @@ internal sealed class StepRunner
 
         connection.Refresh();
 
+        // Heartbeat while this connection is still refreshing, so a
+        // long-running refresh has a periodic still-alive signal in
+        // events.jsonl distinct from the one-time phase-transition event
+        // RunRefresh already emits at the start of the whole refresh step.
+        // Reuses the existing REFRESHING_CONNECTIONS phase name (rather than
+        // inventing a new JobStates/state_machine.py phase) with a
+        // distinguishing Message instead -- see StepRunner's class doc and
+        // supervisor/README.md's "Heartbeat" section for why.
+        //
+        // Real-world caveat (see supervisor/README.md's "Heartbeat" notes,
+        // confirmed via direct COM probing, not guessed): this loop only
+        // gets a chance to run at all for connection types/providers where
+        // WorkbookConnection.Refresh() itself returns before the underlying
+        // data fetch is actually done, with .Refreshing then continuing to
+        // report true for a while. For an OLEDB/ODBC provider that fully
+        // honors TrySetBackgroundQueryOff's BackgroundQuery=false request
+        // (confirmed true of the Power-Query/Mashup OLEDB connections this
+        // codebase's own fixtures use), Refresh() itself blocks synchronously
+        // for the connection's entire duration, and this loop runs for well
+        // under one polling tick -- no heartbeat fires, correctly, because
+        // there is no "still waiting" period left to report on.
+        var lastHeartbeatUtc = DateTime.UtcNow;
+
         while (DateTime.UtcNow < deadline)
         {
             if (!IsStillRefreshing(connection))
             {
                 return;
+            }
+
+            if (DateTime.UtcNow - lastHeartbeatUtc >= _heartbeatInterval)
+            {
+                Emit("REFRESHING_CONNECTIONS", "heartbeat: still refreshing.");
+                lastHeartbeatUtc = DateTime.UtcNow;
             }
 
             MessagePump.PumpingDelay(TimeSpan.FromMilliseconds(200));
@@ -396,20 +452,34 @@ internal sealed class StepRunner
             "See supervisor/README.md, 'Explicitly deferred to a later increment'.");
     }
 
-    private static StepResult Succeed(int index, string type, string message) => new()
+    private StepResult Succeed(int index, string type, string message) => new()
     {
         StepIndex = index,
         Type = type,
         Status = "succeeded",
-        Message = message,
+        Message = AppendRetrySuffix(message),
     };
 
-    private static StepResult Fail(int index, string type, string code, string message) => new()
+    private StepResult Fail(int index, string type, string code, string message) => new()
     {
         StepIndex = index,
         Type = type,
         Status = "failed",
-        Message = message,
+        // The Error.Message stays the raw failure reason (for programmatic
+        // matching); the retry suffix is only appended to the human-facing
+        // top-level Message, mirroring how Succeed reports it.
+        Message = AppendRetrySuffix(message),
         Error = new ErrorDetail { Code = code, Message = message },
     };
+
+    /// <summary>Appends "(retried COM call N times)" to a step's message when
+    /// the IMessageFilter (see ComMessageFilter) had to retry at least one
+    /// SERVERCALL_RETRYLATER response during this step -- silent otherwise.
+    /// N is this step's own count only (reset in Run before dispatch), not a
+    /// running total across the whole job.</summary>
+    private static string AppendRetrySuffix(string message)
+    {
+        var retryAttempts = ComMessageFilter.Current?.RetryAttempts ?? 0;
+        return retryAttempts > 0 ? $"{message} (retried COM call {retryAttempts} times)" : message;
+    }
 }

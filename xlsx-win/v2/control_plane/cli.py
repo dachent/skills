@@ -26,11 +26,24 @@ the supervisor/worker executables, never inside this Python process itself.
 are already inherently Excel-COM operations by construction, so there is no
 routing decision left to make here -- `route` is the earlier, separate
 decision a caller makes before ever building a job manifest.
+
+`run` also performs pre-touch staging (issue #72, RFC 0002 decision 9): the
+`open` step's `workbook_path` is staged into a local temp copy
+(`staging.stage_copy`) before the supervisor is ever invoked, and the
+supervisor runs against an in-memory-rewritten copy of the manifest that
+points at that staged copy -- the caller's on-disk manifest file itself is
+never mutated, and the manifest's real input path is never opened directly.
+If the manifest also has a `save_as` step, that step's `output_path` is
+likewise rewritten to a staged location, and `staging.publish` swaps the
+staged output into the real target path only after the supervisor reports
+`ok: true` -- a failed job leaves the original `save_as.output_path`
+completely untouched. See `cmd_run`'s own docstring for the full sequence.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import dataclasses
 import json
 import sys
@@ -49,6 +62,7 @@ if __package__ in (None, ""):
     from control_plane.file_router import KNOWN_INTENTS, choose_backend
     from control_plane.invariant_evaluator import evaluate_contract
     from control_plane.schemas import validate_job
+    from control_plane.staging import publish, stage_copy
     from control_plane.supervisor_runner import SupervisorLaunchError, run_supervisor
     from control_plane.workbook_inventory import inspect_workbook
 else:
@@ -57,6 +71,7 @@ else:
     from .file_router import KNOWN_INTENTS, choose_backend
     from .invariant_evaluator import evaluate_contract
     from .schemas import validate_job
+    from .staging import publish, stage_copy
     from .supervisor_runner import SupervisorLaunchError, run_supervisor
     from .workbook_inventory import inspect_workbook
 
@@ -141,7 +156,102 @@ def cmd_validate_contract(args: argparse.Namespace) -> int:
     return 0 if all_passed else 2
 
 
+def _stage_job_for_run(job: dict) -> tuple[dict, Path | None, list[tuple[str, str]]]:
+    """Build an in-memory, staged copy of a validated job dict (issue #72,
+    RFC 0002 decision 9).
+
+    Never mutates `job` itself -- returns a deep copy. If the job has an
+    `open` step (only the first one is staged; a manifest realistically has
+    exactly one), that step's `workbook_path` is rewritten to point at a
+    fresh local copy made by `staging.stage_copy`, so the manifest's real
+    input path is never opened directly. Every `save_as` step's
+    `output_path` is likewise rewritten to a path inside that same staging
+    directory, so the real output target is never written to directly
+    either.
+
+    If the job has no `open` step, staging is a no-op: nothing is rewritten,
+    the returned staging directory is `None`, and `save_as_targets` is
+    empty -- there is no input path for staging to protect a job that never
+    opens one from touching.
+
+    Returns `(staged_job, staging_dir, save_as_targets)`, where
+    `staging_dir` is the fresh local temp directory `stage_copy` created
+    (`None` if staging did not engage) and `save_as_targets` is a list of
+    `(staged_output_path, original_output_path)` string pairs -- one per
+    `save_as` step -- for the caller to `staging.publish` after confirming
+    the run actually succeeded.
+
+    Raises ContractError (STAGING_INVALID) if `stage_copy` cannot stage the
+    open step's source path (missing file, etc.) -- propagated to the
+    caller rather than caught here, since this is a genuine failure to even
+    begin the run, not a normal outcome.
+    """
+    staged_job = copy.deepcopy(job)
+
+    open_step = next((s for s in staged_job.get("steps", []) if s.get("type") == "open"), None)
+    if open_step is None:
+        return staged_job, None, []
+
+    staged_input_path = stage_copy(Path(open_step["workbook_path"]))
+    staging_dir = staged_input_path.parent
+    open_step["workbook_path"] = str(staged_input_path)
+
+    save_as_targets: list[tuple[str, str]] = []
+    for index, step in enumerate(staged_job["steps"]):
+        if step.get("type") == "save_as":
+            original_output_path = step["output_path"]
+            # Prefix with the step's index so two save_as steps whose
+            # output_path values share a basename (but live in different
+            # directories) never collide on the same staged path -- see
+            # issue #72 review finding (blocker): without this prefix,
+            # staging.publish's os.replace (a move, not a copy) would let
+            # the second step's staged write silently clobber the first
+            # step's staged file, cross-contaminating one real target with
+            # the other step's content and leaving the other publish() to
+            # fail outright with STAGING_INVALID.
+            staged_output_path = staging_dir / f"save_as_{index}_{Path(original_output_path).name}"
+            step["output_path"] = str(staged_output_path)
+            save_as_targets.append((str(staged_output_path), original_output_path))
+
+    return staged_job, staging_dir, save_as_targets
+
+
 def cmd_run(args: argparse.Namespace) -> int:
+    """Validate a job manifest, then run it for real via the built supervisor.
+
+    Sequence:
+
+    1. Schema-validate the manifest exactly like `validate` does. Fails
+       closed (returns before touching staging, the supervisor, or Excel at
+       all) if this fails.
+    2. Pre-touch staging (issue #72, RFC 0002 decision 9): stage the open
+       step's `workbook_path` into a fresh local temp copy
+       (`staging.stage_copy`) and build an *in-memory* copy of the parsed
+       job dict with that step's `workbook_path` rewritten to the staged
+       copy -- the caller's on-disk manifest file is never mutated, and the
+       manifest's real input path is never opened directly. Any `save_as`
+       step's `output_path` is likewise rewritten to a path inside that same
+       staging directory, so the real save target is never written to
+       directly either. A manifest with no `open` step (or no `save_as`
+       step) degrades gracefully: staging only ever engages for the pieces
+       of the job actually present. This staged manifest -- not the
+       original on-disk file -- is what gets written out and handed to the
+       supervisor.
+    3. Resolves and invokes the built `XlsxWinSupervisor.exe` against the
+       staged manifest (`control_plane/supervisor_runner.py`).
+    4. Reads back `result.json`. Only if it reports `ok: true` **and** the
+       job had one or more `save_as` steps, calls `staging.publish` for each
+       one, atomically swapping that step's staged output into its
+       original, real `output_path`. If the job failed (`ok` is `false` or
+       missing), or the supervisor could not even be invoked, nothing is
+       published and every original `save_as.output_path` is left
+       completely untouched -- this is RFC 0002 decision 9's whole point.
+    5. Prints the result document and exits with the supervisor's own exit
+       code, unmodified (see supervisor/README.md's exit-code contract) --
+       unless step 4's publish itself fails (a rare, last-ditch sanity-check
+       failure in `staging.publish`, e.g. a zero-byte staged output), in
+       which case that error is printed instead and this returns 1.
+    """
     manifest_path = Path(args.manifest)
 
     try:
@@ -163,7 +273,25 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     try:
-        run_result = run_supervisor(manifest_path, events_path, result_path, args.hard_timeout_seconds)
+        staged_job, staging_dir, save_as_targets = _stage_job_for_run(job)
+    except ContractError as exc:
+        _print_error(exc)
+        return 1
+
+    if staging_dir is None:
+        # No `open` step: nothing was staged, so there is no reason to write
+        # out a second copy of an unchanged manifest -- run the caller's
+        # original on-disk file exactly as issue #71 did.
+        job_path_to_run = manifest_path
+    else:
+        # stage_copy already gave us a fresh local temp directory for this
+        # run's staged input; reuse it for the staged manifest too rather
+        # than minting a second temp directory.
+        job_path_to_run = staging_dir / "staged_job.json"
+        job_path_to_run.write_text(json.dumps(staged_job), encoding="utf-8")
+
+    try:
+        run_result = run_supervisor(job_path_to_run, events_path, result_path, args.hard_timeout_seconds)
     except (FileNotFoundError, SupervisorLaunchError) as exc:
         _print_error(
             ContractError(
@@ -189,6 +317,20 @@ def cmd_run(args: argparse.Namespace) -> int:
                 f"stderr={run_result.stderr!r}"
             )
         }
+
+    # Pre-touch staging's swap-back half (issue #72, RFC 0002 decision 9):
+    # only publish a staged save_as output into its real target once the job
+    # is confirmed to have actually succeeded. A failed job (or one whose
+    # result document we couldn't even read) leaves every original
+    # save_as.output_path completely untouched -- no partial/best-effort
+    # publish.
+    if save_as_targets and isinstance(result_doc, dict) and result_doc.get("ok") is True:
+        for staged_output_path, original_output_path in save_as_targets:
+            try:
+                publish(Path(staged_output_path), Path(original_output_path))
+            except ContractError as exc:
+                _print_error(exc)
+                return 1
 
     print(json.dumps(result_doc, indent=2))
     # Pass the supervisor's own exit code through verbatim -- it is not

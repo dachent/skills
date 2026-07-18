@@ -55,6 +55,30 @@ internal static class Program
 
         var timeouts = manifest.Timeouts ?? new JobTimeouts();
 
+        // Registered immediately after the manifest is known to parse, before
+        // Excel is ever started, and revoked unconditionally on every exit
+        // path from here on (including exceptions) via the try/finally below.
+        // See ComMessageFilter's doc comment for the retry policy this
+        // installs on the worker's own STA apartment.
+        ComMessageFilter.Register();
+        try
+        {
+            return RunJob(parsedArgs, runId, stepResults, events, manifest, timeouts);
+        }
+        finally
+        {
+            ComMessageFilter.Revoke();
+        }
+    }
+
+    private static int RunJob(
+        WorkerArgs parsedArgs,
+        string runId,
+        List<StepResult> stepResults,
+        EventWriter events,
+        JobManifest manifest,
+        JobTimeouts timeouts)
+    {
         events.Emit(new WorkerEvent { RunId = runId, Phase = "STARTING_EXCEL" });
 
         using var session = new ExcelSession();
