@@ -134,7 +134,7 @@ def validate_workflows(failures: list[str]) -> None:
         "office",
         ".\\docx-win\\scripts\\smoke-test.ps1",
         ".\\pptx-win\\scripts\\smoke_test.ps1",
-        ".\\xlsx-win\\scripts\\self_test_xlsx_win.ps1",
+        ".\\xlsx-win\\certification\\smoke_test.ps1",
         "office-smoke-summary.json",
         "exit_code",
     ]:

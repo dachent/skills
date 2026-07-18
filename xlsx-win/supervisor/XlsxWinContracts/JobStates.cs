@@ -3,7 +3,7 @@ namespace XlsxWinContracts;
 /// <summary>
 /// Job state machine: the enumerated states, legal transitions, and terminal check.
 ///
-/// This is a direct C# port of xlsx-win/v2/control_plane/state_machine.py.
+/// This is a direct C# port of xlsx-win/control_plane/state_machine.py.
 /// It intentionally reuses the exact same state name strings as that file --
 /// nothing here invents parallel vocabulary. Keep the two in sync by hand;
 /// there is no shared source of truth between the Python and C# runtimes yet.

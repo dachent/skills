@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://dachent-skills.example/xlsx-win/v2/audit_manifest.schema.json",
+  "$id": "https://dachent-skills.example/xlsx-win/audit_manifest.schema.json",
   "title": "xlsx-win v2 audit manifest",
   "description": "Links a run's input hash, output hash, validation contract (if any), and invariant results, for one job on one desktop (issue #38). Invariant messages are redacted before being written here -- see control_plane/audit_manifest.py.",
   "type": "object",
@@ -43,7 +43,7 @@
         "passed": { "type": "boolean" },
         "message": { "type": "string" }
       },
-      "description": "Matches xlsx-win v2 result.schema.json's invariant_result shape exactly (this is an independent copy, not a $ref across files, so audit_manifest.schema.json has no external dependency)."
+      "description": "Matches xlsx-win result.schema.json's invariant_result shape exactly (this is an independent copy, not a $ref across files, so audit_manifest.schema.json has no external dependency)."
     }
   }
 }

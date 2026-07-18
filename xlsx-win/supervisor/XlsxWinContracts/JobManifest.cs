@@ -6,7 +6,7 @@ namespace XlsxWinContracts;
 /// <summary>
 /// C# model of the job manifest consumed by XlsxWinWorker / XlsxWinSupervisor.
 ///
-/// Shape follows xlsx-win/v2/schemas/job.schema.json from issue #34 for
+/// Shape follows xlsx-win/schemas/job.schema.json from issue #34 for
 /// schema_version, idempotency_key, and steps. It additionally accepts an
 /// optional top-level "timeouts" object (field names reused verbatim from
 /// RFC 0001's example manifest) that #34's merged schema does not yet define

@@ -48,9 +48,6 @@ away, never inside this Python process itself. See "Using the CLI" and
   `XlsxWinSupervisor.exe`/`XlsxWinWorker.exe`, shared between `cli.py run`
   and the certification scripts
   (`control_plane/supervisor_runner.py` -- issue #71).
-- A thin, narrowly-scoped adapter that translates one recognized job shape
-  into the legacy `refresh_excel.ps1` argument list, for migration
-  (`control_plane/legacy_adapter.py`).
 
 No module in this directory imports `pywin32` or calls Excel COM directly.
 `invariant_evaluator.py` is the one module that reads a workbook file (with
@@ -64,7 +61,7 @@ documents and the filesystem.
 ## Layout
 
 ```
-xlsx-win/v2/
+xlsx-win/
   schemas/
     job.schema.json                 # job manifest: an ordered `steps` array
     result.schema.json               # computed result: per-step outcomes + top-level `ok`
@@ -80,7 +77,6 @@ xlsx-win/v2/
     macro_policy.py          # is_macro_approved(...) -- exact-match allowlist, #38
     staging.py                # stage_copy(...) / publish(...) -- #38, RFC 0002 decision 9
     audit_manifest.py          # build_audit_manifest(...) -- #38
-    legacy_adapter.py        # translate_refresh_and_recalc(job) -> PowerShell args
     workbook_inventory.py     # inspect_workbook(path) -- reads the OOXML package directly
     file_router.py             # choose_backend(intent, inventory) -- deterministic routing
     supervisor_runner.py        # find_built_exe(...) / run_supervisor(...) -- #71, no Excel gate
@@ -109,7 +105,7 @@ any) passed.
 ## Installing dependencies
 
 ```
-pip install -r xlsx-win/v2/requirements.txt
+pip install -r xlsx-win/requirements.txt
 ```
 
 `jsonschema` backs the job/result contract (#34) -- there is no JSON-Schema
@@ -130,11 +126,11 @@ launches Excel or touches COM. `run` is the exception -- see the next
 section.
 
 ```
-python xlsx-win/v2/control_plane/cli.py validate           <manifest.json>
-python xlsx-win/v2/control_plane/cli.py dry-run            <manifest.json>
-python xlsx-win/v2/control_plane/cli.py route              <workbook.xlsx> <create_new|edit_existing|convert_format>
-python xlsx-win/v2/control_plane/cli.py validate-contract  <workbook.xlsx> <contract.json>
-python xlsx-win/v2/control_plane/cli.py run                <manifest.json> [--events PATH] [--result PATH] [--hard-timeout-seconds N]
+python xlsx-win/control_plane/cli.py validate           <manifest.json>
+python xlsx-win/control_plane/cli.py dry-run            <manifest.json>
+python xlsx-win/control_plane/cli.py route              <workbook.xlsx> <create_new|edit_existing|convert_format>
+python xlsx-win/control_plane/cli.py validate-contract  <workbook.xlsx> <contract.json>
+python xlsx-win/control_plane/cli.py run                <manifest.json> [--events PATH] [--result PATH] [--hard-timeout-seconds N]
 ```
 
 `validate` schema-checks the manifest and prints `{"valid": true}` or
@@ -163,7 +159,7 @@ the thing that lets a single CLI invocation take a job manifest all the way
 from schema validation to a real Excel-driven result:
 
 ```
-python xlsx-win/v2/control_plane/cli.py run manifest.json
+python xlsx-win/control_plane/cli.py run manifest.json
 ```
 
 What it does, in order:
@@ -253,7 +249,7 @@ this order:
    `supervisor/README.md`, "Locating the worker executable") -- the same
    value serves both purposes, so there's one source of truth, not two.
 2. **The dev-tree convention** -- the newest `<project_name>.exe` found
-   under `xlsx-win/v2/supervisor/<project_name>/bin/**`, i.e. whatever a
+   under `xlsx-win/supervisor/<project_name>/bin/**`, i.e. whatever a
    plain `dotnet build` (see `supervisor/README.md`) most recently produced
    in this checkout. This is what a developer working directly in this repo
    gets with no configuration.
@@ -261,7 +257,7 @@ this order:
 **If neither resolves**, `find_built_exe` raises `FileNotFoundError` with a
 message that both names the path it searched and points at the fix: build
 the solution first with
-`dotnet build xlsx-win/v2/supervisor/XlsxWinSupervisor.slnx`. `cli.py run`
+`dotnet build xlsx-win/supervisor/XlsxWinSupervisor.slnx`. `cli.py run`
 surfaces that message inside its normal `{"error": {...}}` JSON shape
 (`SUPERVISOR_INVOCATION_FAILED`) rather than letting a raw Python traceback
 reach the caller.
@@ -275,17 +271,17 @@ one-shot, interactively-invoked command, the same trust model as a human
 opening Excel by hand -- not an unattended test harness). A caller that
 wants the same guardrails around `run` can layer
 `excel_safety.preflight_or_raise()` / `excel_safety.assert_no_excel_survives()`
-around it exactly as `run_corpus.py`/`benchmark.py` do.
+around it exactly as `run_corpus.py` does.
 
 ## Running the tests
 
 ```
-pip install -r xlsx-win/v2/requirements.txt
-python -m pytest xlsx-win/v2/tests/
+pip install -r xlsx-win/requirements.txt
+python -m pytest xlsx-win/tests/
 ```
 
-(Run from the repository root, or from `xlsx-win/v2/` -- `tests/conftest.py`
-puts `xlsx-win/v2/` on `sys.path` either way.)
+(Run from the repository root, or from `xlsx-win/` -- `tests/conftest.py`
+puts `xlsx-win/` on `sys.path` either way.)
 
 `tests/test_run_subcommand.py` covers `run`'s manifest-validation and
 executable-resolution failure paths unconditionally (no Excel needed), plus
@@ -327,9 +323,11 @@ contract produces its own named `invariant_result` entry (e.g.
 `"sentinel_cell:Summary!B2"`, `"min_row_count:Data"`,
 `"freshness:Summary!A1"`), even when an earlier assertion in the same
 contract already failed -- a caller sees the full picture in one pass.
-`prohibit_visible_errors` reuses the exact list of Excel error values
-`xlsx-win/scripts/check_formula_errors.py` already treats as significant
-(imported by file path, not copied, so the two can't drift apart).
+`prohibit_visible_errors` checks against the same list of significant Excel
+error values (`#VALUE!`, `#DIV/0!`, `#REF!`, `#NAME?`, `#NULL!`, `#NUM!`,
+`#N/A`, `#SPILL!`, `#CALC!`) the retired v1 `check_formula_errors.py` script
+used -- inlined directly in `invariant_evaluator.py` now that the script it
+used to be imported from by file path no longer exists.
 
 If a contract declares `expected_calculation_mode` and openpyxl cannot read
 a calculation mode from the workbook's `calcPr`, the evaluator reports a

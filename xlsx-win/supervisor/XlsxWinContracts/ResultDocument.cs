@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace XlsxWinContracts;
 
 /// <summary>
-/// C# model of xlsx-win/v2/schemas/result.schema.json from issue #34.
+/// C# model of xlsx-win/schemas/result.schema.json from issue #34.
 ///
 /// "Ok" is computed by <see cref="Build"/>, mirroring
 /// control_plane/result_contract.py's compute_ok/build_result: it is never an

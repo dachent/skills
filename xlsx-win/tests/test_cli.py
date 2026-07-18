@@ -141,7 +141,7 @@ def test_validate_contract_reports_a_malformed_contract_as_an_error(tmp_path, ca
 
 
 def test_cli_is_directly_runnable_as_a_script_with_no_excel_installed() -> None:
-    # Proves the file at xlsx-win/v2/control_plane/cli.py is itself the
+    # Proves the file at xlsx-win/control_plane/cli.py is itself the
     # entrypoint (not just importable), and that its whole import chain has
     # no Excel/COM/openpyxl dependency: this subprocess has none installed.
     completed = subprocess.run(

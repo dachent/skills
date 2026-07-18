@@ -13,8 +13,8 @@ descope (RFC 0002) actually routes on: macros, digital signatures, external
 links, a Data Model part, pivot caches, slicer caches, embedded objects, and
 (per issue #70) workbook connections. The original issue's full inventory
 (drawings, add-in dependencies, calculation settings, edit volume/shape) is
-out of scope here -- see the module docstring in file_router.py and the
-xlsx-win/v2 README for the descope rationale.
+out of scope here -- see the module docstring in file_router.py and
+xlsx-win/README.md for the descope rationale.
 """
 
 from __future__ import annotations

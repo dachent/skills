@@ -724,7 +724,7 @@
       "family": "office",
       "catalog_group": "native-extensions",
       "status": "supported",
-      "description": "Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xlsb`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.",
+      "description": "Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, calculation correctness, and refreshing existing Power Query connections. Does not currently support authoring or editing Power Query M code, or macro execution. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.",
       "platforms": [
         "windows"
       ],
@@ -751,11 +751,11 @@
           "python .\\tools\\test_office_com_contract.py"
         ],
         "environment_dependent_commands": [
-          "powershell -ExecutionPolicy Bypass -File .\\xlsx-win\\scripts\\smoke-test.ps1"
+          "powershell -ExecutionPolicy Bypass -File .\\xlsx-win\\certification\\smoke_test.ps1"
         ]
       },
       "owner": "@dachent",
-      "last_reviewed": "2026-07-12"
+      "last_reviewed": "2026-07-18"
     }
   ]
 }

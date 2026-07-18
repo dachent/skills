@@ -1,10 +1,10 @@
 """Shared Excel-launch safety gate for the certification scripts
-(run_corpus.py, benchmark.py).
+(run_corpus.py).
 
 This is the Python-side equivalent of the C# integration tests'
 `ExcelIntegrationGate` (see
-`xlsx-win/v2/supervisor/XlsxWinSupervisor.IntegrationTests/`), reused here so
-both certification scripts apply the exact same rules rather than each
+`xlsx-win/supervisor/XlsxWinSupervisor.IntegrationTests/`), reused here so
+certification scripts apply the exact same rules rather than each
 reimplementing them slightly differently:
 
 1. Refuse to run (raise) unless XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1 is set
@@ -29,8 +29,8 @@ implementation instead of maintaining two. This module now only adds the
 Excel-specific safety gate (opt-in + preflight + postflight) around that
 shared implementation; `run_supervisor` below still raises this module's
 own `ExcelSafetyError` on a supervisor-launch failure, exactly as it did
-before the refactor, so existing callers (run_corpus.py, benchmark.py) that
-catch `ExcelSafetyError` around this call keep working unchanged.
+before the refactor, so existing callers (run_corpus.py) that catch
+`ExcelSafetyError` around this call keep working unchanged.
 """
 
 from __future__ import annotations
@@ -40,9 +40,9 @@ import sys
 import time
 from pathlib import Path
 
-_V2_ROOT = Path(__file__).resolve().parent.parent
-if str(_V2_ROOT) not in sys.path:
-    sys.path.insert(0, str(_V2_ROOT))
+_XLSX_WIN_ROOT = Path(__file__).resolve().parent.parent
+if str(_XLSX_WIN_ROOT) not in sys.path:
+    sys.path.insert(0, str(_XLSX_WIN_ROOT))
 
 from control_plane.supervisor_runner import (  # noqa: E402
     SupervisorLaunchError,
@@ -99,7 +99,7 @@ def require_opt_in() -> None:
     if os.environ.get(RUN_ENV_VAR) != "1":
         raise ExcelSafetyError(
             f"Refusing to launch Excel: set {RUN_ENV_VAR}=1 in the environment to opt in "
-            "(the same convention xlsx-win/v2/supervisor's C# integration tests use). "
+            "(the same convention xlsx-win/supervisor's C# integration tests use). "
             "See certification/README.md."
         )
 
@@ -149,7 +149,7 @@ def run_supervisor(
     extra_env: dict | None = None,
 ) -> SupervisorRunResult:
     """Launch the built XlsxWinSupervisor.exe against a job/events/result path
-    triple, per xlsx-win/v2/supervisor/README.md's file-path contract.
+    triple, per xlsx-win/supervisor/README.md's file-path contract.
 
     Caller must have already called preflight_or_raise(). This function does
     not check Excel's running state itself -- it only runs the process and

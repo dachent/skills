@@ -1,6 +1,6 @@
 ---
 name: xlsx-win
-description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, Power Query `Workbook.Queries` creation or update, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, Power Query, calculation correctness, and macro-sensitive refresh when the user explicitly opts in. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.
+description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, calculation correctness, and refreshing existing Power Query connections. Does not currently support authoring or editing Power Query M code, or macro execution -- see "Known gaps" below. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.
 ---
 
 # XLSX Win
@@ -9,212 +9,118 @@ description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xl
 
 ### Provenance
 
-- Upstream repo: `https://github.com/anthropics/skills`
-- Source folder: `skills/xlsx`
-- Source branch: `main`
-
-### Porting Notes
-
-- This is a heavy Windows-specific adaptation of Anthropic's `xlsx` skill for Codex.
-- The upstream skill centered on general spreadsheet editing guidance plus LibreOffice-backed recalculation.
-- This port replaces that model with native Excel Desktop COM refresh and recalculation, explicit Power Query and `Workbook.Queries` handling, `power_query_excel.ps1`, formula validation, self-test coverage, and Windows-specific macro and session policy guidance.
-- It remains Windows-only because the intended behavior depends on Excel Desktop fidelity and COM refresh semantics rather than file-only spreadsheet editing.
+- Originally ported from `https://github.com/anthropics/skills` (`skills/xlsx`) as a heavy Windows/COM adaptation -- see `PROVENANCE.md`.
+- Rewritten as "v2": a versioned JSON job/result contract, a Python control plane (schema validation, deterministic file-backend routing, workbook validation contracts, macro policy, staging), and a C# Windows supervisor that drives Excel COM against that contract. Durable design record: `docs/rfcs/0001-xlsx-win-runtime-v2.md` and `docs/rfcs/0002-xlsx-win-v2-single-user-scope.md`. Roadmap and full history: issue #33 and its linked issues.
+- This replaced the original PowerShell-script surface (`refresh_excel.ps1`, `power_query_excel.ps1`, `check_formula_errors.ps1`, `self_test_xlsx_win.ps1`, `invoke-xlsx-win.ps1`) entirely -- those scripts no longer exist in this repo. See "Known gaps vs the retired v1 scripts" below for what that cutover did and did not carry forward.
 
 ## Design Upskill Contribution
 
-Use `xlsx-win` to teach Codex that no-template design depends on reliable workbook data before it depends on visual polish. The skill contributes:
+Use `xlsx-win` to teach the agent that no-template design depends on reliable workbook data before it depends on visual polish. The skill contributes:
 
-- calculation correctness through native Excel refresh and formula-error validation,
-- Power Query and connection discipline so loaded data can be trusted,
+- calculation correctness through native Excel refresh, recalculation, and validation contracts,
+- workbook connection discipline (per-connection refresh, never a bare `RefreshAll`) so loaded data can be trusted,
 - chart-ready data guidance for downstream decks, reports, dashboards, and workbook visuals,
-- a clear non-COM versus COM split so Codex can prepare workbook structure safely and hand true refresh/recalculation to Excel when required.
+- a clear non-COM versus COM split so the agent can prepare workbook structure safely and hand true refresh/recalculation to Excel when required.
 
 Read `references/workbook-quality-map.md` when a task asks for a polished workbook, dashboard source table, analysis pack, model, chart-ready dataset, or spreadsheet that will feed a no-template visual artifact.
 
-Use this skill only for Codex local execution on Windows machines with Microsoft 365 Excel desktop installed.
+Use this skill only for local execution on Windows machines with Microsoft 365 Excel desktop installed.
 
-Before any Excel COM step, run the shared Office preflight from a regular PowerShell window opened as the signed-in desktop user:
+Before any Excel COM step, run the shared Office preflight from the session that will actually invoke `control_plane/cli.py run`:
 
 ```powershell
 & "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps Excel
 ```
 
-If preflight reports `can_use_com = false`, do not create `Excel.Application` from the Codex sandbox. Prepare the non-COM inputs in Codex and run the Excel COM step from that desktop-user PowerShell window through `scripts/invoke-xlsx-win.ps1` or a task-specific script.
+If preflight reports `can_use_com = false`, this session cannot run Excel-touching steps. Unlike v1, there is currently no dedicated sandboxed-agent-to-desktop-user handoff script for v2 (`invoke-xlsx-win.ps1` had no replacement built during the cutover -- see issue #79): hand the actual `cli.py run` invocation to an interactive desktop-user PowerShell session yourself.
 
 ## Core operating rules
 
 - Keep all workbook work local.
-- Use native Excel for refresh and recalculation. Do not use LibreOffice.
+- Use native Excel for refresh and recalculation. Never use LibreOffice or a file-only library to refresh a workbook connection.
 - Treat workbook fidelity as important. Preserve existing sheets, formulas, named ranges, comments, formatting, widths, validations, workbook connections, and workbook conventions unless the user asks for structural changes.
 - Prefer Excel formulas over calculating values in Python and hardcoding them.
 - Deliver workbooks with zero visible Excel error cells after refresh and validation.
 - Match the workbook's existing template style and conventions exactly when editing an established file.
-- Expect Excel COM refresh to require an interactive Windows desktop session. A Codex sandbox may block COM even when Excel is installed.
-- Never call `New-Object -ComObject Excel.Application` directly from the Codex sandbox. Use the shared preflight first, then run COM work from the signed-in desktop user session through `scripts/invoke-xlsx-win.ps1` or a task-specific script.
-- Disable macros by default during automation. Only enable them when the user explicitly requests macro-dependent refresh or workbook automation.
+- Macros are disabled by default and cannot currently be executed through this skill at all -- see "Known gaps" below.
+- Expect Excel COM automation to require an interactive Windows desktop session. Whether a sandboxed agent session can launch it directly is currently untested -- see issue #79. If a job fails in a way that looks like Excel COM could not be created (not a workbook problem), that is the likely cause; run the shared preflight, then run the job from an interactive desktop session.
 - For no-template spreadsheet deliverables, use `references/workbook-quality-map.md` to separate raw data, cleaned tables, assumptions, calculations, and outputs before adding visual polish.
 
 ## Tool selection
 
-Choose the lightest tool that preserves workbook fidelity.
+Choose the lightest tool that preserves workbook fidelity. Route the decision deterministically instead of guessing:
 
-- Use Excel Desktop COM for Power Query M work involving `Workbook.Queries`, query connections, worksheet loads, or Data Model loads.
-- Prefer `scripts/power_query_excel.ps1` over ad hoc COM code for repeated or fragile Power Query create, load, model, and delete workflows.
-- Use `pandas` for tabular analysis, joins, reshaping, cleanup, CSV and TSV normalization, and simple exports.
-- Use `openpyxl` for formulas, formatting, comments, workbook-safe edits, widths, fills, defined names, and Excel-specific structure.
-- Use `openpyxl` rather than pandas whenever formulas, comments, styles, merged cells, multiple sheets, or workbook conventions matter.
-- After any change that introduces or depends on formulas, workbook connections, Power Query, PivotTables, or cached values in an OOXML workbook, run `scripts/refresh_excel.ps1` and then `scripts/check_formula_errors.ps1`.
-- Use `references/workbook-quality-map.md` before building downstream charts or report tables so labels, units, denominators, grain, and calculation evidence are explicit.
+```
+python control_plane/cli.py route <workbook.xlsx> <create_new|edit_existing|convert_format>
+```
 
-## Power Query / M
+This inspects the workbook's real OOXML package (macros, signature, external links, Data Model, pivots, slicers, embedded objects, workbook connections) and returns one of:
 
-Use native Excel Desktop COM for Power Query M work. Do not use file-only libraries to inspect, create, edit, refresh, or delete `Workbook.Queries`.
+- `xlsxwriter` -- new formatted workbook, no existing file to preserve.
+- `openpyxl` -- editing an existing plain workbook with none of the above risk features.
+- `excel_required` -- any workbook with a risk feature above. Never edit these with a file-only library; a successful-looking edit is not evidence the workbook's structure survived intact.
+- `convert_required` -- legacy binary `.xls`; convert to `.xlsx` before any Python-side edit (no automated conversion step exists yet -- do this manually, e.g. by opening and re-saving in Excel).
+- `not_applicable` -- `.csv`/`.tsv`; this router has no opinion on plain delimited text.
 
-Treat each query as three separate artifacts:
+Use `pandas` for tabular analysis, joins, reshaping, cleanup, CSV/TSV normalization, and simple exports. Use `openpyxl` for formulas, formatting, comments, workbook-safe edits, widths, fills, defined names, and Excel-specific structure whenever the router says `openpyxl`. For anything the router says `excel_required`, use the job contract below -- never fall back to `openpyxl` just because it happens to open the file without erroring.
 
-- the M definition in `Workbook.Queries`
-- the workbook connection
-- the load target
+## Power Query / connections
 
-Key rules:
+**Refreshing an existing Power Query connection or workbook connection is fully supported** through the job contract's `refresh` step (see below) -- it refreshes each connection individually (not a bare `RefreshAll`), with per-connection error handling.
 
-- `Queries.Add(name, mFormula)` creates only the query definition. It does not create or update a worksheet load, a connection-only load, or a Data Model load.
-- For existing queries, read and update the M definition in place. Preserve current query names, connections, and load settings unless the task explicitly changes them.
-- If output must load to a worksheet, create or reuse the query's mashup OLE DB connection and load it explicitly to the requested sheet and range as a table, for example with `ListObjects.Add(...)` or `QueryTables.Add(...)`.
-- If output must load to the Data Model, create or add the model connection explicitly, for example with `Connections.Add`, `Add2(..., CreateModelConnection:=True)`, or `Model.AddConnection`. If no load target is requested for a new query, default to connection-only.
-- When deleting a query, remove its sheet or model load and connection before deleting the query definition.
-- After any M or load-setting change, run Excel refresh, wait for async queries to finish, save, and verify that the expected table or model connection exists. For worksheet loads, also verify row counts look reasonable.
+**Creating, editing, or deleting a Power Query M definition, or changing its load target (worksheet vs. Data Model), is not currently supported by this skill.** The v1 script that did this (`power_query_excel.ps1`) was retired in the v2 cutover with no replacement built yet -- see issue #78. If a task requires authoring or modifying Power Query M code, tell the user this isn't currently automatable through this skill and the query must be created/edited by hand in Excel first; this skill can then refresh it once it exists.
 
-For supported helper usage, read `references/power-query-excel-com.md`.
+## The job contract
 
-## Script contracts
+The stable, versioned interface for anything that needs real Excel: a JSON job manifest describing an ordered list of steps, executed by a C# supervisor that owns the Excel process, enforces per-phase timeouts, and force-terminates cleanly (via a Windows Job Object, never a by-name process kill) if a phase runs over. See `README.md` for the full schema and `supervisor/README.md` for the supervisor's internals; this section is the short version.
 
-Use the bundled scripts as the stable contract surface for repetitive or fragile Excel work:
+A job is `{schema_version, idempotency_key, steps, timeouts}`. Each step is one of:
 
-- `scripts/refresh_excel.ps1`
-  - refreshes, recalculates, saves, and emits structured JSON
-  - defaults to unique temp log and JSON artifact paths when not specified
-  - disables macros by default; `-EnableMacros` is opt-in
-  - exits `0` on success and `2` on operational failure
-- `scripts/check_formula_errors.ps1`
-  - validates visible Excel error cells in OOXML workbooks through `check_formula_errors.py`
-  - depends on a usable Python interpreter with `openpyxl`
-  - exits `0` on clean validation, `2` when findings are present, and `1` on operational error
-- `scripts/power_query_excel.ps1`
-  - supports `upsert-query`, `load-worksheet`, `load-model`, and `delete-query`
-  - preserves existing query definitions and load settings unless the action explicitly changes them
-  - prefer `-MFormulaPath` for nontrivial or multiline M to avoid shell-quoting issues
-  - emits structured JSON for success and failure, including refresh artifact paths when refresh is required
-- `scripts/self_test_xlsx_win.ps1`
-  - creates temp workbooks and runs smoke coverage for validator, refresh, path handling, macro policy, and Power Query actions
-  - use it when onboarding a new Windows machine, after changing these scripts, or when Excel COM behavior is in doubt
+- `open` -- `{workbook_path, read_only?, update_links?}`
+- `refresh` -- `{connections: "all" | [names]}` -- refreshes each named connection individually, never a bare `RefreshAll`
+- `recalc` -- `{mode: "full_rebuild" | "normal"}`
+- `save_as` -- `{output_path, overwrite?}`
+- `run_approved_macro` -- **not implemented.** Any job containing this step fails with `MACRO_EXECUTION_DEFERRED` by design, not silently. See "Known gaps" below and issue #73.
 
-## Supported task types
+A result is `{schema_version, run_id, idempotency_key, final_state, steps, invariants, ok}`. **Always check the top-level `ok` boolean, never infer success from `final_state` or individual step statuses yourself** -- `ok` is computed by the contract layer and is `true` if and only if every step succeeded and every declared invariant (see "Validation contracts" below) passed.
 
-Use this skill when the deliverable is a spreadsheet file and the task is any of the following:
+CLI subcommands (`python control_plane/cli.py <subcommand>`):
 
-- open, inspect, read, edit, or fix existing `.xlsx`, `.xlsm`, `.xls`, `.csv`, or `.tsv` files
-- create a new spreadsheet from scratch or from other tabular data
-- convert between spreadsheet and tabular formats
-- clean messy exports into proper spreadsheets
-- add columns, formulas, formatting, summaries, assumptions, charts, or model sections
-- repair malformed rows, misplaced headers, junk footers, type issues, or broken references
+- `validate <manifest.json>` -- schema-check only, no Excel needed.
+- `dry-run <manifest.json>` -- schema-check plus prints the state sequence the job would traverse, no Excel needed.
+- `route <workbook> <intent>` -- see "Tool selection" above, no Excel needed.
+- `validate-contract <workbook> <contract.json>` -- see "Validation contracts" below, reads the workbook with openpyxl, no Excel COM.
+- `run <manifest.json>` -- the only subcommand that actually launches Excel. Validates first (fails closed before touching anything if the manifest is invalid), stages the `open` step's input to a local temp copy before ever opening it (the manifest's real input path is never touched directly), invokes the supervisor, and -- only if the result reports `ok: true` -- publishes any `save_as` output to its real target. A failed job leaves every original path completely untouched.
 
-Do not use this skill when the primary deliverable is a Word document, HTML report, standalone software package, database pipeline, or Google Sheets integration.
+Before `run` can do anything, the C# supervisor must be built: `dotnet build supervisor/XlsxWinSupervisor.slnx`. If it isn't built yet, `run` fails with a clear message pointing at that command, not a confusing crash.
 
-## Formula rule
+## Validation contracts
 
-Use Excel formulas instead of computing values in Python and writing hardcoded outputs whenever the workbook should remain dynamic.
+A sidecar JSON contract per workbook can declare: required sheets/defined names/tables, minimum row counts, exact sentinel cell values, a maximum data-freshness window, whether visible Excel error values are prohibited, and an expected calculation mode. `validate-contract` evaluates every declared assertion against the workbook's saved *cached* values (not live formulas) and reports each one's pass/fail individually.
 
-Examples:
+**What this proves, and does not prove:** a passing validation contract means every assertion the contract author wrote down in advance held -- completion evidence and declared invariants, nothing more. It is never proof that the underlying numbers are semantically correct; there is no ground truth available to this tool for that. Never represent a passing contract as "the data is correct" -- only as "what was checked, checked out."
 
-- Use `=SUM(B2:B9)` instead of writing the precomputed total.
-- Use `=(C4-C2)/C2` instead of writing a hardcoded growth rate.
-- Put assumptions in cells and reference them from formulas instead of embedding constants directly into formulas.
+Macro policy (`macro_policy.py`) is a related, separate piece: an exact-match allowlist by workbook hash + macro entrypoint, disabled by default. It currently has nothing to gate, since macro execution itself is unimplemented (see below).
 
 ## Standard workflow
 
-1. Inspect the source file and decide whether the task is primarily analysis, data cleanup, workbook editing, Power Query M work, conversion, or Excel-native refresh.
-2. Run the shared Office preflight in the desktop-user PowerShell window before any Excel COM step.
-3. Choose `pandas`, `openpyxl`, `scripts/power_query_excel.ps1`, or direct Excel COM based on fidelity and Power Query needs.
-4. For no-template outputs, apply `references/workbook-quality-map.md` to plan source data, assumptions, calculations, chart-ready outputs, and validation evidence.
-5. Make the workbook edits.
-6. Save the workbook.
-7. If the task changes `Workbook.Queries` or query load targets, prefer `scripts/power_query_excel.ps1` and pass `-MFormulaPath` for nontrivial M definitions.
-8. If Codex is in the sandbox and preflight fails there, keep Codex on non-COM prep work and hand the COM step to the desktop-user shell through `invoke-xlsx-win.ps1`.
-9. If the output is `.xlsx` or `.xlsm` and formulas, refreshable objects, or cached values matter, run:
+1. Inspect the source file and decide whether the task is primarily analysis, data cleanup, workbook editing, or Excel-native refresh/recalculation.
+2. Run `route` to decide the backend deterministically -- don't guess from "this workbook looks simple."
+3. If the router says `xlsxwriter` or `openpyxl`, do the edit with that library directly.
+4. If the router says `excel_required`, build a job manifest with the steps you need (typically `open` → `refresh` → `recalc` → `save_as`), `validate` it, optionally `dry-run` it, then `run` it.
+5. Check the result's top-level `ok` field. If `false`, inspect `steps` for which one failed and why before doing anything else.
+6. If the workbook has correctness properties worth asserting (expected row counts, sentinel values, freshness), write a validation contract and run `validate-contract` against the output.
+7. If the source is `.xls`, convert it to `.xlsx` manually first (no automated step exists).
+8. If the source is `.csv` or `.tsv`, skip the job contract entirely unless you first export it to an OOXML workbook.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\refresh_excel.ps1 -WorkbookPath .\output.xlsx
-```
+## Known gaps vs the retired v1 scripts
 
-10. Validate OOXML workbooks with:
+The v1 PowerShell-script surface this replaced had capabilities the v2 rewrite does not yet have. These are deliberate, tracked gaps, not oversights -- do not attempt to work around them with `openpyxl` or a hand-rolled COM script; tell the user what isn't currently supported instead.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\check_formula_errors.ps1 -WorkbookPath .\output.xlsx
-```
-
-11. If the source is `.xls`, convert it to `.xlsx` before formula validation.
-12. If the source is `.csv` or `.tsv`, skip formula validation unless you export it to an OOXML Excel workbook first.
-13. If validation reports errors, fix the workbook and rerun refresh plus validation until clean.
-14. If Excel COM or Power Query behavior is in doubt for the current machine, run `scripts/self_test_xlsx_win.ps1`.
-
-## Refresh workflow
-
-Use `scripts/refresh_excel.ps1` whenever any of these are true:
-
-- the workbook contains formulas whose cached values may be stale
-- the workbook contains workbook connections
-- the workbook uses Power Query, PivotTables, or asynchronous queries
-- the user explicitly wants native Excel refresh
-- downstream users depend on values displayed in Excel rather than only stored formulas
-
-The script opens Excel through COM, refreshes the workbook, waits for async work, performs a full rebuild calculation, waits for calculation to finish, saves, logs execution, writes a JSON status file, and exits nonzero on failure.
-
-Refresh contract highlights:
-
-- macros are disabled unless `-EnableMacros` is passed explicitly
-- default log and JSON artifact paths are unique per run
-- `status = success` means refresh and save completed
-- `status = error` means the script failed operationally
-- exit code `0` means success
-- exit code `2` means operational failure
-
-If Excel COM is blocked by the current session, treat that as an environment limitation, not as a workbook problem. The typical `0x80070520` failure means the shell is in the wrong Windows user or logon-session context. Rerun the refresh from the signed-in desktop user session through:
-
-```powershell
-& "$env:USERPROFILE\.codex\skills\xlsx-win\scripts\invoke-xlsx-win.ps1" -Action refresh -WorkbookPath .\model.xlsx
-```
-
-For direct Excel COM creation or targeted edits, use a task-specific PowerShell script only after the helper preflight succeeds in that same desktop-user shell.
-
-See `references/windows-excel-refresh.md` for execution details and troubleshooting.
-
-## Validation requirements
-
-After refresh, inspect the JSON output from `scripts/check_formula_errors.ps1`.
-
-- `status = success` means no Excel error cells were found.
-- `status = errors_found` means the workbook must be fixed and revalidated.
-- `status = error` means the scan itself failed.
-- exit code `0` means clean validation
-- exit code `2` means findings were detected
-- exit code `1` means the validator itself failed
-- if the validator fails with `python_not_found`, install or expose a Python interpreter with `openpyxl`
-
-The validator supports `.xlsx`, `.xlsm`, `.xltx`, and `.xltm`. It returns structured JSON errors for unsupported formats such as `.xls`, `.csv`, and `.tsv`.
-
-Common Excel errors to eliminate:
-
-- `#REF!`
-- `#DIV/0!`
-- `#VALUE!`
-- `#NAME?`
-- `#NULL!`
-- `#NUM!`
-- `#N/A`
-- `#SPILL!`
-- `#CALC!`
+- **Power Query M authoring** (create, edit, or delete a query; change its load target) -- not supported. Issue #78. Refreshing an *existing* connection is fully supported.
+- **Macro execution** -- not supported. `run_approved_macro` always fails with `MACRO_EXECUTION_DEFERRED`. Issue #73 (deliberately deferred).
+- **Sandboxed-agent COM access** -- untested. Every real Excel job in this rewrite's own development was run from an already-interactive desktop session; whether the supervisor works when launched from inside a sandboxed agent process (the way the old scripts needed an explicit desktop-user handoff) is unverified. Issue #79.
+- **Heartbeat liveness signal** during a long refresh exists but has never been observed firing for a genuine Power Query connection on the machines this was built and tested on (`Refresh()` blocks synchronously for the connection's whole duration for that connection type) -- treat it as a nice-to-have diagnostic, not something to rely on for detecting a stuck job. The supervisor's own phase-deadline timeout is the real bound.
 
 ## Professional output standards
 
@@ -228,6 +134,14 @@ Apply these standards unless the workbook already has established conventions th
 For financial models and formatting conventions, see `references/spreadsheet-standards.md`.
 For no-template workbook structure, chart-ready data, and calculation evidence, see `references/workbook-quality-map.md`.
 
+## Formula rule
+
+Use Excel formulas instead of computing values in Python and writing hardcoded outputs whenever the workbook should remain dynamic.
+
+- Use `=SUM(B2:B9)` instead of writing the precomputed total.
+- Use `=(C4-C2)/C2` instead of writing a hardcoded growth rate.
+- Put assumptions in cells and reference them from formulas instead of embedding constants directly into formulas.
+
 ## Verification checklist
 
 Before returning a workbook that contains formulas or model logic, verify the following:
@@ -239,35 +153,24 @@ Before returning a workbook that contains formulas or model logic, verify the fo
 - test edge cases including zero and negative values when relevant
 - verify cross-sheet references use the intended sheet names and cells
 - ensure there are no unintended circular references
-- for Power Query changes, verify the intended worksheet or Data Model load target still exists after refresh
-- for worksheet query loads, confirm the loaded table exists in the requested location and the row counts look reasonable
-- for chart-ready outputs, confirm labels, units, time periods, denominators, and grain are explicit
-- rerun refresh and validation after structural edits or Power Query changes
+- for a job that included a `refresh` step, confirm the result's `ok` field is `true` and check each connection's per-step outcome, not just the overall `final_state`
+- rerun `run` and `validate-contract` after structural edits
 
 ## Library-specific guidance
 
 ### pandas
 
-Use pandas for:
-- reading messy tabular exports
-- fixing malformed headers or repeated header rows
-- trimming junk footer rows
-- type cleanup and joins
-- bulk transformations before export to Excel
+Use pandas for reading messy tabular exports, fixing malformed/repeated header rows, trimming junk footer rows, type cleanup and joins, and bulk transformations before export to Excel.
 
 ### openpyxl
 
-Use openpyxl for:
-- preserving workbook structure
-- inserting formulas rather than hardcoded outputs
-- styling, fills, comments, widths, and sheet-level edits
-- modifying existing multi-sheet workbooks safely
+Use openpyxl for preserving workbook structure, inserting formulas rather than hardcoded outputs, styling/fills/comments/widths/sheet-level edits, and modifying existing multi-sheet workbooks the router has confirmed are safe to touch this way.
 
 Important openpyxl warnings:
 - workbook indices are 1-based
 - `data_only=True` reads cached values, not formulas
 - if a workbook opened with `data_only=True` is saved, formulas can be lost
-- openpyxl preserves formulas as strings but does not calculate them; use the PowerShell refresh script to update cached values
+- openpyxl preserves formulas as strings but does not calculate them; use a `refresh`/`recalc` job to update cached values
 
 ## Code generation style
 

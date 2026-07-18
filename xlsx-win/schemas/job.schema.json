@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://dachent-skills.example/xlsx-win/v2/job.schema.json",
+  "$id": "https://dachent-skills.example/xlsx-win/job.schema.json",
   "title": "xlsx-win v2 job manifest",
   "description": "An ordered list of steps for a single desktop Excel job, run one at a time on one machine. Contract-only: validating against this schema never executes anything. Unknown top-level fields and unknown step types are rejected.",
   "type": "object",

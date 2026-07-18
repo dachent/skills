@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://dachent-skills.example/xlsx-win/v2/validation_contract.schema.json",
+  "$id": "https://dachent-skills.example/xlsx-win/validation_contract.schema.json",
   "title": "xlsx-win v2 workbook validation contract",
   "description": "Sidecar per-workbook contract of declared invariants a caller writes down in advance (issue #38, RFC 0002 decision 6). This schema describes completion evidence plus declared invariants only -- it can never assert that a workbook's data is semantically correct, because there is no ground truth available to check that against. Every field is optional: an empty object {} is a valid (if useless) contract.",
   "type": "object",
