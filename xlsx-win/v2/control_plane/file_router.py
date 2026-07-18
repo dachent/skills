@@ -10,10 +10,11 @@ evaluating or benchmarking the rest of the matrix up front:
 - ``xlsxwriter`` -- new workbook creation with no existing file to preserve.
 - ``openpyxl`` -- editing an existing plain xlsx/xlsm (no risk features).
 - ``excel_required`` -- the fail-closed escape hatch: macros, signatures, a
-  Data Model, pivots, slicers, embedded objects, external links, or any
-  workbook this router cannot positively classify as safe. RFC 0001 is
-  explicit that a successful-looking edit is not evidence a workbook was
-  safe to touch outside Excel, so this router never guesses.
+  Data Model, pivots, slicers, embedded objects, external links, workbook
+  connections (issue #70), or any workbook this router cannot positively
+  classify as safe. RFC 0001 is explicit that a successful-looking edit is
+  not evidence a workbook was safe to touch outside Excel, so this router
+  never guesses.
 - ``convert_required`` -- legacy binary .xls must become .xlsx before any
   Python-side edit; this router does not perform the conversion itself.
 - ``not_applicable`` -- CSV/TSV, for any intent (creation or edit). These are
@@ -53,6 +54,12 @@ BACKEND_NOT_APPLICABLE = "not_applicable"
 # router cannot prove the workbook is safe to open outside Excel. Order here
 # is the order they're checked in, purely for stable/readable `explain`
 # output -- it has no effect on the routing decision itself.
+#
+# has_connections (issue #70): a workbook connection (Power Query or legacy
+# QueryTable/OLEDB/ODBC) is exactly the kind of feature SKILL.md's own
+# existing guidance says must go through Excel COM, never file-only
+# libraries -- so it fails closed here the same as the other seven fields,
+# not just as a routing nicety.
 _RISK_FIELDS = (
     "has_macros",
     "is_signed",
@@ -61,6 +68,7 @@ _RISK_FIELDS = (
     "has_slicers",
     "has_embedded_objects",
     "has_external_links",
+    "has_connections",
 )
 
 
