@@ -1,4 +1,4 @@
 interface:
   display_name: "XLSX Win"
   short_description: "native microsoft excel automation for workbook reliability and chart-ready data"
-  default_prompt: "Use $xlsx-win to automate a local Excel workbook on Windows with Microsoft Excel COM for refresh, Power Query, validation, chart-ready data, and workbook-safe edits."
+  default_prompt: "Use $xlsx-win to automate a local Excel workbook on Windows with Microsoft Excel COM for refresh, refreshing existing Power Query connections, validation, chart-ready data, and workbook-safe edits."

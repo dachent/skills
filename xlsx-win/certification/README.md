@@ -1,7 +1,7 @@
 # xlsx-win v2 certification (issue #39, single-machine subset)
 
 Certification evidence for the reduced, single-machine scope agreed in
-[RFC 0002](../../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) --
+[RFC 0002](../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) --
 decision 2 explicitly drops the fleet-operations portions of the original
 issue #39 (durable queue, multiple isolated Windows workers,
 quarantine/recycle, soak testing) as moot for "one machine running one job
@@ -16,10 +16,10 @@ the numbers it produced while it existed.
 
 Related documents:
 
-- [RFC 0001](../../../docs/rfcs/0001-xlsx-win-runtime-v2.md) -- "Testing
+- [RFC 0001](../../docs/rfcs/0001-xlsx-win-runtime-v2.md) -- "Testing
   strategy", "Certification corpus", and "Metrics and targets" sections
   describe the original full vision this is a deliberately reduced slice of.
-- [RFC 0002](../../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) --
+- [RFC 0002](../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) --
   decision 2 (no worker-pool/fleet), decision 1 (Path C/#37 out of scope).
 - `../supervisor/README.md` -- the supervisor (#36) this directory
   certifies, including its own "Known limitations" section (referenced

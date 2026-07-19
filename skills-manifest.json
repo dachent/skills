@@ -543,7 +543,7 @@
           "python .\\tools\\test_office_com_contract.py"
         ],
         "environment_dependent_commands": [
-          "powershell -ExecutionPolicy Bypass -File .\\pptx-win\\scripts\\smoke-test.ps1"
+          "powershell -ExecutionPolicy Bypass -File .\\pptx-win\\scripts\\smoke_test.ps1"
         ]
       },
       "owner": "@dachent",
@@ -724,7 +724,7 @@
       "family": "office",
       "catalog_group": "native-extensions",
       "status": "supported",
-      "description": "Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, calculation correctness, and refreshing existing Power Query connections. Does not currently support authoring or editing Power Query M code, or macro execution. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.",
+      "description": "native microsoft excel automation for windows .xlsx/.xlsm/.xls/.csv/.tsv workflows. use when chatgpt, codex, or claude code is running on windows with microsoft 365 excel installed and needs to refresh, recalculate, validate, or route a workbook through excel com automation. trigger for workbook connections, cached values, pivottables, calculation correctness, refreshing an existing power query connection, data model-aware routing, chart-ready data, no-template spreadsheet deliverables, or excel environment self-test. does not support authoring or editing power query m code, or macro execution -- see \"known gaps\" in SKILL.md. do not use for cloud execution, non-windows environments, google sheets api workflows, or machines without excel desktop installed.",
       "platforms": [
         "windows"
       ],

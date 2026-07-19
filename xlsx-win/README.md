@@ -8,8 +8,8 @@ validation contracts, macro policy, staging, and the audit manifest), issue
 IMessageFilter COM-retry handling and a refresh heartbeat on the C# side --
 see `supervisor/README.md`) for the xlsx-win v2 runtime, scoped to a single
 desktop per
-[RFC 0002](../../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) (which
-amends [RFC 0001](../../docs/rfcs/0001-xlsx-win-runtime-v2.md)).
+[RFC 0002](../docs/rfcs/0002-xlsx-win-v2-single-user-scope.md) (which
+amends [RFC 0001](../docs/rfcs/0001-xlsx-win-runtime-v2.md)).
 
 ## Scope
 
