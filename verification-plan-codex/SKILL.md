@@ -16,15 +16,15 @@ Define how the work will be proven correct before execution starts. A verificati
 3. For every success criterion, define at least one proof method.
 4. For every failure criterion, define the signal that would show it happened.
 5. Define rollback or recovery triggers before execution.
-6. Write the result to `.deep-planning/verification-plan.md` unless the user specifies another planning workfolder.
+6. Return the verification plan in conversation. Write an artifact only when the user explicitly requests one, and place it in the active session folder or another user-approved destination.
 
-## When Invoked By deep-planning-codex
+## Native Plan Mode
 
-- Treat `.deep-planning/success-criteria.md`, `.deep-planning/failure-criteria.md`, `.deep-planning/implementation-plan.md`, and `.deep-planning/assumption-ledger.md` as required inputs.
-- Use this table shape in `.deep-planning/verification-plan.md`: `Criterion`, `Proof method`, `Command/check`, `Expected result`, `Evidence artifact`, `Owner/Reviewer`, `Failure signal`, and `Recovery trigger`.
+- Use the current plan, success criteria, failure criteria, and inspected evidence directly; do not require a repository planning workfolder.
+- Use this table shape when a table improves clarity: `Criterion`, `Proof method`, `Command/check`, `Expected result`, `Evidence artifact`, `Owner/Reviewer`, `Failure signal`, and `Recovery trigger`.
 - Map every success criterion to at least one proof method and every failure criterion to a failure signal.
-- If any human approval is required, name the role or person in `Owner/Reviewer`. If the owner is unknown, set the Deep Planning Delta status to `BLOCKED_NEEDS_USER_DECISION`.
-- End with a Deep Planning Delta for the orchestrator to merge into `.deep-planning/state.md`.
+- If a human decision is still required, identify the exact unresolved decision without adding a duplicate execution-approval gate.
+- Do not write files while the current collaboration mode prohibits mutations.
 
 ## References
 

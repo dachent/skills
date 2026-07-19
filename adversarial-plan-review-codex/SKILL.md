@@ -16,14 +16,14 @@ Red-team a plan before execution. The goal is to find blocking flaws while chang
 3. Check whether every plan step is evidence-backed, ordered safely, and verifiable.
 4. Classify findings as `BLOCKING`, `IMPORTANT`, or `NOTE`.
 5. If blockers exist, revise the source plan or tell the user exactly what decision/evidence is missing.
-6. Write `.deep-planning/adversarial-review.md` unless the user specifies another planning workfolder.
+6. Return the review in conversation. Write a review artifact only when the user explicitly requests one, and place it in the active session folder or another user-approved destination.
 
-## When Invoked By deep-planning-codex
+## Native Plan Mode
 
-- Treat `.deep-planning/implementation-plan.md` and `.deep-planning/verification-plan.md` as required inputs before a final execution gate.
+- Treat the current proposed plan and inspected evidence as the source inputs; do not require a repository planning workfolder.
 - Return `PASS` only when there are no `BLOCKING` findings. Use `FAIL` when inspected evidence proves a blocking flaw. Use `PARTIAL` when required evidence cannot be inspected well enough to determine whether the plan is safe.
-- A `FAIL` or `PARTIAL` verdict must block `READY_FOR_PROCEED`; the Deep Planning Delta status should be `FAILED_VALIDATION`, `BLOCKED_BY_MISSING_EVIDENCE`, or `BLOCKED_NEEDS_USER_DECISION` based on the fix required.
-- End with a Deep Planning Delta for the orchestrator to merge into `.deep-planning/state.md`, including the exact artifact or decision needed for re-review.
+- Do not add a second approval gate. Report the verdict and required corrections so the active Plan Mode can incorporate them.
+- Do not write files while the current collaboration mode prohibits mutations.
 
 ## References
 

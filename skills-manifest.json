@@ -274,8 +274,8 @@
       "path": "deep-planning-codex",
       "family": "planning",
       "catalog_group": "codex-ports",
-      "status": "supported",
-      "description": "Use when a project needs deep, gated planning before execution, especially high-stakes coding, failed prior attempts, business deliverables, mixed business-coding work, no-git workflows, or plans that need evidence, probes, verification, and adversarial review.",
+      "status": "deprecated",
+      "description": "Deprecated for GPT-5.6/Sol: use native Codex Plan Mode, with focused verification or adversarial review skills when needed.",
       "platforms": [
         "cross-platform"
       ],
@@ -554,8 +554,8 @@
       "path": "repo-map-codex",
       "family": "planning",
       "catalog_group": "codex-ports",
-      "status": "supported",
-      "description": "Use when planning needs a durable project map before execution, especially unfamiliar codebases, no-git folders, business artifact projects, mixed business-coding work, dependency discovery, test command discovery, or evidence cataloging.",
+      "status": "deprecated",
+      "description": "Deprecated for GPT-5.6/Sol: native Plan Mode performs read-first repository grounding and evidence collection.",
       "platforms": [
         "cross-platform"
       ],
@@ -621,8 +621,8 @@
       "path": "ultraplan-codex",
       "family": "planning",
       "catalog_group": "codex-ports",
-      "status": "supported",
-      "description": "Use when the user says ultraplan, invokes $ultraplan-codex, wants a thorough plan before coding, needs architectural decisions, asks for a grounded implementation plan, or faces a complex multi-file implementation task.",
+      "status": "deprecated",
+      "description": "Deprecated for GPT-5.6/Sol: use native Codex Plan Mode for grounded, decision-complete implementation plans.",
       "platforms": [
         "cross-platform"
       ],

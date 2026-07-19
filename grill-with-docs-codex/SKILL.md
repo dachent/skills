@@ -38,12 +38,12 @@ Use [`references/adr-format.md`](./references/adr-format.md) when creating or ed
 7. Offer an ADR only when the decision is hard to reverse, surprising without context, and the result of a real tradeoff.
 8. Continue until the plan's language, boundaries, and durable decisions are explicit.
 
-## When Invoked By deep-planning-codex
+## Native Plan Mode
 
-- Ask only the highest-impact blocking terminology, boundary, or architecture question for the current phase, then wait for the user's answer.
-- Modify `CONTEXT.md` or ADR files only if `.deep-planning/harness-preflight.md`, `.deep-planning/success-criteria.md`, or the current user instruction records documentation write permission.
-- If documentation permission is missing, stage the proposed terminology or ADR decision in `.deep-planning/decision-log.md` when available and return `BLOCKED_NEEDS_USER_DECISION`.
-- End with a Deep Planning Delta for the orchestrator to merge into `.deep-planning/state.md`, naming docs updated, ADRs created or recommended, blockers, and the next action.
+- Ask only the highest-impact unresolved terminology, boundary, or architecture question, then wait for the user's answer.
+- Treat repository documentation as evidence, not authorization to modify it.
+- Modify `CONTEXT.md` or ADR files only when the user requested documentation changes and the current collaboration mode permits mutations.
+- Otherwise return the proposed glossary or ADR decision in conversation without creating staging files or a second approval protocol.
 
 ## Glossary Discipline
 

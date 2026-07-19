@@ -191,6 +191,21 @@ foreach ($skillFile in $skillFiles) {
     }
 }
 
+$solNativeSkills = @(
+    'adversarial-plan-review-codex',
+    'verification-plan-codex',
+    'grill-me-codex',
+    'grill-with-docs-codex',
+    'handoff-codex'
+)
+foreach ($skillName in $solNativeSkills) {
+    $skillPath = Join-Path $repositoryRoot (Join-Path $skillName 'SKILL.md')
+    $content = Get-Content -LiteralPath $skillPath -Raw
+    if ($content -match '\.deep-planning' -or $content -match 'When Invoked By deep-planning-codex') {
+        Add-Failure -Failures $failures -Message ("{0}: retained Sol-native skill depends on deprecated deep-planning state." -f $skillName)
+    }
+}
+
 $provenanceValidator = Join-Path $repositoryRoot 'tools\validate_provenance.py'
 if (-not (Test-Path -LiteralPath $provenanceValidator)) {
     Add-Failure -Failures $failures -Message 'tools/validate_provenance.py is missing.'
