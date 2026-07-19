@@ -1,6 +1,6 @@
 ---
 name: xlsx-win
-description: Windows-only local Excel Desktop automation skill for `.xlsx`, `.xlsm`, `.xls`, `.csv`, and `.tsv` work that needs workbook fidelity, Excel COM refresh or recalculation, worksheet table loads, connection-only queries, Data Model loads, chart-ready data, no-template spreadsheet deliverables, or Excel environment self-test. Use when native Excel behavior matters on Windows, including workbook connections, cached values, PivotTables, calculation correctness, and refreshing existing Power Query connections. Does not currently support authoring or editing Power Query M code, or macro execution -- see "Known gaps" below. Do not use for cloud execution, non-Windows environments, Google Sheets API workflows, or machines without Microsoft 365 Excel desktop installed.
+description: native microsoft excel automation for windows .xlsx/.xlsm/.xls/.csv/.tsv workflows. use when chatgpt, codex, or claude code is running on windows with microsoft 365 excel installed and needs to refresh, recalculate, validate, or route a workbook through excel com automation. trigger for workbook connections, cached values, pivottables, calculation correctness, refreshing an existing power query connection, data model-aware routing, chart-ready data, no-template spreadsheet deliverables, or excel environment self-test. does not support authoring or editing power query m code, or macro execution -- see "known gaps" below. do not use for cloud execution, non-windows environments, google sheets api workflows, or machines without excel desktop installed.
 ---
 
 # XLSX Win
@@ -32,14 +32,30 @@ Before any Excel COM step, run the shared Office preflight from the session that
 & "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps Excel
 ```
 
+That path assumes a Codex-style install. If this skill is loaded through a Claude Code plugin instead, resolve the same script from the plugin cache first:
+
+```powershell
+$preflight = (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache" -Recurse -Filter "office_com_preflight.ps1" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+if (-not $preflight) { $preflight = "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" }
+& $preflight -Apps Excel
+```
+
 If preflight reports `can_use_com = false`, this session cannot run Excel-touching steps. Unlike v1, there is currently no dedicated sandboxed-agent-to-desktop-user handoff script for v2 (`invoke-xlsx-win.ps1` had no replacement built during the cutover -- see issue #79): hand the actual `cli.py run` invocation to an interactive desktop-user PowerShell session yourself.
+
+For a new machine, after an Office update, or whenever Excel COM behavior is in doubt, run the environment self-test:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File certification/smoke_test.ps1
+```
+
+This builds/uses the supervisor and runs the full certification corpus against real Excel: router decisions, a genuine Power-Query-connection refresh, validation contracts, and macro-policy rejection. It's the same entrypoint CI uses (`.github/workflows/office-smoke.yml`).
 
 ## Core operating rules
 
 - Keep all workbook work local.
 - Use native Excel for refresh and recalculation. Never use LibreOffice or a file-only library to refresh a workbook connection.
 - Treat workbook fidelity as important. Preserve existing sheets, formulas, named ranges, comments, formatting, widths, validations, workbook connections, and workbook conventions unless the user asks for structural changes.
-- Prefer Excel formulas over calculating values in Python and hardcoding them.
+- Prefer Excel formulas over hardcoded values computed in Python -- see "Formula rule" below.
 - Deliver workbooks with zero visible Excel error cells after refresh and validation.
 - Match the workbook's existing template style and conventions exactly when editing an established file.
 - Macros are disabled by default and cannot currently be executed through this skill at all -- see "Known gaps" below.
@@ -105,13 +121,13 @@ Macro policy (`macro_policy.py`) is a related, separate piece: an exact-match al
 ## Standard workflow
 
 1. Inspect the source file and decide whether the task is primarily analysis, data cleanup, workbook editing, or Excel-native refresh/recalculation.
-2. Run `route` to decide the backend deterministically -- don't guess from "this workbook looks simple."
-3. If the router says `xlsxwriter` or `openpyxl`, do the edit with that library directly.
-4. If the router says `excel_required`, build a job manifest with the steps you need (typically `open` → `refresh` → `recalc` → `save_as`), `validate` it, optionally `dry-run` it, then `run` it.
-5. Check the result's top-level `ok` field. If `false`, inspect `steps` for which one failed and why before doing anything else.
-6. If the workbook has correctness properties worth asserting (expected row counts, sentinel values, freshness), write a validation contract and run `validate-contract` against the output.
-7. If the source is `.xls`, convert it to `.xlsx` manually first (no automated step exists).
-8. If the source is `.csv` or `.tsv`, skip the job contract entirely unless you first export it to an OOXML workbook.
+2. If the source is `.xls`, convert it to `.xlsx` manually first (no automated step exists).
+3. If the source is `.csv` or `.tsv`, skip the job contract entirely unless you first export it to an OOXML workbook.
+4. Run `route` to decide the backend deterministically -- don't guess from "this workbook looks simple."
+5. If the router says `xlsxwriter` or `openpyxl`, do the edit with that library directly.
+6. If the router says `excel_required`, build a job manifest with the steps you need (typically `open` → `refresh` → `recalc` → `save_as`), `validate` it, optionally `dry-run` it, then `run` it.
+7. Check the result's top-level `ok` field. If `false`, inspect `steps` for which one failed and why before doing anything else.
+8. If the workbook has correctness properties worth asserting (expected row counts, sentinel values, freshness), write a validation contract and run `validate-contract` against the output.
 
 ## Known gaps vs the retired v1 scripts
 
@@ -179,4 +195,3 @@ When generating code for Excel operations:
 - keep code minimal and direct
 - avoid unnecessary comments and print statements
 - prefer clear but concise variable names
-- do not compute values in Python when the correct deliverable is an Excel formula
