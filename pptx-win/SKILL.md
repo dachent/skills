@@ -35,6 +35,14 @@ Before any PowerPoint COM step, run:
 & "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps PowerPoint
 ```
 
+That path assumes a Codex-style install. If this skill is loaded through a Claude Code plugin instead, resolve the same script from the plugin cache first:
+
+```powershell
+$preflight = (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache" -Recurse -Filter "office_com_preflight.ps1" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+if (-not $preflight) { $preflight = "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" }
+& $preflight -Apps PowerPoint
+```
+
 If preflight reports `can_use_com = false`, do not create `PowerPoint.Application` from the Codex sandbox. Prepare maps, output paths, and other non-COM inputs in Codex, then run the COM step from a regular PowerShell window opened as the signed-in desktop user.
 
 ## Workflow Decision Tree
