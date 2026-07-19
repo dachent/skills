@@ -1,65 +1,68 @@
-# External test-file catalog (manual / exploratory, not part of the automated corpus)
+# External test corpus
 
-A reference list of publicly downloadable, real-world `.xlsx`/`.xlsm` files for manually stress-testing `xlsx-win` against realistic Power Query, VBA, dashboard, and large-data workbooks. This is **not** wired into `run_corpus.py` or CI -- it exists for a human to pull a file from here and run it through the router / job contract / validation contract by hand when the synthetic corpus (`corpus.py`) doesn't cover a scenario well enough.
+Manual, third-party fixtures for tests that the small generated corpus cannot
+represent. Nothing here is vendored or downloaded by CI.
 
-## Why this is separate from `corpus.py`
+## Rules
 
-`corpus.py` generates small, purpose-built workbooks on demand specifically so the automated corpus stays fast, deterministic, and license-free -- see its own module docstring. Nothing here is committed to this repo or downloaded automatically: every entry below is a link to a third party's file, verified live as of the date in the "Verified" column, not mirrored. Two real, proprietary production workbooks were also used earlier in this project's development for one-off real-world validation (documented in `README.md`'s "Real-world validation against production workbooks" section) -- those are confidential and are not, and will never be, listed here.
+- Download into a disposable directory; pin the resolved URL, byte size, and
+  SHA-256 (or ETag for a mutable source) in the run record.
+- Re-inspect every download. Links, content, and mutable datasets can change.
+- Treat sources without an explicit license as local-test-only; do not mirror
+  or redistribute them.
+- Never enable macros from an external fixture outside a disposable VM.
+- An `.xlsx` sheet has 1,048,576 rows. With a header in row 1, load at most
+  1,048,575 data rows.
 
-## Before using any of these
+## Core fixtures
 
-- **Not mirrored.** Always fetch fresh from the source link; nothing here is vendored into this repo.
-- **Licensing varies per entry** -- see the "License / attribution" column. Several of these are blog-provided "free sample" downloads with no formal license file, meaning reuse beyond local testing is not clearly granted. Treat anything not explicitly MIT/public-domain as "fine for local testing, don't redistribute as your own."
-- **Link rot is expected.** "Verified" reflects a live HTTP check on 2026-07-18 (status code + a byte-range fetch confirming a real ZIP/OOXML signature, `50 4B 03 04`) -- not a guarantee it stays live. Re-check before depending on an entry.
-- **Macro content is untrusted.** `xlsx-win`'s own job contract cannot execute macros at all (`run_approved_macro` is unimplemented -- issue #73), so nothing here can be macro-executed *through the skill*. But a human opening one of the `.xlsm`/VBA files directly in real Excel to inspect it manually can still get Excel's own "Enable Content" prompt -- never click through that for these files outside a disposable VM/sandbox.
+| Fixture | Verified shape | Use | Acquisition / reuse |
+| --- | --- | --- | --- |
+| [Excel Project Dataset.xlsx](https://raw.githubusercontent.com/ShreevaniRao/Data-Analysis-with-Excel-Power-Query/main/Excel%20Project%20Dataset.xlsx) | 316,483-byte `.xlsx`; two value-backed Tables. `Table2=A1:O1001`; column 13 (`Age Brackets`) is calculated; one cache feeds six Pivots and slicers; no connection part. | Best real Table→shared-cache→multi-Pivot→slicer preservation seed. Scale its 14 writable columns; let Excel propagate the calculated column. | No repository license: local testing only. |
+| [PowerQuery.xlsx](https://raw.githubusercontent.com/ShreevaniRao/Data-Analysis-with-Excel-Power-Query/main/PowerQuery.xlsx) | 120,869-byte `.xlsx`; 11 workbook connections; query-backed Table feeds a Pivot. | Existing-connection routing, attributable per-connection refresh, recalc, save, and cleanup. Not the generic value-backed Table path. | No repository license: local testing only. |
+| [Microsoft Financial Sample.xlsx](https://go.microsoft.com/fwlink/?LinkID=521962) | 83,418-byte `.xlsx`; one 700-row Table (`financials`); no Pivot cache or connection. | Official Table-only/plain-workbook baseline. | Microsoft tutorial sample. |
+| [MiniExcel Test1,000,000x10.xlsx](https://raw.githubusercontent.com/mini-software/MiniExcel/master/benchmarks/MiniExcel.Benchmarks/Test1%2C000%2C000x10.xlsx) | Native `.xlsx`; `A1:J1000000`; 1,000,000 rows, 10,000,000 repeated-string cells; 33,420,761 bytes; no Table/Pivot/connection/shared-strings part. | Dense, low-cardinality native Excel open/save, memory, timeout, and PID-cleanup control. It does **not** test Table replacement or Pivot refresh. | Apache-2.0. SHA-256 `3f3cd992ff51886ce4832838563572dd471a582d864d820d5db9bd3f9144b6df`. |
+| [CSVBase Chrome Top Million.xlsx](https://csvbase.com/calpaterson/crux-top-list.xlsx) | Native `.xlsx`; `A1:C1000001`; 1,000,000 data rows + header; 1,131,063 populated cells; 65,530 hyperlinks/relationships; 9,898,705 bytes; no Table/Pivot/connection. | Sparse-row and relationship-pressure native Excel control. It does **not** test Pivot refresh. | Table metadata has no license: local testing only. SHA-256 `71e8909f4da8517ae05c2d110eaadebd7934a14f9214927cf24ec2308e95015a`. |
+| [Redfin county Market Tracker](https://redfin-public-data.s3.us-west-2.amazonaws.com/redfin_market_tracker/county_market_tracker.tsv000.gz) | Mutable gzip TSV; observed 1,351,879 data rows + header, 58 columns, 241,131,599 compressed bytes. Mixed dates, categories, integers, decimals, nulls, and geographic cardinality. | Preferred realistic source for deterministic 100k/500k/750k/1m Table→Pivot slices. The full source cannot fit one sheet. | Official Redfin Data Center; terms do not state a dataset-specific redistribution license. Attribute, use locally, re-count, and capture ETag. |
+| [NYC 311 one-million-row sample](https://raw.githubusercontent.com/wiki/jqnatividad/qsv/files/NYC_311_SR_2010-2020-sample-1M.7z) | 48,111,517-byte 7z → 538,951,068-byte CSV; 1,000,000 data rows + header; 41 columns with dates, long text, nulls, and coordinates. | Wide/high-cardinality adversarial sidecar. Run 500k before 1m; harder on marshaling and Pivot-cache cardinality than repeated strings. | qsv redistribution of NYC Open Data. Archive SHA-256 `5c5f876b097ed6b51d52a5309c029ac605e959204cfb64a41f847bdc3ef3165b`; CSV `18f0dd774a6c4b79da3dbf3aa0cd878d374dab132226af2c629d9eef9595061b`. |
 
-## Power Query focused
+### Larger Redfin tiers
 
-| File | Link | Exercises | License / attribution | Verified |
-| --- | --- | --- | --- | --- |
-| Microsoft Financial Sample workbook (`Financial Sample.xlsx`) | [download](https://go.microsoft.com/fwlink/?LinkID=521962) | Tables + PivotTables -> `excel_required` routing (`has_pivots`); refresh/recalc on a well-known official sample | Official Microsoft sample data, published for tutorial/testing use | 2026-07-18: HTTP 200, confirmed ZIP signature, 83,418 bytes |
-| `PowerQuery.xlsx` (ShreevaniRao repo) | [download](https://raw.githubusercontent.com/ShreevaniRao/Data-Analysis-with-Excel-Power-Query/main/PowerQuery.xlsx) | Real Power Query transformations, cleaning, consolidation -> genuine `has_connections` routing + refresh | Repo has **no LICENSE file** (checked via GitHub API) -- author's copyright, reuse terms unclear beyond viewing; treat as local-testing-only | 2026-07-18: HTTP 200, confirmed ZIP signature, 120,869 bytes |
-| `Excel Project Dataset.xlsx` (same repo) | [download](https://raw.githubusercontent.com/ShreevaniRao/Data-Analysis-with-Excel-Power-Query/main/Excel%20Project%20Dataset.xlsx) | Multi-tab analysis, pivots, dashboard -> combined `has_pivots`/`has_connections` routing | Same repo, no LICENSE file -- local-testing-only | 2026-07-18: HTTP 200, confirmed ZIP signature, 316,483 bytes |
-| TrumpExcel Retail Inventory | [download](https://www.dropbox.com/scl/fi/f7thmp8268s7vwgksidfr/01-Retail-Inventory.xlsx?rlkey=lu181vqokcewwvco8ak1rxmk7&dl=1) | Plain tabular workbook -- good `openpyxl`-path baseline before layering PQ on top by hand | Blog-provided free sample (Puneet Gogia / TrumpExcel), no formal license -- personal/testing use as advertised on the blog | 2026-07-18: HTTP 200, confirmed ZIP signature, 79,154 bytes |
-| TrumpExcel Project Management | [download](https://www.dropbox.com/scl/fi/4x53npvymfmrgr0extvgx/02-Project-Management.xlsx?rlkey=qtj9bwnlt94jm7jhfppwzgrbq&dl=1) | Same as above, project-tracking shape (dates, dependencies) | Same as above | 2026-07-18: HTTP 200, confirmed ZIP signature, 72,352 bytes |
-| TrumpExcel Real Estate Listings | [download](https://www.dropbox.com/scl/fi/z6kbab7psonkymmr722i6/03-Real-Estate-Listings.xlsx?rlkey=7hx0ojbiuxb34kqd9g1y0jjse&dl=1) | Same as above, listings/pricing shape | Same as above | 2026-07-18: HTTP 200, confirmed ZIP signature, 74,873 bytes |
-| TrumpExcel Restaurant Sales | [download](https://www.dropbox.com/scl/fi/qnk47lzecilxt1suz2tsg/04-Restaurant-Sales.xlsx?rlkey=1ovujyhw1ox6banzbophcegrf&dl=1) | Same as above, sales/menu shape | Same as above | 2026-07-18: HTTP 200, confirmed ZIP signature, 65,404 bytes |
-| Excelx Product Sales Region | [download](https://excelx.com/wp-content/uploads/2025/06/Product-Sales-Region.xlsx) | Router baseline, refresh/recalc on a plain sales table | Blog-provided free sample, no formal license -- local-testing-only | 2026-07-18: HTTP 200, confirmed ZIP signature, 149,740 bytes |
-| Excelx Online Store Orders | [download](https://excelx.com/wp-content/uploads/2025/06/Online-Store-Orders.xlsx) | Same as above, order-line shape | Same as above | 2026-07-18: HTTP 200, confirmed ZIP signature, 107,744 bytes |
-| Excelx Retail Store Transactions | [download](https://excelx.com/wp-content/uploads/2025/06/Retail-Store-Transactions.xlsx) | Same as above, transaction-log shape | Same as above | 2026-07-18: HTTP 200, confirmed ZIP signature, 148,489 bytes |
-| Excelx Customer Purchase History | [download](https://excelx.com/wp-content/uploads/2025/06/Customer-Purchase-History.xlsx) | Same as above, customer-history shape | Same as above | 2026-07-18: HTTP 200, confirmed ZIP signature, 110,233 bytes |
+Reachable but intentionally excluded from routine certification because county
+already exceeds the required row scale:
 
-## VBA / macro-enabled and mixed
+| Geography | Direct source | Observed compressed size |
+| --- | --- | ---: |
+| City | [city_market_tracker.tsv000.gz](https://redfin-public-data.s3.us-west-2.amazonaws.com/redfin_market_tracker/city_market_tracker.tsv000.gz) | 1,001,106,945 bytes |
+| ZIP code | [zip_code_market_tracker.tsv000.gz](https://redfin-public-data.s3.us-west-2.amazonaws.com/redfin_market_tracker/zip_code_market_tracker.tsv000.gz) | 1,548,403,907 bytes |
+| Neighborhood | [neighborhood_market_tracker.tsv000.gz](https://redfin-public-data.s3.us-west-2.amazonaws.com/redfin_market_tracker/neighborhood_market_tracker.tsv000.gz) | 2,353,602,188 bytes |
 
-| File | Link | Exercises | License / attribution | Verified |
-| --- | --- | --- | --- | --- |
-| Chris Webb Power Query + VBA integration example | [OneDrive share](https://1drv.ms/x/s!AjFffgoO_-9rgSSi7X6s7pOUhVb1?e=Iqjv6x) | Would exercise `has_macros` + `has_connections` routing together, and macro-policy rejection, if reachable | Individual blogger's (Chris Webb, well-known Power Query blogger) personal share -- terms unclear | **2026-07-18: DEAD -- HTTP 403 Forbidden.** Personal OneDrive share links like this are known to expire/require the owner's account; do not rely on this entry without finding a live replacement |
-| Employee Sample Data (zip) | [download](https://www.thespreadsheetguru.com/wp-content/uploads/2022/12/EmployeeSampleData.zip) | VBA automation examples once unzipped -- `has_macros` routing, macro-policy rejection | Blog-provided free sample, no formal license -- local-testing-only | 2026-07-18: HTTP 200, confirmed ZIP signature, 125,295 bytes (the zip archive itself; unzip to get at the workbook(s) inside) |
+## Supplemental fixtures
 
-## Large-scale / plain data (no Power Query, no macros)
-
-| File | Link | Exercises | License / attribution | Verified |
-| --- | --- | --- | --- | --- |
-| Fragile States Index 2023 | [download](https://fragilestatesindex.org/wp-content/uploads/2023/06/FSI-2023-DOWNLOAD.xlsx) | Multi-year, larger real dataset -- plain-data `openpyxl` path, recalculation on a bigger sheet | Published by the Fund for Peace (a research organization) for public use; check the site's terms before any redistribution, fine for local testing | 2026-07-18: HTTP 200, confirmed ZIP signature, 26,952 bytes |
-| Fragile States Index 2022 | [download](https://fragilestatesindex.org/wp-content/uploads/2022/07/fsi-2022-download.xlsx) | Same as above, prior year -- useful for a two-file "append rows" scale test | Same as above | 2026-07-18: HTTP 200, confirmed ZIP signature, 61,507 bytes |
-
-## Repos and landing pages (browse for more, not single direct files)
-
-These are not individual download links -- they're pages/repos to pull additional files from if the above isn't enough. Confirmed reachable (HTTP 200) on 2026-07-18; contents and structure can change over time.
-
-| Source | Link | Note |
+| Family | Files | Use / caveat |
 | --- | --- | --- |
-| Chandoo VBA examples | <https://chandoo.org/wp/excel-vba/examples/> | Multiple downloadable `.xlsm` workbooks, individually linked from the page -- no single direct-download URL |
-| Contextures sample data | <https://www.contextures.com/xlsampledata01.html> | Multiple small sample workbooks for specific Excel features |
-| rohanmistry231/Practice-Datasets-for-Excel | <https://github.com/rohanmistry231/Practice-Datasets-for-Excel> | **MIT licensed** (confirmed via GitHub API) -- the cleanest reuse terms of anything in this catalog |
-| ShreevaniRao/Data-Analysis-with-Excel-Power-Query | <https://github.com/ShreevaniRao/Data-Analysis-with-Excel-Power-Query> | Source repo for the two PowerQuery/Project-Dataset files above; **no LICENSE file** |
+| TrumpExcel plain tables | [Retail Inventory](https://www.dropbox.com/scl/fi/f7thmp8268s7vwgksidfr/01-Retail-Inventory.xlsx?rlkey=lu181vqokcewwvco8ak1rxmk7&dl=1), [Project Management](https://www.dropbox.com/scl/fi/4x53npvymfmrgr0extvgx/02-Project-Management.xlsx?rlkey=qtj9bwnlt94jm7jhfppwzgrbq&dl=1), [Real Estate](https://www.dropbox.com/scl/fi/z6kbab7psonkymmr722i6/03-Real-Estate-Listings.xlsx?rlkey=7hx0ojbiuxb34kqd9g1y0jjse&dl=1), [Restaurant Sales](https://www.dropbox.com/scl/fi/qnk47lzecilxt1suz2tsg/04-Restaurant-Sales.xlsx?rlkey=1ovujyhw1ox6banzbophcegrf&dl=1) | Small schema/date/category baselines; no formal license. |
+| Excelx plain tables | [Product Sales](https://excelx.com/wp-content/uploads/2025/06/Product-Sales-Region.xlsx), [Online Orders](https://excelx.com/wp-content/uploads/2025/06/Online-Store-Orders.xlsx), [Retail Transactions](https://excelx.com/wp-content/uploads/2025/06/Retail-Store-Transactions.xlsx), [Purchase History](https://excelx.com/wp-content/uploads/2025/06/Customer-Purchase-History.xlsx) | Small router/recalc baselines; no formal license. |
+| Fragile States Index | [2023](https://fragilestatesindex.org/wp-content/uploads/2023/06/FSI-2023-DOWNLOAD.xlsx), [2022](https://fragilestatesindex.org/wp-content/uploads/2022/07/fsi-2022-download.xlsx) | Small two-file schema/append baseline. The 2023 workbook has only 180 populated rows; it is not a scale fixture. |
+| Macro sample | [Employee Sample Data.zip](https://www.thespreadsheetguru.com/wp-content/uploads/2022/12/EmployeeSampleData.zip) | Macro detection and allowlist rejection only; never enable content. No formal license. |
 
-## What to actually test with these
+More candidates: [Chandoo VBA examples](https://chandoo.org/wp/excel-vba/examples/),
+[Contextures samples](https://www.contextures.com/xlsampledata01.html),
+[MIT-licensed practice datasets](https://github.com/rohanmistry231/Practice-Datasets-for-Excel),
+and the [Power Query source repository](https://github.com/ShreevaniRao/Data-Analysis-with-Excel-Power-Query).
+The former Chris Webb OneDrive sample is omitted because it returns HTTP 403.
 
-- **Router decisions** (`control_plane/cli.py route`) -- confirm `has_pivots`/`has_connections`/`has_macros` are detected correctly against a real file, not just the corpus's placeholder OOXML parts.
-- **Refresh** (`refresh` job step) -- run the Power Query files through `cli.py run` and confirm every connection refreshes individually and the result's `ok` field is trustworthy.
-- **Macro policy** -- confirm `.xlsm` files here are correctly flagged `has_macros=True` and rejected by `macro_policy.is_macro_approved` against an empty allowlist; do **not** attempt to exercise `run_approved_macro` against these (unimplemented, issue #73).
-- **Scale** -- the Fragile States Index files (or several of the above concatenated) are a reasonable stand-in for "bigger than the synthetic corpus's few-row fixtures" without needing a real customer workbook.
-- **Validation contracts** -- write a one-off contract (`validate_contract.schema.json` shape) asserting something concrete about one of these (a known sheet name, an expected row-count floor) and confirm `validate-contract` reports it correctly.
+## Scenario matrix
 
-None of this replaces the synthetic corpus for CI -- it's for a human to reach for when a specific real-world shape is worth checking by hand.
+| Goal | Fixtures | Procedure | Required evidence |
+| --- | --- | --- | --- |
+| Router inventory | Financial Sample, Project Dataset, PowerQuery | Run `control_plane/cli.py route`; compare raw OOXML inventory. | Table-only → `openpyxl`; Pivot/connection → `excel_required`; exact detected features. |
+| Existing connection refresh | PowerQuery | Run the supported `open → refresh → recalc → save_as` job in owned Excel. | Every named connection outcome, `xlDone`, `ok=true`, valid saved package, zero owned Excel PIDs. |
+| Native scale controls | MiniExcel, Chrome Top Million | Inventory read-only; then owned-Excel open/save-as/close in separate fresh processes. Do not perform a normal editable `openpyxl` load. | Bounded phase time/memory, package opens, saved dimensions/values survive, zero orphaned PID. |
+| Real Table→Pivot scale | Project Dataset + generated 500k sidecar; then purpose-built redistributable template + pinned Redfin slices | Preserve/resize the existing Table; bulk-write bounded 2-D chunks only to writable column runs; refresh linked cache once and all reports. Test 100k → 500k → 750k → 1m in fresh processes. | Typed Table-body equality; formula propagation; same Table/cache/report/slicer graph; independent Pivot aggregates; resource telemetry; atomic publish only on full success. |
+| Width/cardinality stress | NYC 311 at 500k, then 1m | Use a template with a deliberately small Pivot field set; retain the wide Table payload. | Same semantic/resource/cleanup gates; compare against low-cardinality MiniExcel control without treating either as a substitute. |
+| Macro policy | Employee sample | Inventory and empty-allowlist check only. | `has_macros=true`; execution rejected; no macro runs. |
+
+The external corpus supplements deterministic CI; it never replaces it. A
+large native `.xlsx`, a large sidecar, and a Pivot-bearing workbook test
+different failure surfaces and must not be used as evidence for one another.
