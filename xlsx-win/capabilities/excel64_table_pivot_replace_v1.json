@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "id": "excel64_table_pivot_replace_v1",
+  "status": "experimental",
+  "operation": "replace_table_data",
+  "candidate": "streaming_ooxml_native_excel_v1",
+  "environment": {
+    "windows_builds": ["10.0.26200"],
+    "excel_builds": ["16.0.20313.20000"],
+    "office_bitness": "x64",
+    "dotnet_runtime": "10.0.10",
+    "locales": ["en-US"],
+    "date_systems": ["1900"]
+  },
+  "limits": {
+    "source_rows": {"min": 1, "max": 1000000},
+    "final_rows": {"min": 1, "max": 1000000},
+    "columns": {"min": 15, "max": 15},
+    "total_cells": {"min": 1, "max": 15000000},
+    "encoded_bytes": {"min": 1, "max": 1073741824},
+    "text_bytes": {"min": 0, "max": 805306368},
+    "max_cardinality": {"min": 0, "max": 1000000},
+    "writable_runs": {"min": 1, "max": 3},
+    "pivot_caches": {"min": 1, "max": 1},
+    "pivot_reports": {"min": 3, "max": 3},
+    "slicers": {"min": 0, "max": 0},
+    "pivot_charts": {"min": 0, "max": 0},
+    "telemetry_max_gap_ms": 2000
+  },
+  "features": {
+    "extension": ".xlsx",
+    "table_source": "xlSrcRange",
+    "totals": false,
+    "filters": "none",
+    "saved_sort": "absent",
+    "calculated_columns": "uniform_only",
+    "pivot_profile": "worksheet_simple_v1",
+    "publication": "atomic_after_fresh_reopen_proof"
+  },
+  "qualification": {
+    "minimum_complete_jobs": 60,
+    "completed_clean_jobs": 0,
+    "mandatory_fault_points_complete": false,
+    "exact_fixture_complete": false,
+    "frozen_slo_seconds": 3600
+  }
+}

@@ -57,6 +57,7 @@ from pathlib import Path
 # part of a dotted `-m` module path from the repo root.)
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from control_plane.capabilities import admit_manifest, capability_inventory
     from control_plane.dry_run import simulate_transitions
     from control_plane.errors import ContractError
     from control_plane.file_router import KNOWN_INTENTS, choose_backend
@@ -66,6 +67,7 @@ if __package__ in (None, ""):
     from control_plane.supervisor_runner import SupervisorLaunchError, run_supervisor
     from control_plane.workbook_inventory import inspect_workbook
 else:
+    from .capabilities import admit_manifest, capability_inventory
     from .dry_run import simulate_transitions
     from .errors import ContractError
     from .file_router import KNOWN_INTENTS, choose_backend
@@ -120,6 +122,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
         return 1
 
     print(json.dumps({"valid": True}, indent=2))
+    return 0
+
+
+def cmd_capabilities(args: argparse.Namespace) -> int:
+    print(json.dumps({"capabilities": capability_inventory()}, indent=2))
     return 0
 
 
@@ -261,6 +268,25 @@ def cmd_run(args: argparse.Namespace) -> int:
         _print_error(exc)
         return 1
 
+    if job.get("schema_version") == "2.1":
+        try:
+            admit_manifest(job)
+        except ContractError as exc:
+            _print_error(exc)
+            return 1
+        _print_error(
+            ContractError(
+                "COMPOSITE_RUNTIME_UNAVAILABLE",
+                "Composite manifests are admitted but the transaction coordinator is not installed yet.",
+                {
+                    "schema_version": "2.1",
+                    "operation": job["steps"][0]["type"],
+                    "mutation_started": False,
+                },
+            )
+        )
+        return 1
+
     events_path = (
         Path(args.events)
         if args.events
@@ -350,6 +376,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser = subparsers.add_parser("validate", help="Schema-check a manifest.")
     validate_parser.add_argument("manifest", help="Path to a job manifest JSON file.")
     validate_parser.set_defaults(handler=cmd_validate)
+
+    capabilities_parser = subparsers.add_parser(
+        "capabilities",
+        help="Print immutable capability profiles and qualification status as JSON.",
+    )
+    capabilities_parser.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+    capabilities_parser.set_defaults(handler=cmd_capabilities)
 
     dry_run_parser = subparsers.add_parser(
         "dry-run",

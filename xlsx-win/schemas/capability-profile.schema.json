@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/capability-profile.schema.json",
+  "title": "xlsx-win composite capability profile",
+  "type": "object",
+  "required": ["schema_version", "id", "status", "operation", "candidate", "environment", "limits", "features", "qualification"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+    "status": {"enum": ["experimental", "beta", "certified", "retired"]},
+    "operation": {"enum": ["append_table_rows", "replace_table_data"]},
+    "candidate": {"enum": ["streaming_ooxml_native_excel_v1", "bounded_value2_v1", "append_below_resize_v1", "copy_from_recordset_v1"]},
+    "environment": {
+      "type": "object",
+      "required": ["windows_builds", "excel_builds", "office_bitness", "dotnet_runtime", "locales", "date_systems"],
+      "additionalProperties": false,
+      "properties": {
+        "windows_builds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "excel_builds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "office_bitness": {"const": "x64"},
+        "dotnet_runtime": {"type": "string", "minLength": 1},
+        "locales": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "date_systems": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["1900", "1904"]}}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["source_rows", "final_rows", "columns", "total_cells", "encoded_bytes", "text_bytes", "max_cardinality", "writable_runs", "pivot_caches", "pivot_reports", "slicers", "pivot_charts", "telemetry_max_gap_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "source_rows": {"$ref": "#/definitions/range"},
+        "final_rows": {"$ref": "#/definitions/range"},
+        "columns": {"$ref": "#/definitions/range"},
+        "total_cells": {"$ref": "#/definitions/range"},
+        "encoded_bytes": {"$ref": "#/definitions/range"},
+        "text_bytes": {"$ref": "#/definitions/range"},
+        "max_cardinality": {"$ref": "#/definitions/range"},
+        "writable_runs": {"$ref": "#/definitions/range"},
+        "pivot_caches": {"$ref": "#/definitions/range"},
+        "pivot_reports": {"$ref": "#/definitions/range"},
+        "slicers": {"$ref": "#/definitions/range"},
+        "pivot_charts": {"$ref": "#/definitions/range"},
+        "telemetry_max_gap_ms": {"type": "integer", "minimum": 1}
+      }
+    },
+    "features": {
+      "type": "object",
+      "required": ["extension", "table_source", "totals", "filters", "saved_sort", "calculated_columns", "pivot_profile", "publication"],
+      "additionalProperties": false,
+      "properties": {
+        "extension": {"const": ".xlsx"},
+        "table_source": {"const": "xlSrcRange"},
+        "totals": {"const": false},
+        "filters": {"const": "none"},
+        "saved_sort": {"enum": ["required_descriptor", "absent"]},
+        "calculated_columns": {"const": "uniform_only"},
+        "pivot_profile": {"const": "worksheet_simple_v1"},
+        "publication": {"const": "atomic_after_fresh_reopen_proof"}
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "required": ["minimum_complete_jobs", "completed_clean_jobs", "mandatory_fault_points_complete", "exact_fixture_complete", "frozen_slo_seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "minimum_complete_jobs": {"type": "integer", "minimum": 59},
+        "completed_clean_jobs": {"type": "integer", "minimum": 0},
+        "mandatory_fault_points_complete": {"type": "boolean"},
+        "exact_fixture_complete": {"type": "boolean"},
+        "frozen_slo_seconds": {"type": "integer", "minimum": 1}
+      }
+    }
+  },
+  "definitions": {
+    "range": {
+      "type": "object",
+      "required": ["min", "max"],
+      "additionalProperties": false,
+      "properties": {
+        "min": {"type": "integer", "minimum": 0},
+        "max": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
