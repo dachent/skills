@@ -11,21 +11,18 @@ Write a concise handoff document so a fresh agent or future session can continue
 
 ## Destination
 
-Save the handoff document to the operating system temporary directory, not the current workspace:
+Save the handoff under the active session folder unless the user specifies another destination. For projectless sessions, follow the workstation policy for resolving the real Documents folder and creating a dated session folder.
 
-- Windows: use `$env:TEMP`.
-- macOS/Linux: use `${TMPDIR:-/tmp}`.
-
-If the session permissions block the OS temp directory, use the nearest approved temporary location and state that substitution clearly. Do not modify repository files for a handoff unless the user explicitly asks for a repo-tracked artifact.
+Use the operating system temporary directory only when the active instructions explicitly permit it. Do not modify repository files for a handoff unless the user explicitly asks for a repo-tracked artifact.
 
 After writing the file, tell the user its absolute path.
 
-## When Invoked By deep-planning-codex
+## Native Plan Mode
 
-- Write the handoff under `.deep-planning/handoffs/<gate>.md` unless the user or current permissions explicitly forbid repo planning artifacts.
-- Include the current `.deep-planning/state.md` status, next action, blockers, and validation gaps.
-- End with a Deep Planning Delta for the orchestrator to merge into `.deep-planning/state.md`, including the handoff path as an updated artifact.
-- Keep the same redaction rules as temp-directory handoffs.
+- Include the current objective, next action, blockers, decisions, and validation gaps from the conversation and inspected artifacts.
+- Do not require or create a repository planning workfolder.
+- If the current collaboration mode prohibits writes, return the complete handoff in conversation instead of writing a file.
+- Keep the same redaction rules for every destination.
 
 ## Input Focus
 

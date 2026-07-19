@@ -29,12 +29,12 @@ Interview the user relentlessly about a plan or design until the decision tree i
 6. Use the user's answer to choose the next branch.
 7. Stop only when the important decisions, tradeoffs, and open risks are explicit.
 
-## When Invoked By deep-planning-codex
+## Native Plan Mode
 
-- Ask only the highest-impact blocking question for the current phase, then wait for the user's answer.
-- If the answer is discoverable from `.deep-planning/` artifacts, repo files, docs, or source data, inspect those first and do not ask.
-- Record accepted decisions in `.deep-planning/decision-log.md` when present and unresolved claims in `.deep-planning/assumption-ledger.md`.
-- End with a Deep Planning Delta for the orchestrator to merge into `.deep-planning/state.md`. If user input is still required, use `BLOCKED_NEEDS_USER_DECISION` and make `Next action` the exact question to answer.
+- Ask only the highest-impact unresolved question, then wait for the user's answer.
+- Inspect repository files, docs, plans, and source data before asking anything discoverable.
+- Keep accepted decisions in the conversation unless the user explicitly requests a durable decision log.
+- Respect the active collaboration mode's question and write rules; do not create a second approval protocol.
 
 ## Final Summary
 

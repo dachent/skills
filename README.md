@@ -37,12 +37,12 @@ External agent workflows ported or substantially adapted for Codex conventions, 
 | Skill | Purpose | Provenance |
 | --- | --- | --- |
 | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | Use when a plan needs hostile review before execution, especially high-risk coding, business deliverables, migrations, no-git changes, weak validation, stale assumptions, rollback gaps, or plans that must be safe for another agent to execute. | medium adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
-| [`deep-planning-codex`](./deep-planning-codex) | Use when a project needs deep, gated planning before execution, especially high-stakes coding, failed prior attempts, business deliverables, mixed business-coding work, no-git workflows, or plans that need evidence, probes, verification, and adversarial review. | heavy adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
+| [`deep-planning-codex`](./deep-planning-codex) | Deprecated for GPT-5.6/Sol: use native Codex Plan Mode, with focused verification or adversarial review skills when needed. | heavy adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
 | [`grill-me-codex`](./grill-me-codex) | Use when the user says grill me, wants to stress-test a plan or design, needs a rigorous interview before committing to a decision, or asks for adversarial product, architecture, or implementation questions. | medium adaptation; `mattpocock/skills` |
 | [`grill-with-docs-codex`](./grill-with-docs-codex) | Use when the user wants to stress-test a plan against project terminology, domain language, CONTEXT.md, ADRs, existing docs, or code-backed architectural decisions. | medium adaptation; `mattpocock/skils` |
 | [`handoff-codex`](./handoff-codex) | Use when the user asks for a handoff, session summary, context packet, continuation note, or wants another agent or future session to pick up the current work. | medium adaptation; `mattpocock/skils` |
-| [`repo-map-codex`](./repo-map-codex) | Use when planning needs a durable project map before execution, especially unfamiliar codebases, no-git folders, business artifact projects, mixed business-coding work, dependency discovery, test command discovery, or evidence cataloging. | medium adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
-| [`ultraplan-codex`](./ultraplan-codex) | Use when the user says ultraplan, invokes $ultraplan-codex, wants a thorough plan before coding, needs architectural decisions, asks for a grounded implementation plan, or faces a complex multi-file implementation task. | heavy adaptation; `6missedcalls/ultraplan` |
+| [`repo-map-codex`](./repo-map-codex) | Deprecated for GPT-5.6/Sol: native Plan Mode performs read-first repository grounding and evidence collection. | medium adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
+| [`ultraplan-codex`](./ultraplan-codex) | Deprecated for GPT-5.6/Sol: use native Codex Plan Mode for grounded, decision-complete implementation plans. | heavy adaptation; `6missedcalls/ultraplan` |
 | [`verification-plan-codex`](./verification-plan-codex) | Use when a plan needs proof criteria before execution, especially coding changes, business deliverables, mixed business-coding projects, acceptance criteria, rollback triggers, manual checks, or final validation design. | medium adaptation; `dachent/cdc05151d047708c290bd4da0aaeed96` |
 
 ### Repository-owned specialist skills
@@ -113,7 +113,7 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | [`canvas-design-codex`](./canvas-design-codex) | `cross-platform` | `codex` | `supported` |
 | [`code-intelligence`](./code-intelligence) | `cross-platform` | `codex` | `experimental` |
 | [`code-mapper-skill`](./code-mapper-skill) | `cross-platform` | `codex` | `supported` |
-| [`deep-planning-codex`](./deep-planning-codex) | `cross-platform` | `codex` | `supported` |
+| [`deep-planning-codex`](./deep-planning-codex) | `cross-platform` | `codex` | `deprecated` |
 | [`document-handoff`](./document-handoff) | `cross-platform` | `codex`, `claude-code` | `supported` |
 | [`docx-win`](./docx-win) | `windows` | `codex`, `claude-code` | `supported` |
 | [`frontend-design-codex`](./frontend-design-codex) | `cross-platform` | `codex` | `supported` |
@@ -121,9 +121,9 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | [`grill-with-docs-codex`](./grill-with-docs-codex) | `cross-platform` | `codex` | `supported` |
 | [`handoff-codex`](./handoff-codex) | `cross-platform` | `codex` | `supported` |
 | [`pptx-win`](./pptx-win) | `windows` | `codex`, `claude-code` | `supported` |
-| [`repo-map-codex`](./repo-map-codex) | `cross-platform` | `codex` | `supported` |
+| [`repo-map-codex`](./repo-map-codex) | `cross-platform` | `codex` | `deprecated` |
 | [`theme-factory-codex`](./theme-factory-codex) | `cross-platform` | `codex` | `supported` |
-| [`ultraplan-codex`](./ultraplan-codex) | `cross-platform` | `codex` | `supported` |
+| [`ultraplan-codex`](./ultraplan-codex) | `cross-platform` | `codex` | `deprecated` |
 | [`verification-plan-codex`](./verification-plan-codex) | `cross-platform` | `codex` | `supported` |
 | [`web-artifacts-builder-codex`](./web-artifacts-builder-codex) | `cross-platform` | `codex` | `supported` |
 | [`xlsx-win`](./xlsx-win) | `windows` | `codex`, `claude-code` | `supported` |
