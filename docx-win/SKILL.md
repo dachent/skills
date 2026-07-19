@@ -55,6 +55,14 @@ Before any Word COM step, run the shared Office preflight from a regular PowerSh
 & "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" -Apps Word
 ```
 
+That path assumes a Codex-style install. If this skill is loaded through a Claude Code plugin instead, resolve the same script from the plugin cache first:
+
+```powershell
+$preflight = (Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache" -Recurse -Filter "office_com_preflight.ps1" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+if (-not $preflight) { $preflight = "$env:USERPROFILE\.codex\skills\.shared\office-com\scripts\office_com_preflight.ps1" }
+& $preflight -Apps Word
+```
+
 If preflight reports `can_use_com = false`, do not create `Word.Application` from the Codex sandbox. Prepare non-COM inputs in Codex and run the Word COM step from that desktop-user PowerShell window through `scripts/invoke-docx-win.ps1` or a task-specific script.
 
 For a new machine or after an Office repair/update, run:
