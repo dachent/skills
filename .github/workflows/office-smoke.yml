@@ -64,7 +64,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1; Node 20-compatible for current Office runner
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.3.1; Node 20-compatible for current Office runner
         with:
           repository: ${{ needs.authorize.outputs.checkout_repository }}
           ref: ${{ needs.authorize.outputs.checkout_ref }}
