@@ -193,7 +193,7 @@ If PowerPoint COM throws `0x80070520`, treat that as a wrong-session problem, no
 ### Executive Presentation
 
 ```text
-Use $pptx-win and $theme-factory-codex.
+Use $pptx-win and $frontend-design-codex.
 
 Create an executive PowerPoint presentation from:
 [PASTE SOURCE FILES OR FOLDER]

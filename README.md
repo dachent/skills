@@ -51,10 +51,10 @@ Original or locally imported workflows whose current implementation is maintaine
 
 | Skill | Purpose | Provenance |
 | --- | --- | --- |
-| [`agent-project-orchestrator`](./agent-project-orchestrator) | Use when a long-running human-agent project needs durable backlog, project memory, sprint contracts, capability preflight, cross-harness orchestration, evidence-backed stopping conditions, or independent terminal review across Claude Code and Codex. | repo owned original |
-| [`code-intelligence`](./code-intelligence) | Route repository understanding and change-impact work across direct source inspection, fresh Graphify discovery, Python-focused code-mapper analysis, selective CodeQL enrichment, and explicit durable repo-map planning. Use for unfamiliar repositories, architecture questions, locating implementations, Python blast radius, contracts, artifacts, lineage, security-flow triage, and graph freshness decisions. | repo owned original |
-| [`code-mapper-skill`](./code-mapper-skill) | Maps Python imports, symbol references, artifact use, contracts, catalog relationships, OpenLineage datasets, and selectively triggered CodeQL local value/taint flow. Use for dependency maps, callers, inputs/outputs, APIs/schemas, Backstage relationships, blast radius, and semantic tracing. Works on a local path or Git URL. | repo owned original |
-| [`document-handoff`](./document-handoff) | Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from Claude Code or Codex projects. Run at any project milestone. | local source import |
+| [`agent-project-orchestrator`](./agent-project-orchestrator) | Deprecated for Claude Code and Codex GPT-5.6 Sol: use predecessor gist cdc05151d047708c290bd4da0aaeed96 for the original Claude workflow or native Codex planning and execution controls. | repo owned original |
+| [`code-intelligence`](./code-intelligence) | Claude Code-only explicit provider router for assessing installed Graphify, code-mapper, or selective CodeQL routes. Not for Codex GPT-5.6 Sol, whose native inspection, Plan Mode, explorer work, and subagents cover this function without an added analyzer. | repo owned original |
+| [`code-mapper-skill`](./code-mapper-skill) | Generate deterministic Python import, reference, artifact, contract, catalog, OpenLineage, and explicitly authorized local CodeQL maps. Use for explicit blast-radius, caller, contract, lineage, or local value/taint evidence requests against an approved local worktree. | repo owned original |
+| [`document-handoff`](./document-handoff) | Create a comprehensive cross-harness project archive and handoff package: curated workfolder copy, evidence and state, agent context, and dark-mode HTML memo. Use for milestone archives and cold-start continuation; distinct from a lightweight session handoff. | local source import |
 
 ### Codex design extension pack
 
@@ -62,11 +62,9 @@ A coordinated set of visual design skills built around shared browser rendering,
 
 | Skill | Purpose | Provenance |
 | --- | --- | --- |
-| [`artifact-runtime-codex`](./artifact-runtime-codex) | Use when Codex needs to run, package, validate, hand off, or debug the runtime for a browser visual artifact, including local server setup, asset paths, evidence bundles, screenshot review artifacts, or no-template visual QA handoff. | repo owned original |
 | [`canvas-design-codex`](./canvas-design-codex) | Use when Codex needs to build, revise, debug, or verify canvas, SVG, WebGL, Three.js, custom charting, diagram, game, generative visual, or pixel-based browser artwork where screenshot, pixel, animation, or image bounds evidence matters. | repo owned original |
-| [`frontend-design-codex`](./frontend-design-codex) | Use when Codex is building, revising, or reviewing a frontend UI, web app screen, responsive layout, component surface, dashboard view, form flow, or no-template product interface that needs visual polish, accessibility, screenshots, or browser QA. | repo owned original |
-| [`theme-factory-codex`](./theme-factory-codex) | Use when Codex needs to create, adapt, audit, or repair a visual theme, design tokens, color palette, typography scale, spacing system, CSS variables, or brand-like styling for a no-template frontend, web artifact, dashboard, or visual deliverable. | repo owned original |
-| [`web-artifacts-builder-codex`](./web-artifacts-builder-codex) | Use when Codex needs to create, package, revise, or verify a standalone web artifact such as an HTML report, dashboard, microsite, interactive explainer, data story, or browser-delivered deliverable with screenshots, console capture, and evidence packaging. | repo owned original |
+| [`frontend-design-codex`](./frontend-design-codex) | Use when Codex is building, revising, or reviewing a frontend UI, visual system, web app screen, responsive layout, component surface, dashboard view, or no-template product interface that needs semantic design tokens, visual polish, accessibility, screenshots, or browser QA. | repo owned original |
+| [`web-artifacts-builder-codex`](./web-artifacts-builder-codex) | Use when Codex needs to create, run, package, revise, or verify a standalone web artifact with an explicit reviewer runtime, relative-asset checks, screenshots, console and request capture, rerun instructions, and evidence packaging. | repo owned original |
 <!-- END GENERATED: skill-catalog -->
 
 ## Installation inventory
@@ -80,7 +78,6 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | --- | --- | --- |
 | `adversarial-plan-review-codex` | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | — |
 | `agent-project-orchestrator` | [`agent-project-orchestrator`](./agent-project-orchestrator) | — |
-| `artifact-runtime-codex` | [`artifact-runtime-codex`](./artifact-runtime-codex) | `.shared/visual-runtime` |
 | `canvas-design-codex` | [`canvas-design-codex`](./canvas-design-codex) | `.shared/visual-runtime` |
 | `code-intelligence` | [`code-intelligence`](./code-intelligence) | — |
 | `code-mapper-skill` | [`code-mapper-skill`](./code-mapper-skill) | — |
@@ -93,7 +90,6 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | `handoff-codex` | [`handoff-codex`](./handoff-codex) | — |
 | `pptx-win` | [`pptx-win`](./pptx-win) | `.shared/office-com` |
 | `repo-map-codex` | [`repo-map-codex`](./repo-map-codex) | — |
-| `theme-factory-codex` | [`theme-factory-codex`](./theme-factory-codex) | `.shared/visual-runtime` |
 | `ultraplan-codex` | [`ultraplan-codex`](./ultraplan-codex) | — |
 | `verification-plan-codex` | [`verification-plan-codex`](./verification-plan-codex) | — |
 | `web-artifacts-builder-codex` | [`web-artifacts-builder-codex`](./web-artifacts-builder-codex) | `.shared/visual-runtime` |
@@ -108,11 +104,10 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | Skill | Platforms | Agents | Status |
 | --- | --- | --- | --- |
 | [`adversarial-plan-review-codex`](./adversarial-plan-review-codex) | `cross-platform` | `codex` | `supported` |
-| [`agent-project-orchestrator`](./agent-project-orchestrator) | `cross-platform` | `codex`, `claude-code` | `experimental` |
-| [`artifact-runtime-codex`](./artifact-runtime-codex) | `cross-platform` | `codex` | `supported` |
+| [`agent-project-orchestrator`](./agent-project-orchestrator) | `cross-platform` | `codex`, `claude-code` | `deprecated` |
 | [`canvas-design-codex`](./canvas-design-codex) | `cross-platform` | `codex` | `supported` |
-| [`code-intelligence`](./code-intelligence) | `cross-platform` | `codex` | `experimental` |
-| [`code-mapper-skill`](./code-mapper-skill) | `cross-platform` | `codex` | `supported` |
+| [`code-intelligence`](./code-intelligence) | `cross-platform` | `claude-code` | `supported` |
+| [`code-mapper-skill`](./code-mapper-skill) | `cross-platform` | `codex`, `claude-code` | `supported` |
 | [`deep-planning-codex`](./deep-planning-codex) | `cross-platform` | `codex` | `deprecated` |
 | [`document-handoff`](./document-handoff) | `cross-platform` | `codex`, `claude-code` | `supported` |
 | [`docx-win`](./docx-win) | `windows` | `codex`, `claude-code` | `supported` |
@@ -122,7 +117,6 @@ Top-level skill directories are canonical. Copy only the skills required by the 
 | [`handoff-codex`](./handoff-codex) | `cross-platform` | `codex` | `supported` |
 | [`pptx-win`](./pptx-win) | `windows` | `codex`, `claude-code` | `supported` |
 | [`repo-map-codex`](./repo-map-codex) | `cross-platform` | `codex` | `deprecated` |
-| [`theme-factory-codex`](./theme-factory-codex) | `cross-platform` | `codex` | `supported` |
 | [`ultraplan-codex`](./ultraplan-codex) | `cross-platform` | `codex` | `deprecated` |
 | [`verification-plan-codex`](./verification-plan-codex) | `cross-platform` | `codex` | `supported` |
 | [`web-artifacts-builder-codex`](./web-artifacts-builder-codex) | `cross-platform` | `codex` | `supported` |
@@ -163,7 +157,6 @@ Load compatible canonical top-level skill directories directly. `.claude/skills`
 | --- | ---: | ---: |
 | `adversarial-plan-review-codex` | 1 | 0 |
 | `agent-project-orchestrator` | 2 | 0 |
-| `artifact-runtime-codex` | 1 | 0 |
 | `canvas-design-codex` | 1 | 0 |
 | `code-intelligence` | 1 | 0 |
 | `code-mapper-skill` | 1 | 0 |
@@ -176,7 +169,6 @@ Load compatible canonical top-level skill directories directly. `.claude/skills`
 | `handoff-codex` | 0 | 0 |
 | `pptx-win` | 1 | 1 |
 | `repo-map-codex` | 1 | 0 |
-| `theme-factory-codex` | 1 | 0 |
 | `ultraplan-codex` | 1 | 0 |
 | `verification-plan-codex` | 1 | 0 |
 | `web-artifacts-builder-codex` | 1 | 0 |

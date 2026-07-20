@@ -177,6 +177,8 @@ class RelationshipSmokeTest(unittest.TestCase):
                     "pkg",
                     "--function",
                     "build",
+                    "--work-root",
+                    str(Path(temp) / "work"),
                     "--codeql",
                     "off",
                 ],
@@ -188,6 +190,7 @@ class RelationshipSmokeTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
             graph = json.loads(result.stdout)
             self.assertEqual(graph["structural"]["module"], "pkg.io")
+            self.assertTrue({"edges", "contracts", "openLineageEvents", "structural", "stats", "codeql"}.issubset(graph))
             self.assertIn("pkg.consumer", graph["structural"]["imports"]["downstream"])
             self.assertTrue(graph["structural"]["references"])
             self.assertEqual(graph["codeql"]["decision"]["action"], "skip")

@@ -1,7 +1,7 @@
 interface:
-  display_name: "Codex UltraPlan"
-  short_description: "Deep implementation planning for Codex"
-  default_prompt: "Use $ultraplan-codex to create a grounded implementation plan before coding."
+  display_name: "Codex UltraPlan (Deprecated)"
+  short_description: "Deprecated; use native Codex Plan Mode"
+  default_prompt: "Do not invoke this deprecated skill. Use native Codex Plan Mode for grounded, decision-complete implementation plans."
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false

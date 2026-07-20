@@ -51,13 +51,6 @@
       "snapshot": false,
       "reason": "Candidate for later Codex-native artifact skill plan."
     },
-    "theme-factory-codex": {
-      "source": "anthropic-skills",
-      "upstream_path": "skills/theme-factory",
-      "planned_local_path": "theme-factory-codex",
-      "snapshot": false,
-      "reason": "Candidate for later Codex-native theme system plan."
-    },
     "canvas-design-codex": {
       "source": "anthropic-skills",
       "upstream_path": "skills/canvas-design",

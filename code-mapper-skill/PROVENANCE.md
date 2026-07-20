@@ -1,5 +1,13 @@
 # Provenance
 
+## 2026-07-19 modernization
+
+- Replaced ambient dependency installation with a read-only exact-version preflight.
+- Removed raw Git clone, fetch, and pull behavior; only approved local worktrees are accepted.
+- Required an explicit session work root for all reports and caches.
+- Gated CodeQL writes behind explicit consent and removed automatic pack installation.
+- Preserved the local-path CLI and JSON graph contract for Claude Code and Codex callers.
+
 ## Source
 
 `code-mapper-skill` is a repository-owned implementation first added in commit

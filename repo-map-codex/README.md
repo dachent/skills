@@ -1,5 +1,7 @@
 # Codex Repo Map Skill
 
+> **Deprecated for GPT-5.6 Sol — do not install or invoke.** Native Codex Plan Mode performs read-first repository grounding and evidence collection. The remainder of this document is retained as historical implementation reference.
+
 `repo-map-codex` creates a durable project map and evidence catalog before planning or execution. It is a companion skill for `deep-planning-codex`, but it can also be used directly when Codex needs grounded context for an unfamiliar project.
 
 ## What This Skill Does

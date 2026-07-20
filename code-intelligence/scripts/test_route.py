@@ -66,9 +66,10 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(result.primary, "direct-source")
         self.assertTrue(result.warnings)
 
-    def test_durable_map_routes_to_repo_map(self):
+    def test_durable_map_is_not_a_provider_route(self):
         result = decide_route(durable_map=True)
-        self.assertEqual(result.primary, "repo-map-codex")
+        self.assertEqual(result.primary, "direct-source")
+        self.assertTrue(result.warnings)
 
     def test_stale_graph_falls_back(self):
         result = decide_route(

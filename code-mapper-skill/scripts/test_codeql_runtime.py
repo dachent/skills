@@ -33,8 +33,8 @@ class RuntimeTest(unittest.TestCase):
  def setUp(self):self.runner=FakeRunner();self.p=patch("_codeql_runtime.subprocess.run",side_effect=self.runner);self.p.start();self.addCleanup(self.p.stop)
  def setup_repo(self,temp,literal=False):
   root,pkg=fixture(Path(temp)/"repo",literal);cache=Path(temp)/"cache";graph=scan_repository(root,pkg,"pkg",cache);return root,pkg,cache,graph
- def enrich(self,root,cache,graph,mode="existing",intent="mapping",budgets=None,override="fake-codeql"):
-  return enrich_with_codeql(repo_root=root,cache_dir=cache,graph=graph,mode=mode,intent=intent,budget_overrides=budgets,codeql_override=override)
+ def enrich(self,root,cache,graph,mode="existing",intent="mapping",budgets=None,override="fake-codeql",allow_writes=True):
+  return enrich_with_codeql(repo_root=root,cache_dir=cache,graph=graph,mode=mode,intent=intent,budget_overrides=budgets,codeql_override=override,allow_writes=allow_writes)
  def test_metrics_and_fingerprint(self):
   with tempfile.TemporaryDirectory() as t:
    _,_,_,g=self.setup_repo(t);m=g["analysisMetrics"];self.assertGreater(m["unresolvedSinkArguments"],0);self.assertGreater(m["transformedSinkArguments"],0);self.assertGreater(m["parameterToSinkCandidates"],0);self.assertTrue(m["selectedSinks"]);self.assertTrue(g["sourceFingerprint"])
@@ -45,7 +45,7 @@ class RuntimeTest(unittest.TestCase):
   q=generate_targeted_query({"selectedSinks":[{"file":"pkg/io.py","line":4,"argumentIndex":0,"relationship":"READS_FILE"}]});self.assertIn('getRelativePath() = "pkg/io.py"',q);self.assertIn("source.flowsTo(argument)",q);self.assertIn("TaintTracking::localTaint",q)
  def test_default_existing_no_probe(self):
   with tempfile.TemporaryDirectory() as t:
-   r,_,c,g=self.setup_repo(t);e,d=self.enrich(r,c,g);self.assertEqual(d.action,SKIP);self.assertEqual(self.runner.calls,[]);self.assertEqual(e["semanticEdges"],[])
+   r,_,c,g=self.setup_repo(t);e,d=self.enrich(r,c,g,allow_writes=False);self.assertEqual(d.action,REQUIRE_EXPLICIT_REQUEST);self.assertEqual(self.runner.calls,[]);self.assertEqual(e["semanticEdges"],[]);self.assertFalse((c/"codeql").exists())
  def test_safe_version_gate(self):
   self.assertFalse(supports_safe_python_build("2.16.3"));self.assertTrue(supports_safe_python_build("release 2.16.4"));self.assertFalse(supports_safe_python_build("unknown"))
  def test_old_version_never_builds(self):

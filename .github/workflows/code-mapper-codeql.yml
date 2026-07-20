@@ -37,7 +37,7 @@ jobs:
         shell: pwsh
         run: |
           Push-Location ./code-mapper-skill/scripts
-          python -m unittest -v smoke_test test_codeql_policy test_codeql_runtime test_codeql_cli
+          python -m unittest -v smoke_test test_safety test_codeql_policy test_codeql_runtime test_codeql_cli
           Pop-Location
       - name: CodeQL overhead benchmark gate
         shell: pwsh
@@ -65,6 +65,7 @@ jobs:
         shell: pwsh
         env:
           CODEQL_CLI: ${{ steps.setup-codeql.outputs.codeql-path }}
+          CODE_MAPPER_ALLOW_CODEQL_SETUP: "1"
         run: |
           Push-Location ./code-mapper-skill/scripts
           python -m unittest -v test_codeql_live

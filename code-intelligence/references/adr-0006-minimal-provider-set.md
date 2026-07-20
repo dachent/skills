@@ -9,7 +9,7 @@ The initial design considered Serena, Joern/codebadger, SCIP/Sourcegraph, Semgre
 
 ## Decision
 
-The MVP supports only direct source, Graphify, `code-mapper-skill`, selective CodeQL already integrated into the mapper, and explicit `repo-map-codex`. Codebase-Memory remains benchmark-only. All other provider integrations are out of scope.
+The supported Claude Code router includes only direct source, Graphify, `code-mapper-skill`, and selective CodeQL already integrated into the mapper. Durable planning is harness-native and not a provider route. Codebase-Memory remains benchmark-only. All other provider integrations are out of scope.
 
 ## Consequences
 

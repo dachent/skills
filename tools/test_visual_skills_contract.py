@@ -11,26 +11,22 @@ VISUAL_SKILLS = {
         "responsive UI",
         "accessibility",
         "screenshot evidence",
+        "design tokens",
+        "palette",
+        "typography",
     ],
     "web-artifacts-builder-codex": [
         "standalone web artifact",
         "package evidence",
         "console capture",
-    ],
-    "theme-factory-codex": [
-        "design tokens",
-        "palette",
-        "typography",
+        "runtime",
+        "local server",
+        "evidence bundle",
     ],
     "canvas-design-codex": [
         "canvas",
         "pixel",
         "image bounds",
-    ],
-    "artifact-runtime-codex": [
-        "runtime handoff",
-        "local server",
-        "evidence bundle",
     ],
 }
 

@@ -1,9 +1,11 @@
 ---
 name: ultraplan-codex
-description: "Use when the user says ultraplan, invokes $ultraplan-codex, wants a thorough plan before coding, needs architectural decisions, asks for a grounded implementation plan, or faces a complex multi-file implementation task."
+description: "Deprecated for GPT-5.6 Sol. Use native Codex Plan Mode for grounded, decision-complete implementation plans."
 ---
 
 # Codex UltraPlan
+
+> **Deprecated for GPT-5.6 Sol.** Use native Codex Plan Mode for grounded, decision-complete implementation plans. Do not use this package for new work.
 
 ## Overview
 

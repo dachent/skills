@@ -1,9 +1,11 @@
 ---
 name: deep-planning-codex
-description: "Use when a project needs deep, gated planning before execution, especially high-stakes coding, failed prior attempts, business deliverables, mixed business-coding work, no-git workflows, or plans that need evidence, probes, verification, and adversarial review."
+description: "Deprecated for GPT-5.6 Sol. Use native Codex Plan Mode, with focused verification or adversarial review skills when needed."
 ---
 
 # Codex Deep Planning Orchestrator
+
+> **Deprecated for GPT-5.6 Sol.** Use native Codex Plan Mode, with focused verification or adversarial review skills when needed. Do not use this package for new work.
 
 ## Overview
 

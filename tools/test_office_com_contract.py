@@ -76,7 +76,7 @@ def validate_impacted_skills(failures: list[str]) -> None:
             "pptx-win/SKILL.md",
             [
                 "## Example Prompts",
-                "Use $pptx-win and $theme-factory-codex.",
+                "Use $pptx-win and $frontend-design-codex.",
                 "Run the Office COM preflight first.",
                 "Export slide PNGs and a PDF for QA.",
             ],

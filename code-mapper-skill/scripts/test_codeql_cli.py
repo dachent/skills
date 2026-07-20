@@ -8,6 +8,8 @@ class CliTest(unittest.TestCase):
         args = blast_radius.build_parser().parse_args(["repo", "x.py"])
         self.assertEqual(args.codeql, "existing")
         self.assertEqual(args.codeql_intent, "mapping")
+        self.assertIsNone(args.work_root)
+        self.assertFalse(args.allow_codeql_write)
 
     def test_codeql_options(self):
         args = blast_radius.build_parser().parse_args(
@@ -24,6 +26,9 @@ class CliTest(unittest.TestCase):
                 "500",
                 "--codeql-max-query-seconds",
                 "7",
+                "--allow-codeql-write",
+                "--work-root",
+                "session-cache",
             ]
         )
         self.assertEqual(args.codeql, "build")
@@ -31,6 +36,8 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.codeql_max_build_seconds, 12.0)
         self.assertEqual(args.codeql_max_db_mb, 500.0)
         self.assertEqual(args.codeql_max_query_seconds, 7.0)
+        self.assertTrue(args.allow_codeql_write)
+        self.assertEqual(args.work_root, "session-cache")
 
     def test_removed_legacy_flag_is_rejected(self):
         with self.assertRaises(SystemExit):

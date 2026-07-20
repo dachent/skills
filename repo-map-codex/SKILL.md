@@ -1,9 +1,11 @@
 ---
 name: repo-map-codex
-description: "Use when planning needs a durable project map before execution, especially unfamiliar codebases, no-git folders, business artifact projects, mixed business-coding work, dependency discovery, test command discovery, or evidence cataloging."
+description: "Deprecated for GPT-5.6 Sol. Native Codex Plan Mode performs read-first repository grounding and evidence collection."
 ---
 
 # Codex Repo Map
+
+> **Deprecated for GPT-5.6 Sol.** Native Codex Plan Mode performs read-first repository grounding and evidence collection. Do not use this package for new work.
 
 ## Overview
 
