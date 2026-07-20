@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/result-v2.1.schema.json",
+  "title": "xlsx-win v2.1 composite transaction result",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "idempotency_key",
+    "operation",
+    "operation_version",
+    "final_state",
+    "steps",
+    "invariants",
+    "bindings",
+    "profile",
+    "cleanup",
+    "publication",
+    "ok"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "2.1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "operation": {"enum": ["append_table_rows", "replace_table_data"]},
+    "operation_version": {"const": "1.0"},
+    "final_state": {"enum": ["SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED"]},
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/step_result"}
+    },
+    "invariants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/invariant_result"}
+    },
+    "bindings": {"$ref": "#/definitions/bindings"},
+    "profile": {"$ref": "#/definitions/profile"},
+    "cleanup": {"$ref": "#/definitions/cleanup"},
+    "publication": {"$ref": "#/definitions/publication"},
+    "ok": {"type": "boolean"}
+  },
+  "definitions": {
+    "sha256": {"type": "string", "pattern": "^[A-Fa-f0-9]{64}$"},
+    "step_result": {
+      "type": "object",
+      "required": ["step_index", "type", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "step_index": {"type": "integer", "minimum": 0},
+        "type": {"type": "string", "minLength": 1},
+        "status": {"enum": ["succeeded", "failed", "skipped"]},
+        "message": {"type": "string"},
+        "evidence_sha256": {"$ref": "#/definitions/sha256"}
+      }
+    },
+    "invariant_result": {
+      "type": "object",
+      "required": ["name", "version", "passed", "evidence_sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"const": "1.0"},
+        "passed": {"type": "boolean"},
+        "evidence_sha256": {"$ref": "#/definitions/sha256"},
+        "message": {"type": "string"}
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "required": ["workbook", "source", "schema", "plan", "staged_output", "verifier", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "workbook": {"$ref": "#/definitions/sha256"},
+        "source": {"$ref": "#/definitions/sha256"},
+        "schema": {"$ref": "#/definitions/sha256"},
+        "plan": {"$ref": "#/definitions/sha256"},
+        "staged_output": {"$ref": "#/definitions/sha256"},
+        "verifier": {"$ref": "#/definitions/sha256"},
+        "evidence": {"$ref": "#/definitions/sha256"}
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": ["id", "sha256", "build_commit"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/definitions/sha256"},
+        "build_commit": {"type": "string", "pattern": "^[A-Fa-f0-9]{40}$"}
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "required": ["owned_processes_zero", "worker_exit_verified", "excel_exit_verified", "termination_verified"],
+      "additionalProperties": false,
+      "properties": {
+        "owned_processes_zero": {"type": "boolean"},
+        "worker_exit_verified": {"type": "boolean"},
+        "excel_exit_verified": {"type": "boolean"},
+        "termination_verified": {"type": "boolean"}
+      }
+    },
+    "publication": {
+      "type": "object",
+      "required": ["status", "atomic", "staged_sha256", "destination_sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["not_attempted", "published"]},
+        "atomic": {"type": "boolean"},
+        "staged_sha256": {"$ref": "#/definitions/sha256"},
+        "destination_sha256": {"$ref": "#/definitions/sha256"}
+      }
+    }
+  }
+}

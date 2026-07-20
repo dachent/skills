@@ -57,6 +57,8 @@ from pathlib import Path
 # part of a dotted `-m` module path from the repo root.)
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from control_plane.capabilities import admit_manifest, capability_inventory
+    from control_plane.composite_runtime import run_composite_job
     from control_plane.dry_run import simulate_transitions
     from control_plane.errors import ContractError
     from control_plane.file_router import KNOWN_INTENTS, choose_backend
@@ -66,6 +68,8 @@ if __package__ in (None, ""):
     from control_plane.supervisor_runner import SupervisorLaunchError, run_supervisor
     from control_plane.workbook_inventory import inspect_workbook
 else:
+    from .capabilities import admit_manifest, capability_inventory
+    from .composite_runtime import run_composite_job
     from .dry_run import simulate_transitions
     from .errors import ContractError
     from .file_router import KNOWN_INTENTS, choose_backend
@@ -120,6 +124,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
         return 1
 
     print(json.dumps({"valid": True}, indent=2))
+    return 0
+
+
+def cmd_capabilities(args: argparse.Namespace) -> int:
+    print(json.dumps({"capabilities": capability_inventory()}, indent=2))
     return 0
 
 
@@ -271,6 +280,31 @@ def cmd_run(args: argparse.Namespace) -> int:
         if args.result
         else manifest_path.parent / f"{manifest_path.stem}.result.json"
     )
+    if job.get("schema_version") == "2.1":
+        try:
+            result_doc, exit_code = run_composite_job(
+                job,
+                events_path,
+                result_path,
+                args.hard_timeout_seconds,
+                allow_experimental=getattr(args, "allow_experimental", False),
+            )
+        except ContractError as exc:
+            _print_error(exc)
+            return 1
+        print(json.dumps(result_doc, indent=2))
+        return exit_code
+
+    events_path = (
+        Path(args.events)
+        if args.events
+        else manifest_path.parent / f"{manifest_path.stem}.events.jsonl"
+    )
+    result_path = (
+        Path(args.result)
+        if args.result
+        else manifest_path.parent / f"{manifest_path.stem}.result.json"
+    )
 
     try:
         staged_job, staging_dir, save_as_targets = _stage_job_for_run(job)
@@ -351,6 +385,13 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("manifest", help="Path to a job manifest JSON file.")
     validate_parser.set_defaults(handler=cmd_validate)
 
+    capabilities_parser = subparsers.add_parser(
+        "capabilities",
+        help="Print immutable capability profiles and qualification status as JSON.",
+    )
+    capabilities_parser.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+    capabilities_parser.set_defaults(handler=cmd_capabilities)
+
     dry_run_parser = subparsers.add_parser(
         "dry-run",
         help="Schema-check a manifest and print the state sequence it would traverse.",
@@ -411,6 +452,11 @@ def build_parser() -> argparse.ArgumentParser:
             "Wall-clock safety-net timeout in seconds for the supervisor subprocess itself, "
             "separate from the job manifest's own phase deadlines. Default: %(default)s."
         ),
+    )
+    run_parser.add_argument(
+        "--allow-experimental",
+        action="store_true",
+        help="Allow an experimental composite profile for controlled qualification only.",
     )
     run_parser.set_defaults(handler=cmd_run)
 

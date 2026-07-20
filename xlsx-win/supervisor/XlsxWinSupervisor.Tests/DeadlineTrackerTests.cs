@@ -18,11 +18,15 @@ public class DeadlineTrackerTests
     [Theory]
     [InlineData("STARTING_EXCEL", 30)]
     [InlineData("OPENING_WORKBOOK", 90)]
+    [InlineData("COMPOSITE_PREFLIGHT", 120)]
+    [InlineData("APPLYING_EDITS", 1800)]
     [InlineData("REFRESHING_CONNECTIONS", 1800)]
     [InlineData("REFRESHING_DATA_MODEL", 1800)]
-    [InlineData("REFRESHING_PIVOTS", 1800)]
+    [InlineData("REFRESHING_PIVOTS", 600)]
     [InlineData("CALCULATING", 900)]
     [InlineData("SAVING", 90)]
+    [InlineData("REOPENING", 600)]
+    [InlineData("VALIDATING", 600)]
     [InlineData("SUCCEEDED", 30)]
     [InlineData("FAILED", 30)]
     public void Maps_known_phases_to_their_declared_timeout_field(string phase, int expectedSeconds)
@@ -35,7 +39,7 @@ public class DeadlineTrackerTests
     public void Falls_back_to_the_default_for_unmapped_phases()
     {
         var tracker = new DeadlineTracker(Timeouts, defaultPhaseDeadlineSeconds: 55);
-        Assert.Equal(55, tracker.DeadlineSecondsFor("VALIDATING"));
+        Assert.Equal(55, tracker.DeadlineSecondsFor("UNKNOWN_PHASE"));
     }
 
     [Fact]

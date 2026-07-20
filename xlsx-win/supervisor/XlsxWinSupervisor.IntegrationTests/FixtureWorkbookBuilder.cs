@@ -65,6 +65,43 @@ internal static class FixtureWorkbookBuilder
         });
     }
 
+    /// <summary>A Table with one calculated column, one linked PivotCache,
+    /// one PivotTable, and a staged row immediately below the current Table.
+    /// The composite native step must resize, fill, calculate, refresh, save,
+    /// and fresh-reopen this package without touching any external source.</summary>
+    public static void CreateCompositeTablePivotWorkbook(string path)
+    {
+        RunWithOwnExcelInstance((app, workbook) =>
+        {
+            dynamic data = workbook.Worksheets[1];
+            data.Name = "Data";
+            object[,] values =
+            {
+                { "Name", "Calc", "Value" },
+                { "alpha", null!, 1d },
+                { "beta", null!, 2d },
+            };
+            data.Range["B3:D5"].Value2 = values;
+            dynamic table = data.ListObjects.Add(1, data.Range["B3:D5"], Type.Missing, 1);
+            table.Name = "Data";
+            table.ListColumns["Calc"].DataBodyRange.FormulaR1C1 = "=RC[1]*2";
+
+            // Candidate-A staging shape: writable values are present in the
+            // future row, while the calculated cell remains empty and the
+            // ListObject still owns only the original two body rows.
+            data.Range["B6"].Value2 = "gamma";
+            data.Range["D6"].Value2 = 3d;
+
+            dynamic pivotSheet = workbook.Worksheets.Add();
+            pivotSheet.Name = "Pivot";
+            dynamic cache = workbook.PivotCaches().Create(1, "Data", 6);
+            dynamic pivot = cache.CreatePivotTable(pivotSheet.Range["A3"], "Pivot1");
+            pivot.PivotFields("Name").Orientation = 1;
+            pivot.AddDataField(pivot.PivotFields("Value"), "Sum of Value", -4157);
+            workbook.SaveAs(path);
+        });
+    }
+
     private static void RunWithOwnExcelInstance(Action<dynamic, dynamic> useWorkbook)
     {
         var excelType = Type.GetTypeFromProgID("Excel.Application")

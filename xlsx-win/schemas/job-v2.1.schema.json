@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/job-v2.1.schema.json",
+  "title": "xlsx-win v2.1 composite table transaction",
+  "type": "object",
+  "required": ["schema_version", "idempotency_key", "steps", "timeouts"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "2.1"},
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9_:.-]+$"
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {"$ref": "#/definitions/operation"}
+    },
+    "timeouts": {"$ref": "#/definitions/timeouts"}
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "timeouts": {
+      "type": "object",
+      "required": [
+        "preflight_seconds",
+        "write_seconds",
+        "calculation_seconds",
+        "pivot_seconds",
+        "save_seconds",
+        "reopen_seconds",
+        "validation_seconds",
+        "close_seconds",
+        "whole_job_seconds",
+        "inactivity_seconds",
+        "shutdown_seconds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "preflight_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "write_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "calculation_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "pivot_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "save_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "reopen_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "validation_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "close_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "whole_job_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "inactivity_seconds": {"$ref": "#/definitions/positive_timeout"},
+        "shutdown_seconds": {"$ref": "#/definitions/positive_timeout"}
+      }
+    },
+    "positive_timeout": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 86400
+    },
+    "table_column": {
+      "type": "object",
+      "required": ["name", "role", "logical_type"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "role": {"enum": ["writable", "calculated"]},
+        "logical_type": {"enum": ["blank", "boolean", "number", "text", "datetime"]},
+        "number_format": {"type": "string", "minLength": 1, "maxLength": 255}
+      }
+    },
+    "saved_sort": {
+      "type": "object",
+      "required": ["column", "direction", "behavior"],
+      "additionalProperties": false,
+      "properties": {
+        "column": {"type": "string", "minLength": 1},
+        "direction": {"enum": ["ascending", "descending"]},
+        "behavior": {"const": "preserve_descriptor_do_not_reapply"}
+      }
+    },
+    "table": {
+      "type": "object",
+      "required": [
+        "sheet",
+        "name",
+        "existing_body_rows",
+        "final_body_rows",
+        "column_count",
+        "writable_runs",
+        "columns",
+        "filters",
+        "totals"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sheet": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "existing_body_rows": {"type": "integer", "minimum": 1, "maximum": 1048575},
+        "final_body_rows": {"type": "integer", "minimum": 1, "maximum": 1048575},
+        "column_count": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "writable_runs": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16384,
+          "items": {"$ref": "#/definitions/table_column"}
+        },
+        "filters": {"const": "none"},
+        "totals": {"const": false},
+        "saved_sort": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/definitions/saved_sort"}
+          ]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "path",
+        "raw_sha256",
+        "schema_path",
+        "schema_sha256",
+        "canonical_sha256",
+        "row_count",
+        "column_count",
+        "encoded_bytes",
+        "text_bytes",
+        "cardinality",
+        "writable_runs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "raw_sha256": {"$ref": "#/definitions/sha256"},
+        "schema_path": {"type": "string", "minLength": 1},
+        "schema_sha256": {"$ref": "#/definitions/sha256"},
+        "canonical_sha256": {"$ref": "#/definitions/sha256"},
+        "row_count": {"type": "integer", "minimum": 1, "maximum": 1048575},
+        "column_count": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "encoded_bytes": {"type": "integer", "minimum": 1},
+        "text_bytes": {"type": "integer", "minimum": 0},
+        "cardinality": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16384,
+          "items": {"type": "integer", "minimum": 0}
+        },
+        "writable_runs": {"type": "integer", "minimum": 1, "maximum": 16384}
+      }
+    },
+    "dependent_pivots": {
+      "type": "object",
+      "required": ["mode", "profile", "cache_count", "report_count"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "linked_only"},
+        "profile": {"type": "string", "minLength": 1},
+        "cache_count": {"type": "integer", "minimum": 1},
+        "report_count": {"type": "integer", "minimum": 1},
+        "oracle_path": {"type": "string", "minLength": 1},
+        "oracle_sha256": {"$ref": "#/definitions/sha256"}
+      }
+    },
+    "operation_base": {
+      "type": "object",
+      "required": [
+        "type",
+        "operation_version",
+        "workbook_path",
+        "workbook_sha256",
+        "output_path",
+        "table",
+        "source",
+        "dependent_pivots",
+        "capability_profile"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"enum": ["append_table_rows", "replace_table_data"]},
+        "operation_version": {"const": "1.0"},
+        "workbook_path": {"type": "string", "minLength": 1},
+        "workbook_sha256": {"$ref": "#/definitions/sha256"},
+        "output_path": {"type": "string", "minLength": 1},
+        "table": {"$ref": "#/definitions/table"},
+        "source": {"$ref": "#/definitions/source"},
+        "dependent_pivots": {"$ref": "#/definitions/dependent_pivots"},
+        "capability_profile": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"}
+      }
+    },
+    "operation": {"$ref": "#/definitions/operation_base"}
+  }
+}

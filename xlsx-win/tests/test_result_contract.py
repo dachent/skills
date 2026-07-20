@@ -103,3 +103,45 @@ def test_build_result_rejects_non_terminal_final_state() -> None:
             final_state="CALCULATING",  # not a terminal state
             steps=[_step("succeeded", 0)],
         )
+
+
+def test_supervisor_failure_may_use_reserved_negative_step_index() -> None:
+    result = build_result(
+        run_id="run-supervisor-failure",
+        idempotency_key="job-supervisor-failure",
+        final_state="FAILED",
+        steps=[
+            _step("succeeded", 0),
+            {
+                "step_index": -1,
+                "type": "supervisor",
+                "status": "failed",
+                "error": {
+                    "code": "OWNED_PROCESS_CLEANUP_REQUIRED",
+                    "message": "cleanup grace expired",
+                    "details": {"cleanup_verified": True},
+                },
+            },
+        ],
+    )
+
+    assert result["ok"] is False
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        _step("failed", -1, "recalc"),
+        _step("failed", -2, "supervisor"),
+    ],
+)
+def test_reserved_negative_step_index_is_supervisor_only(step: dict) -> None:
+    with pytest.raises(ContractError) as excinfo:
+        build_result(
+            run_id="run-invalid-negative-step",
+            idempotency_key="job-invalid-negative-step",
+            final_state="FAILED",
+            steps=[step],
+        )
+
+    assert excinfo.value.code == "SCHEMA_INVALID"

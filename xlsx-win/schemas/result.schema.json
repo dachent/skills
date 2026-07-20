@@ -51,8 +51,19 @@
       "type": "object",
       "required": ["step_index", "type", "status"],
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "step_index": { "const": -1 } },
+            "required": ["step_index"]
+          },
+          "then": {
+            "properties": { "type": { "const": "supervisor" } }
+          }
+        }
+      ],
       "properties": {
-        "step_index": { "type": "integer", "minimum": 0 },
+        "step_index": { "type": "integer", "minimum": -1 },
         "type": { "type": "string", "minLength": 1 },
         "status": { "type": "string", "enum": ["succeeded", "failed", "skipped"] },
         "message": { "type": "string" },
