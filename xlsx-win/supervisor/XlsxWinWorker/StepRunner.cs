@@ -54,6 +54,7 @@ internal sealed class StepRunner
             RecalcStep s => RunRecalc(index, s),
             SaveAsStep s => RunSaveAs(index, s),
             RunApprovedMacroStep s => RunMacro(index, s),
+            CompositeTableStep s => new CompositeNativeRunner(_session, _events, _runId, _timeouts).Run(index, s),
             _ => Fail(index, step.GetType().Name, "UNKNOWN_STEP_TYPE", $"Unsupported step type: {step.GetType().Name}"),
         };
     }

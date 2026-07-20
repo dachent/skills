@@ -122,7 +122,7 @@ public class WorkerCrashMidJobTests
 
             Assert.Contains(
                 resultDoc.Steps,
-                s => s.Error != null && s.Error.Code == "WORKER_EXITED_WITHOUT_RESULT");
+                s => s.Error != null && s.Error.Code == "WORKER_RESULT_UNTRUSTED");
         }
         finally
         {

@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
     <!-- Unit tests only: no Excel is ever launched by this project. Must
          pass under a plain `dotnet test` with no preconditions. -->
   </PropertyGroup>

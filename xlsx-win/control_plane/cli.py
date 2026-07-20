@@ -58,6 +58,7 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     from control_plane.capabilities import admit_manifest, capability_inventory
+    from control_plane.composite_runtime import run_composite_job
     from control_plane.dry_run import simulate_transitions
     from control_plane.errors import ContractError
     from control_plane.file_router import KNOWN_INTENTS, choose_backend
@@ -68,6 +69,7 @@ if __package__ in (None, ""):
     from control_plane.workbook_inventory import inspect_workbook
 else:
     from .capabilities import admit_manifest, capability_inventory
+    from .composite_runtime import run_composite_job
     from .dry_run import simulate_transitions
     from .errors import ContractError
     from .file_router import KNOWN_INTENTS, choose_backend
@@ -268,24 +270,30 @@ def cmd_run(args: argparse.Namespace) -> int:
         _print_error(exc)
         return 1
 
+    events_path = (
+        Path(args.events)
+        if args.events
+        else manifest_path.parent / f"{manifest_path.stem}.events.jsonl"
+    )
+    result_path = (
+        Path(args.result)
+        if args.result
+        else manifest_path.parent / f"{manifest_path.stem}.result.json"
+    )
     if job.get("schema_version") == "2.1":
         try:
-            admit_manifest(job)
+            result_doc, exit_code = run_composite_job(
+                job,
+                events_path,
+                result_path,
+                args.hard_timeout_seconds,
+                allow_experimental=getattr(args, "allow_experimental", False),
+            )
         except ContractError as exc:
             _print_error(exc)
             return 1
-        _print_error(
-            ContractError(
-                "COMPOSITE_RUNTIME_UNAVAILABLE",
-                "Composite manifests are admitted but the transaction coordinator is not installed yet.",
-                {
-                    "schema_version": "2.1",
-                    "operation": job["steps"][0]["type"],
-                    "mutation_started": False,
-                },
-            )
-        )
-        return 1
+        print(json.dumps(result_doc, indent=2))
+        return exit_code
 
     events_path = (
         Path(args.events)
@@ -444,6 +452,11 @@ def build_parser() -> argparse.ArgumentParser:
             "Wall-clock safety-net timeout in seconds for the supervisor subprocess itself, "
             "separate from the job manifest's own phase deadlines. Default: %(default)s."
         ),
+    )
+    run_parser.add_argument(
+        "--allow-experimental",
+        action="store_true",
+        help="Allow an experimental composite profile for controlled qualification only.",
     )
     run_parser.set_defaults(handler=cmd_run)
 

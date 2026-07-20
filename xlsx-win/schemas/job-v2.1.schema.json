@@ -156,7 +156,7 @@
     },
     "dependent_pivots": {
       "type": "object",
-      "required": ["mode", "profile", "cache_count", "report_count", "oracle_path", "oracle_sha256"],
+      "required": ["mode", "profile", "cache_count", "report_count"],
       "additionalProperties": false,
       "properties": {
         "mode": {"const": "linked_only"},

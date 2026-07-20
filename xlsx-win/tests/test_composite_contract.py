@@ -100,6 +100,15 @@ def test_composite_operations_validate(operation_type: str) -> None:
     validate_job(_manifest(operation_type))
 
 
+def test_linked_pivot_topology_can_validate_without_matrix_oracle() -> None:
+    manifest = _manifest()
+    pivots = manifest["steps"][0]["dependent_pivots"]
+    pivots.pop("oracle_path")
+    pivots.pop("oracle_sha256")
+
+    validate_job(manifest)
+
+
 def test_composite_contract_rejects_multiple_operations() -> None:
     manifest = _manifest()
     manifest["steps"].append(copy.deepcopy(manifest["steps"][0]))

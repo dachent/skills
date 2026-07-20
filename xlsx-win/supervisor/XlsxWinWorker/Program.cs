@@ -99,6 +99,26 @@ internal static class Program
                 $"Failed to start Excel: {ex.Message}");
         }
 
+        try
+        {
+            var identity = ContainmentClient.ConnectAndAwaitAcknowledgement(
+                parsedArgs.ControlPipeName,
+                session,
+                TimeSpan.FromSeconds(timeouts.StartExcelSeconds));
+            events.Emit(new WorkerEvent
+            {
+                RunId = runId,
+                Phase = "STARTING_EXCEL",
+                ExcelPid = identity.ExcelPid,
+                Message = "Supervisor acknowledged exact Excel identity and Job Object containment; workbook access is now enabled.",
+            });
+        }
+        catch (Exception ex)
+        {
+            return WriteFailureAndExit(events, runId, manifest.IdempotencyKey, parsedArgs.ResultPath, stepResults,
+                $"Excel containment acknowledgement failed before workbook access: {ex.Message}");
+        }
+
         MaybeSimulateHang(events, runId);
 
         var runner = new StepRunner(session, events, runId, timeouts);
@@ -139,10 +159,28 @@ internal static class Program
         // allowed to take, with its Job Object kill as the backstop.
         session.CloseAndWait();
 
-        var result = ResultDocument.Build(runId, manifest.IdempotencyKey, finalState, stepResults);
+        var leaseBalancePassed = session.Gateway.TrackedOwnedRcwLeases == 0;
+        var leaseEvidence =
+            $"tracked_owned_rcw_leases={session.Gateway.TrackedOwnedRcwLeases}; " +
+            $"tracked_owned_rcw_high_water={session.Gateway.TrackedOwnedRcwHighWater}";
+        var invariants = new List<InvariantResult>
+        {
+            new()
+            {
+                Name = "tracked_owned_rcw_lease_balance",
+                Passed = leaseBalancePassed,
+                Message = leaseEvidence,
+            },
+        };
+        if (!leaseBalancePassed)
+        {
+            finalState = "FAILED";
+            events.Emit(new WorkerEvent { RunId = runId, Phase = finalState, Message = leaseEvidence });
+        }
+        var result = ResultDocument.Build(runId, manifest.IdempotencyKey, finalState, stepResults, invariants);
         File.WriteAllText(parsedArgs.ResultPath, result.ToJson());
         Console.WriteLine(result.ToJson());
-        return finalState == "SUCCEEDED" ? 0 : 1;
+        return result.Ok && finalState == "SUCCEEDED" ? 0 : 1;
     }
 
     private static int WriteFailureAndExit(

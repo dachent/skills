@@ -148,7 +148,27 @@ public sealed class JobObjectHandle : IDisposable
     public void Terminate(uint exitCode = 1)
     {
         ThrowIfDisposed();
-        JobObjectNative.TerminateJobObject(_handle, exitCode);
+        if (!JobObjectNative.TerminateJobObject(_handle, exitCode))
+        {
+            throw new InvalidOperationException($"TerminateJobObject failed: {new Win32Exception().Message}");
+        }
+    }
+
+    public uint ActiveProcessCount()
+    {
+        ThrowIfDisposed();
+        var accounting = new JobObjectNative.JobObjectBasicAccountingInformation();
+        var length = (uint)System.Runtime.InteropServices.Marshal.SizeOf<JobObjectNative.JobObjectBasicAccountingInformation>();
+        if (!JobObjectNative.QueryInformationJobObject(
+                _handle,
+                JobObjectNative.JobObjectBasicAccountingInformationClass,
+                ref accounting,
+                length,
+                IntPtr.Zero))
+        {
+            throw new InvalidOperationException($"QueryInformationJobObject failed: {new Win32Exception().Message}");
+        }
+        return accounting.ActiveProcesses;
     }
 
     /// <summary>Throws a clear, specific exception if a Win32 handle-returning

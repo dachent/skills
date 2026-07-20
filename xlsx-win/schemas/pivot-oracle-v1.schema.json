@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["schema_version", "reports"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "reports": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["sheet", "name", "range", "rows", "columns", "matrix_sha256"],
+        "additionalProperties": false,
+        "properties": {
+          "sheet": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "range": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$"},
+          "rows": {"type": "integer", "minimum": 1},
+          "columns": {"type": "integer", "minimum": 1},
+          "matrix_sha256": {"type": "string", "pattern": "^[A-Fa-f0-9]{64}$"}
+        }
+      }
+    }
+  }
+}

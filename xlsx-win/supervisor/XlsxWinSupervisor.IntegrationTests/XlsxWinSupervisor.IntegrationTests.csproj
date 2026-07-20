@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Real Excel COM automation. Gated behind XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1;
          see README.md "Running the integration tests for real". Every test

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dachent-skills.example/xlsx-win/table-sidecar-v1.schema.json",
+  "title": "xlsx-win immutable typed CSV sidecar schema",
+  "type": "object",
+  "required": ["schema_version", "encoding", "delimiter", "quotechar", "has_header", "date_system", "columns"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "encoding": {"const": "utf-8"},
+    "delimiter": {"type": "string", "minLength": 1, "maxLength": 1},
+    "quotechar": {"type": "string", "minLength": 1, "maxLength": 1},
+    "has_header": {"const": true},
+    "date_system": {"enum": ["1900", "1904"]},
+    "columns": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16384,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "role", "logical_type", "storage_type", "number_format"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "integer", "minimum": 1, "maximum": 16384},
+          "name": {"type": "string", "minLength": 1, "maxLength": 255},
+          "role": {"enum": ["writable", "calculated"]},
+          "logical_type": {"enum": ["blank", "boolean", "number", "text", "datetime"]},
+          "storage_type": {"enum": ["blank", "boolean", "number", "inline_string"]},
+          "number_format": {"type": ["string", "null"], "maxLength": 255}
+        }
+      }
+    }
+  }
+}
