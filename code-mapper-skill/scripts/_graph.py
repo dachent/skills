@@ -4,7 +4,7 @@ from pathlib import Path
 
 import grimp
 
-from _paths import GRIMP_CACHE_DIR
+import _paths
 
 
 def build(target_path, package=None):
@@ -13,8 +13,9 @@ def build(target_path, package=None):
     parent = str(target_path.parent)
     if parent not in sys.path:
         sys.path.insert(0, parent)
-    GRIMP_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    return grimp.build_graph(package, cache_dir=str(GRIMP_CACHE_DIR))
+    cache_dir = Path(_paths.io_path(_paths.require_work_root() / "grimp"))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return grimp.build_graph(package, cache_dir=str(cache_dir))
 
 
 def graph_to_dict(graph) -> dict:

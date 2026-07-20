@@ -13,7 +13,7 @@ PASS after the scope reductions and CI repairs in the final implementation plan.
 
 **BLOCKING:** The original design treated many engines, protocols, and wrappers as peer providers without demonstrated recurring use.
 
-**Required fix:** Limit the MVP to direct source, Graphify, code-mapper, mapper-owned selective CodeQL, and explicit repo-map planning. Keep only Codebase-Memory as a benchmark candidate.
+**Required fix:** Limit the Claude Code router to direct source, Graphify, code-mapper, and mapper-owned selective CodeQL. Durable planning remains harness-native, not a provider route. Keep only Codebase-Memory as a benchmark candidate.
 
 ### Correctness and evidence
 

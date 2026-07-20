@@ -55,7 +55,7 @@ Acceptance requirements:
 - it remains off by default for unrelated work;
 - failure or absence degrades explicitly to structural mapper output rather than silently changing claims.
 
-## Experimental discipline
+## Evaluation discipline
 
 - Pin repository and provider revisions.
 - Alternate baseline and candidate order.

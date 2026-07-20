@@ -87,13 +87,11 @@ def _ensure_pack_lock(codeql,d,timeout=120.0):
  """The generated query pack (ensure_query_pack) declares codeql/python-all but ships no
  lock file. Both `database create --build-mode=none` (data-extension resolution) and
  `query run` resolve that pack and fail hard without one ("no lock file is present ...").
- Run `codeql pack install` once per cache to write codeql-pack.lock.yml and fetch deps into
- ~/.codeql/packages (offline after the first fetch). Idempotent: skipped once the lock exists."""
+ The mapper never downloads dependencies. Provision the lock and dependencies through an
+ explicitly approved setup action before requesting a CodeQL run."""
  lock=d/"codeql-pack.lock.yml"
  if lock.exists() or not (d/"qlpack.yml").exists():return {"ok":True}
- try:subprocess.run([codeql,"pack","install",str(d)],capture_output=True,text=True,timeout=timeout,check=True)
- except (subprocess.SubprocessError,OSError) as exc:return {"ok":False,"error":(getattr(exc,"stderr","") or str(exc)).strip()}
- return {"ok":True}
+ return {"ok":False,"error":"CodeQL pack lock is absent; explicit setup is required and the mapper will not run codeql pack install."}
 def _codeql_build_env():
  """Environment for `codeql database create`. CodeQL's Python extractor probes the
  Windows `py` launcher (buildtools/version.py in the extractor); when `py` is absent
@@ -173,16 +171,20 @@ def metrics_from_graph(graph):
  metrics.update({"unresolvedSinkArguments":unresolved,"transformedSinkArguments":transformed,"parameterToSinkCandidates":parameterized,"ambiguousReadWriteModes":0,"dynamicSqlCandidates":dynamic_sql,"unresolvedConfigSources":0,"highBranchingTargetFunctions":0,"highValueUnresolvedSinks":high,"parameterizedHighValueSinks":sum(1 for e in selected if e["relationship"] in high_rel),"selectedSinks":selected,"pythonBytes":metrics.get("pythonBytes",0)})
  return metrics
 
-def enrich_with_codeql(*,repo_root,cache_dir,graph,mode="existing",intent="mapping",budget_overrides=None,codeql_override=None):
+def enrich_with_codeql(*,repo_root,cache_dir,graph,mode="existing",intent="mapping",budget_overrides=None,codeql_override=None,allow_writes=False):
  if mode not in CODEQL_MODES:raise ValueError(f"unsupported CodeQL mode: {mode}")
  if intent not in CODEQL_INTENTS:raise ValueError(f"unsupported CodeQL intent: {intent}")
  root=Path(repo_root).resolve();d=Path(cache_dir)/"codeql";metrics=metrics_from_graph(graph);history=load_history(d);repo=repository_signals(root);budgets=projected_budgets(metrics,history,budget_overrides);score=semantic_need_score(metrics,intent);worthy=has_hard_semantic_trigger(metrics,intent) or score>=int(budgets["semanticThreshold"]);sinks=_selected_sinks(metrics);qh=_query_hash();fingerprint=str(graph.get("sourceFingerprint",""));stored=str(_db_meta(d).get("codeqlVersion","unknown"));key=_result_key(fingerprint,stored,qh,sinks);cached=_cached(d,key);timeout_fp=_hash({"source":fingerprint,"query":qh,"sinks":sinks});timed_out=history.get("lastTimeoutFingerprint")==timeout_fp
  def finish(decision,rows=None,cached_flag=False,build=None,query=None):
-  rows=rows or [];graph["codeql"]={"decision":decision.to_dict(),"rows":rows,"cached":cached_flag,"build":build,"query":query};graph["semanticEdges"]=_semantic_edges(rows);_record(history,worthy,decision,build,query);save_history(d,history);return graph,decision
+  rows=rows or [];graph["codeql"]={"decision":decision.to_dict(),"rows":rows,"cached":cached_flag,"build":build,"query":query};graph["semanticEdges"]=_semantic_edges(rows)
+  if allow_writes:_record(history,worthy,decision,build,query);save_history(d,history)
+  return graph,decision
  if mode=="off" or (not worthy and mode!="build"):
   decision=select_codeql_action(mode=mode,intent=intent,metrics=metrics,environment={"cachedResultsCurrent":False,"codeqlInstalled":True,"currentDatabaseExists":False,"previousTimeout":timed_out},history=history,repository=repo,budgets=budgets);return finish(decision)
  if cached:
   decision=select_codeql_action(mode=mode,intent=intent,metrics=metrics,environment={"cachedResultsCurrent":True,"codeqlInstalled":False,"currentDatabaseExists":False,"previousTimeout":timed_out},history=history,repository=repo,budgets=budgets);return finish(decision,cached.get("rows",[]),True)
+ if not allow_writes:
+  decision=CodeQLDecision(REQUIRE_EXPLICIT_REQUEST,"CodeQL database/query work requires --allow-codeql-write",score,codeql_build_score(metrics,history,repo,budgets,intent),worthy,build_budget_fits(budgets));return finish(decision)
  if mode=="existing" and not (d/"database").is_dir():
   decision=select_codeql_action(mode=mode,intent=intent,metrics=metrics,environment={"cachedResultsCurrent":False,"codeqlInstalled":True,"currentDatabaseExists":False,"previousTimeout":timed_out},history=history,repository=repo,budgets=budgets);return finish(decision)
  codeql=codeql_override or shutil.which("codeql")
@@ -191,7 +193,7 @@ def enrich_with_codeql(*,repo_root,cache_dir,graph,mode="existing",intent="mappi
  version=codeql_version(codeql);current=database_is_current(d,root,fingerprint,version);key=_result_key(fingerprint,version,qh,sinks);cached=_cached(d,key);env={"cachedResultsCurrent":cached is not None,"codeqlInstalled":True,"currentDatabaseExists":current,"previousTimeout":timed_out,"buildSupported":supports_safe_python_build(version)};decision=select_codeql_action(mode=mode,intent=intent,metrics=metrics,environment=env,history=history,repository=repo,budgets=budgets);build=query=None;rows=[]
  if decision.action in (BUILD_AND_RUN,RUN_EXISTING_DATABASE):
   lock=_ensure_pack_lock(codeql,d)
-  if not lock.get("ok"):return finish(decision,[],False,{"ok":False,"timeout":False,"error":"codeql pack install failed: "+lock.get("error","")},None)
+  if not lock.get("ok"):return finish(decision,[],False,{"ok":False,"timeout":False,"error":"CodeQL pack preflight failed: "+lock.get("error","")},None)
  if decision.action==USE_CACHED_RESULTS:rows=cached.get("rows",[]) if cached else []
  elif decision.action==BUILD_AND_RUN:
   build=build_database(codeql,root,d,fingerprint,version,float(budgets["maxBuildSeconds"]))

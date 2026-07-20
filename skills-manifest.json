@@ -57,10 +57,8 @@
       "name": "visual-runtime",
       "path": ".shared/visual-runtime",
       "consumers": [
-        "artifact-runtime-codex",
         "canvas-design-codex",
         "frontend-design-codex",
-        "theme-factory-codex",
         "web-artifacts-builder-codex"
       ]
     }
@@ -107,8 +105,8 @@
       "path": "agent-project-orchestrator",
       "family": "project-orchestration",
       "catalog_group": "repository-owned",
-      "status": "experimental",
-      "description": "Use when a long-running human-agent project needs durable backlog, project memory, sprint contracts, capability preflight, cross-harness orchestration, evidence-backed stopping conditions, or independent terminal review across Claude Code and Codex.",
+      "status": "deprecated",
+      "description": "Deprecated for Claude Code and Codex GPT-5.6 Sol: use predecessor gist cdc05151d047708c290bd4da0aaeed96 for the original Claude workflow or native Codex planning and execution controls.",
       "platforms": [
         "cross-platform"
       ],
@@ -136,39 +134,7 @@
         "environment_dependent_commands": []
       },
       "owner": "@dachent",
-      "last_reviewed": "2026-07-12"
-    },
-    {
-      "name": "artifact-runtime-codex",
-      "path": "artifact-runtime-codex",
-      "family": "visual",
-      "catalog_group": "design-pack",
-      "status": "supported",
-      "description": "Use when Codex needs to run, package, validate, hand off, or debug the runtime for a browser visual artifact, including local server setup, asset paths, evidence bundles, screenshot review artifacts, or no-template visual QA handoff.",
-      "platforms": [
-        "cross-platform"
-      ],
-      "agents": [
-        "codex"
-      ],
-      "runtimes": {
-        "type": "prompt"
-      },
-      "packaging": {
-        "skill_file": "artifact-runtime-codex/SKILL.md",
-        "agent_metadata": "artifact-runtime-codex/agents/openai.yaml"
-      },
-      "source": {
-        "classification": "repo-owned-original"
-      },
-      "validation": {
-        "hosted_commands": [
-          "python .\\tools\\test_visual_skills_contract.py"
-        ],
-        "environment_dependent_commands": []
-      },
-      "owner": "@dachent",
-      "last_reviewed": "2026-07-12"
+      "last_reviewed": "2026-07-19"
     },
     {
       "name": "canvas-design-codex",
@@ -207,13 +173,13 @@
       "path": "code-intelligence",
       "family": "code-analysis",
       "catalog_group": "repository-owned",
-      "status": "experimental",
-      "description": "Route repository understanding and change-impact work across direct source inspection, fresh Graphify discovery, Python-focused code-mapper analysis, selective CodeQL enrichment, and explicit durable repo-map planning. Use for unfamiliar repositories, architecture questions, locating implementations, Python blast radius, contracts, artifacts, lineage, security-flow triage, and graph freshness decisions.",
+      "status": "supported",
+      "description": "Claude Code-only explicit provider router for assessing installed Graphify, code-mapper, or selective CodeQL routes. Not for Codex GPT-5.6 Sol, whose native inspection, Plan Mode, explorer work, and subagents cover this function without an added analyzer.",
       "platforms": [
         "cross-platform"
       ],
       "agents": [
-        "codex"
+        "claude-code"
       ],
       "runtimes": {
         "type": "code-analysis"
@@ -234,7 +200,7 @@
         "environment_dependent_commands": []
       },
       "owner": "@dachent",
-      "last_reviewed": "2026-07-12"
+      "last_reviewed": "2026-07-19"
     },
     {
       "name": "code-mapper-skill",
@@ -242,12 +208,13 @@
       "family": "code-analysis",
       "catalog_group": "repository-owned",
       "status": "supported",
-      "description": "Maps Python imports, symbol references, artifact use, contracts, catalog relationships, OpenLineage datasets, and selectively triggered CodeQL local value/taint flow. Use for dependency maps, callers, inputs/outputs, APIs/schemas, Backstage relationships, blast radius, and semantic tracing. Works on a local path or Git URL.",
+      "description": "Generate deterministic Python import, reference, artifact, contract, catalog, OpenLineage, and explicitly authorized local CodeQL maps. Use for explicit blast-radius, caller, contract, lineage, or local value/taint evidence requests against an approved local worktree.",
       "platforms": [
         "cross-platform"
       ],
       "agents": [
-        "codex"
+        "codex",
+        "claude-code"
       ],
       "runtimes": {
         "type": "code-analysis"
@@ -262,12 +229,12 @@
       },
       "validation": {
         "hosted_commands": [
-          "python -m unittest -v smoke_test test_codeql_policy test_codeql_runtime test_codeql_cli"
+          "python -m unittest -v smoke_test test_safety test_codeql_policy test_codeql_runtime test_codeql_cli"
         ],
         "environment_dependent_commands": []
       },
       "owner": "@dachent",
-      "last_reviewed": "2026-07-12"
+      "last_reviewed": "2026-07-19"
     },
     {
       "name": "deep-planning-codex",
@@ -310,7 +277,7 @@
       "family": "handoff",
       "catalog_group": "repository-owned",
       "status": "supported",
-      "description": "Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from Claude Code or Codex projects. Run at any project milestone.",
+      "description": "Create a comprehensive cross-harness project archive and handoff package: curated workfolder copy, evidence and state, agent context, and dark-mode HTML memo. Use for milestone archives and cold-start continuation; distinct from a lightweight session handoff.",
       "platforms": [
         "cross-platform"
       ],
@@ -385,7 +352,7 @@
       "family": "visual",
       "catalog_group": "design-pack",
       "status": "supported",
-      "description": "Use when Codex is building, revising, or reviewing a frontend UI, web app screen, responsive layout, component surface, dashboard view, form flow, or no-template product interface that needs visual polish, accessibility, screenshots, or browser QA.",
+      "description": "Use when Codex is building, revising, or reviewing a frontend UI, visual system, web app screen, responsive layout, component surface, dashboard view, or no-template product interface that needs semantic design tokens, visual polish, accessibility, screenshots, or browser QA.",
       "platforms": [
         "cross-platform"
       ],
@@ -585,38 +552,6 @@
       "last_reviewed": "2026-07-12"
     },
     {
-      "name": "theme-factory-codex",
-      "path": "theme-factory-codex",
-      "family": "visual",
-      "catalog_group": "design-pack",
-      "status": "supported",
-      "description": "Use when Codex needs to create, adapt, audit, or repair a visual theme, design tokens, color palette, typography scale, spacing system, CSS variables, or brand-like styling for a no-template frontend, web artifact, dashboard, or visual deliverable.",
-      "platforms": [
-        "cross-platform"
-      ],
-      "agents": [
-        "codex"
-      ],
-      "runtimes": {
-        "type": "prompt"
-      },
-      "packaging": {
-        "skill_file": "theme-factory-codex/SKILL.md",
-        "agent_metadata": "theme-factory-codex/agents/openai.yaml"
-      },
-      "source": {
-        "classification": "repo-owned-original"
-      },
-      "validation": {
-        "hosted_commands": [
-          "python .\\tools\\test_visual_skills_contract.py"
-        ],
-        "environment_dependent_commands": []
-      },
-      "owner": "@dachent",
-      "last_reviewed": "2026-07-12"
-    },
-    {
       "name": "ultraplan-codex",
       "path": "ultraplan-codex",
       "family": "planning",
@@ -692,7 +627,7 @@
       "family": "visual",
       "catalog_group": "design-pack",
       "status": "supported",
-      "description": "Use when Codex needs to create, package, revise, or verify a standalone web artifact such as an HTML report, dashboard, microsite, interactive explainer, data story, or browser-delivered deliverable with screenshots, console capture, and evidence packaging.",
+      "description": "Use when Codex needs to create, run, package, revise, or verify a standalone web artifact with an explicit reviewer runtime, relative-asset checks, screenshots, console and request capture, rerun instructions, and evidence packaging.",
       "platforms": [
         "cross-platform"
       ],

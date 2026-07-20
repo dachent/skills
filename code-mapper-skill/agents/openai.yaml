@@ -1,4 +1,4 @@
 interface:
   display_name: "Code Mapper"
-  short_description: "Map Python dependencies, artifacts, and contracts"
-  default_prompt: "Use $code-mapper-skill to map dependency, reference, artifact, and contract relationships before changing this codebase."
+  short_description: "Generate explicit Python dependency and lineage maps"
+  default_prompt: "Use $code-mapper-skill for an explicit Python blast-radius, contract/lineage, or local CodeQL evidence request. Keep all generated state in the active-session bootstrap directory."

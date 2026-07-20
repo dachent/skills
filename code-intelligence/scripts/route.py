@@ -48,8 +48,9 @@ def decide_route(
 
     if durable_map:
         return RouteDecision(
-            primary="repo-map-codex",
-            reasons=["request explicitly requires a durable planning map and evidence catalog"],
+            primary="direct-source",
+            reasons=["durable planning is outside the Claude Code provider router"],
+            warnings=["use the harness-native planning workflow; no repo-map provider is routed"],
         )
 
     if security_flow:

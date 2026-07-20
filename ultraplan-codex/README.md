@@ -1,5 +1,7 @@
 # Codex UltraPlan Skill
 
+> **Deprecated for GPT-5.6 Sol — do not install or invoke.** Use native Codex Plan Mode for grounded, decision-complete implementation plans. The remainder of this document is retained as historical implementation reference.
+
 `ultraplan-codex` is a Codex-native adaptation of the upstream UltraPlan skill by
 `6missedcalls`. It guides Codex through a deep, read-only implementation
 planning workflow before any code is changed.

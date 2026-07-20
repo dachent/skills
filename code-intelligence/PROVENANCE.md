@@ -10,7 +10,8 @@
 - Runtime classification: prompt and lightweight Python control plane
 - External providers: optional and independently installed
 - Canonical directory: `code-intelligence/`
-- Initial status: experimental
+- Current status: supported Claude Code provider router
+- Codex GPT-5.6 Sol: not applicable; native direct inspection, Plan Mode, explorer work, and subagents provide the routing capability without this package
 
 ## Authorship boundary
 

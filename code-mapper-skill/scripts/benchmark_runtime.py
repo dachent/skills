@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import statistics
 import subprocess
@@ -19,15 +20,9 @@ import time
 from pathlib import Path
 
 
-def clear_caches(skill_root: Path) -> None:
-    paths = [
-        skill_root.parent / ".dep-map-cache",
-        skill_root / r"C:\Dev\bootstrap-state\code-mapper-skill-grimp-cache",
-        skill_root / r"C:\Dev\bootstrap-state\code-mapper-skill-jedi-cache",
-    ]
-    for path in paths:
-        if path.exists():
-            shutil.rmtree(path)
+def clear_caches(work_root: Path) -> None:
+    if work_root.exists():
+        shutil.rmtree(work_root)
 
 
 def command(skill_root: Path, target: Path, file_rel: str, args) -> list[str]:
@@ -42,8 +37,11 @@ def command(skill_root: Path, target: Path, file_rel: str, args) -> list[str]:
 
 
 def run_once(skill_root: Path, target: Path, file_rel: str, args) -> float:
+    work_root = args.work_root / skill_root.name
     if args.cold:
-        clear_caches(skill_root)
+        clear_caches(work_root)
+    env = os.environ.copy()
+    env["CODE_MAPPER_WORK_ROOT"] = str(work_root)
     started = time.perf_counter()
     result = subprocess.run(
         command(skill_root, target, file_rel, args),
@@ -52,6 +50,7 @@ def run_once(skill_root: Path, target: Path, file_rel: str, args) -> float:
         stderr=subprocess.PIPE,
         text=True,
         timeout=args.timeout,
+        env=env,
     )
     elapsed = time.perf_counter() - started
     if result.returncode != 0:
@@ -81,6 +80,7 @@ def main() -> None:
     ap.add_argument("--runs", type=int, default=7)
     ap.add_argument("--warmups", type=int, default=2)
     ap.add_argument("--timeout", type=int, default=120)
+    ap.add_argument("--work-root", type=Path, required=True, help="explicit session directory for benchmark caches")
     ap.add_argument("--cold", action="store_true")
     ap.add_argument("--max-median-delta-percent", type=float, default=None)
     ap.add_argument("--max-median-delta-seconds", type=float, default=None)

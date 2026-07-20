@@ -6,7 +6,7 @@ Reviewed: 2026-07-12
 
 The optimal current design is not the largest provider set. It is the smallest set that covers recurring needs with distinct, measurable value.
 
-The active stack is direct source, Graphify, `code-mapper-skill`, mapper-owned selective CodeQL, and explicit `repo-map-codex`. Only Codebase-Memory remains a credible near-term substitution candidate, and only for Graphify's code-only discovery role.
+The active Claude Code router stack is direct source, Graphify, `code-mapper-skill`, and mapper-owned selective CodeQL. Durable planning remains harness-native. Only Codebase-Memory remains a credible near-term substitution candidate, and only for Graphify's code-only discovery role.
 
 ## Truly high-value components
 
@@ -18,7 +18,6 @@ The active stack is direct source, Graphify, `code-mapper-skill`, mapper-owned s
 | Selective CodeQL in code-mapper | Keep | Adds semantic value/taint paths that syntax graphs cannot provide, while remaining gated. |
 | Graph freshness preflight | Keep | Prevents stale answers and avoids loading a large graph merely to choose a route. |
 | Exact-target fast path | Keep | Protects the existing mapper's latency and deterministic behavior. |
-| `repo-map-codex` explicit route | Keep | Produces a durable planning artifact; it is not duplicated by an ad hoc graph query. |
 | Router/discovery benchmarks | Keep | Prevent provider preference from becoming opinion or permanent lock-in. |
 
 ## Benchmark-only substitution
@@ -61,6 +60,6 @@ Do not build. A generic registry, adapter SDK, or normalized graph schema would 
 Broad repeated discovery or mixed media -> fresh Graphify
 Known Python structure/impact/lineage     -> code-mapper-skill
 Python value/taint path when triggered    -> code-mapper + selective CodeQL
-Explicit durable planning deliverable     -> repo-map-codex
+Durable planning deliverable              -> harness-native planning workflow
 Everything else or any stale state        -> current source and tests
 ```

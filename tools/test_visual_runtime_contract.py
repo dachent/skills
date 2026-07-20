@@ -125,7 +125,7 @@ def validate_scripts(failures: list[str]) -> None:
 
 def validate_readme_and_workflow(failures: list[str]) -> None:
     readme = read("README.md")
-    validate_workflow = read(".github/workflows/validate.yml")
+    validate_workflow = read(".github/workflows/validate.yml").replace("\\", "/")
     for expected in [
         ".shared/visual-runtime",
         "render-inspect-lint-revise",
@@ -138,7 +138,7 @@ def validate_readme_and_workflow(failures: list[str]) -> None:
         "actions/setup-node",
         "npm ci --ignore-scripts",
         "npm run check",
-        "python .\\tools\\test_visual_runtime_contract.py",
+        "python ./tools/test_visual_runtime_contract.py",
     ]:
         require_contains(validate_workflow, expected, ".github/workflows/validate.yml", failures)
 

@@ -6,18 +6,19 @@ Choose the cheapest implemented route that is adequate for the question. Provide
 
 ## Decision order
 
-1. **Durable planning explicitly requested** → `repo-map-codex`.
-2. **Python security or value-flow question** → `code-mapper-skill`; enable its selective CodeQL path only when CodeQL is available and the documented trigger applies.
-3. **Known Python file or symbol** → `code-mapper-skill`, with no Graphify read or subprocess.
-4. **Python artifacts, contracts, APIs, catalogs, or lineage** → `code-mapper-skill`.
-5. **Known non-Python target** → direct source and host-native tools.
-6. **Small repository** → direct source.
-7. **Broad or unknown target with a fresh existing Graphify graph** → Graphify, then verify candidates in source; optionally hand Python candidates to `code-mapper-skill`.
-8. **Graph missing, stale, unknown, or corrupt** → direct source; do not silently refresh or rebuild.
+1. **Python security or value-flow question** → `code-mapper-skill`; enable its selective CodeQL path only when CodeQL is available and the documented trigger applies.
+2. **Known Python file or symbol** → `code-mapper-skill`, with no Graphify read or subprocess.
+3. **Python artifacts, contracts, APIs, catalogs, or lineage** → `code-mapper-skill`.
+4. **Known non-Python target** → direct source and host-native tools.
+5. **Small repository** → direct source.
+6. **Broad or unknown target with a fresh existing Graphify graph** → Graphify, then verify candidates in source; optionally hand Python candidates to `code-mapper-skill`.
+7. **Graph missing, stale, unknown, or corrupt** → direct source; do not silently refresh or rebuild.
 
 ## Explicit non-routes
 
-The MVP does not route to Serena, Joern/codebadger, SCIP/Sourcegraph, Semgrep, Aider-style maps, generic LSP adapters, or Codebase-Memory. Codebase-Memory remains a benchmark candidate only.
+The supported router does not route to Serena, Joern/codebadger, SCIP/Sourcegraph, Semgrep, Aider-style maps, generic LSP adapters, or Codebase-Memory. Codebase-Memory remains a benchmark candidate only.
+
+Durable planning is harness-native and outside this provider router. This skill is not for Codex GPT-5.6 Sol.
 
 ## Escalation rules
 

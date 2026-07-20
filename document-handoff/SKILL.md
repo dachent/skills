@@ -1,6 +1,6 @@
 ---
 name: document-handoff
-description: Create a comprehensive project handoff package — workfolder copy + dark-mode HTML memo — from Claude Code or Codex projects. Run at any project milestone.
+description: Create a comprehensive project archive and handoff package — curated workfolder copy, evidence and state, agent context, and dark-mode HTML memo — from Claude Code or Codex projects. Use for milestone archives, cold-start continuation packages, or comprehensive handoffs; use a lightweight session-handoff skill for a short continuation note.
 ---
 
 # document-handoff
@@ -49,7 +49,7 @@ Ask the user (or infer from context):
 
 1. **Project slug** — short name used in output file names (e.g. `my-project`)
 2. **Source root** — absolute path to the project directory to archive
-3. **Output directory** — where to write the workfolder and memo (default: `<source_root>\.handoff-output`)
+3. **Output directory** — where to write the workfolder and memo. Honor the active harness/session output policy when one exists; otherwise default to `<source_root>\.handoff-output`.
 4. **Fresh or resume?** — `--fresh` overwrites existing state; `--resume` continues from last completed phase
 
 **Provider detection note:** The skill auto-detects Claude Code or Codex via environment variables. OpenCode session discovery is not currently implemented.

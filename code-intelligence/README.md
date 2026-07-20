@@ -1,6 +1,8 @@
 # Code Intelligence
 
-Experimental control-plane skill for routing repository questions across persistent graphs, exact semantic navigation, Python-specific mapping, semantic flow, and durable planning.
+Supported Claude Code provider router for explicit repository-analysis routing across persistent graphs, Python-specific mapping, and selective semantic flow.
+
+It is not for Codex GPT-5.6 Sol. Native direct inspection, Plan Mode, explorer work, and subagents cover the same routing function without an added analyzer.
 
 The folder intentionally contains rich architectural context because provider choice, freshness, privacy, and performance are part of correctness. Start with `SKILL.md`, then read `references/implementation-plan.md` and the ADRs.
 
@@ -12,6 +14,6 @@ The folder intentionally contains rich architectural context because provider ch
 - unit tests;
 - provider-neutral contracts and architectural decisions.
 
-## Current status
+## Supported scope
 
-Experimental. The initial control plane is usable, but default provider selection must remain benchmark-driven. Graphify is not assumed to be the permanent best code-only discovery engine; Codebase-Memory, Serena/LSP, SCIP, CodeQL, and Joern/codebadger are explicitly included in the evaluation path.
+Use only when Claude Code must select among already-installed Graphify, `code-mapper-skill`, and selective CodeQL providers. Provider selection remains benchmark-driven. Graphify is not assumed to be the permanent best code-only discovery engine; other engines remain evaluation candidates rather than automatic routes.

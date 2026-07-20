@@ -9,7 +9,7 @@ This is an orchestration envelope, not a generalized plugin framework. Preserve 
 ```json
 {
   "repository": "/path/to/repo",
-  "intent": "broad-discovery | python-impact | artifact-lineage | security-flow | durable-plan | direct-source",
+  "intent": "broad-discovery | python-impact | artifact-lineage | security-flow | direct-source",
   "language": "python",
   "targetFile": "pkg/service.py",
   "targetSymbol": "run",
@@ -52,5 +52,5 @@ Do not translate all evidence into a common anonymous graph. A Graphify inferred
 - `code-mapper-skill` remains Graphify-agnostic.
 - Graphify is never loaded on the known-target mapper path.
 - CodeQL is currently reached through the mapper's selective Python integration, not through a new standalone adapter.
-- `repo-map-codex` is invoked only for an explicit durable planning deliverable.
+- Durable planning is harness-native and outside this provider-router contract.
 - Direct source and tests remain the final authority.

@@ -20,7 +20,6 @@ code-intelligence
         +--> Graphify for fresh broad discovery
         +--> code-mapper-skill for Python analysis
         |      +--> selective CodeQL enrichment when triggered
-        +--> repo-map-codex for explicit durable planning
 ```
 
 ## Why these components remain
@@ -40,10 +39,6 @@ The mapper has a distinct Python-specific combination of import graphs, referenc
 ### Selective CodeQL inside the mapper
 
 CodeQL remains because syntax and import graphs cannot establish all value-flow or taint relationships. It is not promoted to a new standalone router integration in the MVP.
-
-### `repo-map-codex`
-
-This remains a separate deliverable-oriented planning skill. The router invokes it only when a durable project map and evidence catalog are explicitly requested.
 
 ## Deferred or rejected
 

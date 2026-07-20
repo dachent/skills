@@ -1,9 +1,13 @@
 ---
 name: agent-project-orchestrator
-description: "design, assess, initialize, or evolve durable human-agent project orchestration for long-running software, research, business-artifact, recovery, and mixed projects. use when a project needs explicit contracts, prioritized backlog control, project memory, evidence-backed state, autonomous sprint boundaries, capability preflight, or scenario-aware orchestration for Claude Code with Opus 4.8, Claude Code with Sonnet 5, or Codex with GPT-5.6 Sol."
+description: "Deprecated. Do not install or invoke for Claude Code or Codex GPT-5.6 Sol. The original Claude Code predecessor remains the preferred reference: https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96."
 ---
 
 # Agent Project Orchestrator
+
+> **Deprecated.** This control-plane design adds no demonstrated value over the original Claude Code predecessor for Claude Code, and no value over native planning and execution controls for Codex GPT-5.6 Sol. Do not install or invoke it. The preserved predecessor is [gist `cdc05151d047708c290bd4da0aaeed96`](https://gist.github.com/dachent/cdc05151d047708c290bd4da0aaeed96).
+
+The remaining instructions are historical and non-operational. Do not execute the scenario-resolution or initialization commands below.
 
 ## Purpose
 
@@ -20,7 +24,7 @@ Do not collapse those dimensions into a single skill or provider name.
 
 ## Package status
 
-Treat this package as an **experimental architecture and control-plane package**.
+Treat this package as a **deprecated architecture and control-plane package** retained only for historical reference.
 
 The package now implements deterministic resolution for three initial scenarios:
 

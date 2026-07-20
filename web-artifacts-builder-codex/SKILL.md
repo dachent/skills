@@ -1,13 +1,13 @@
 ---
 name: web-artifacts-builder-codex
-description: Use when Codex needs to create, package, revise, or verify a standalone web artifact such as an HTML report, dashboard, microsite, interactive explainer, data story, or browser-delivered deliverable with screenshots, console capture, and evidence packaging.
+description: Use when Codex needs to create, run, package, revise, or verify a standalone web artifact such as an HTML report, dashboard, microsite, interactive explainer, data story, or browser-delivered deliverable with runtime, screenshots, console capture, and evidence packaging.
 ---
 
 # Web Artifacts Builder Codex
 
 ## Overview
 
-Use this skill to build standalone web artifacts that open cleanly, explain themselves through the interface, and ship with enough evidence for another reviewer to trust the result.
+Use this skill to build standalone web artifacts that open cleanly, explain themselves through the interface, and ship with enough runtime and visual evidence for another reviewer to trust the result.
 
 ## Design Upskill Contribution
 
@@ -21,9 +21,10 @@ It matters because standalone artifacts often lack the guardrails of an existing
 2. Choose the lightest implementation that can be opened and reviewed reliably.
 3. Keep the first screen as the actual artifact experience, not a marketing page.
 4. Make data/source limitations visible in the artifact when they affect interpretation.
-5. Use stable file names and relative asset paths so the artifact can move as a folder.
-6. Capture screenshots, console output, request failures, and optional PDF output.
-7. Package the artifact with evidence and a short verification note.
+5. Choose the reviewer runtime: direct file open, local server, static export, or a retained dev server. Prefer the simplest path that matches the real delivery constraint.
+6. Use stable file names and relative asset paths so the artifact can move as a folder; verify generated files and required environment values from that same runtime.
+7. Capture screenshots, console output, request failures, and optional PDF output from the reviewer runtime.
+8. Package the artifact with evidence, stable filenames, rerun instructions, and a short verification note. Do not commit generated evidence unless the project explicitly requests it.
 
 ## Shared Visual Runtime
 
@@ -44,14 +45,14 @@ Before completion:
 - verify relative assets load;
 - run visual lint;
 - preserve screenshot, manifest, console, request-failure, and optional PDF evidence;
-- confirm the evidence bundle can be understood without hidden conversation context.
+- confirm the evidence bundle can be understood without hidden conversation context and explain how to rerun it.
 
 ## Example Prompts
 
 ### HTML Memo And Dashboard
 
 ```text
-Use $web-artifacts-builder-codex, $frontend-design-codex, $theme-factory-codex, and $artifact-runtime-codex.
+Use $web-artifacts-builder-codex and $frontend-design-codex.
 
 Create a polished HTML memo and dashboard from the materials in:
 [PASTE FOLDER OR FILE PATHS]

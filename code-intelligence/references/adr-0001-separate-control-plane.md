@@ -9,7 +9,7 @@
 
 ## Decision
 
-Create `code-intelligence` as a separate top-level experimental skill in the same repository. Keep providers independently installed and independently callable.
+Create `code-intelligence` as a separate top-level supported Claude Code provider router. Keep providers independently installed and independently callable. Do not use this router for Codex GPT-5.6 Sol, whose native inspection and planning controls already cover the routing need.
 
 ## Consequences
 

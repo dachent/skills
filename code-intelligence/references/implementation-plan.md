@@ -5,7 +5,7 @@
 Ship a small, reliable control plane that solves two concrete problems:
 
 1. prevent stale or unnecessary Graphify use; and
-2. choose correctly between broad discovery, Python-specific analysis, direct source inspection, and durable planning.
+2. choose correctly between broad discovery, Python-specific analysis, and direct source inspection.
 
 It is not a universal code-intelligence platform.
 
@@ -17,7 +17,6 @@ It is not a universal code-intelligence platform.
 - Graphify for broad discovery when an existing graph is fresh;
 - `code-mapper-skill` for Python structure, impact, contracts, artifacts, catalogs, and lineage;
 - selective CodeQL enrichment already exposed by `code-mapper-skill`;
-- `repo-map-codex` only for explicit durable planning;
 - lightweight preflight, deterministic routing, evidence metadata, and tests.
 
 ### Benchmark-only candidate

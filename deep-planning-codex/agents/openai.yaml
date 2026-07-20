@@ -1,7 +1,7 @@
 interface:
-  display_name: "Codex Deep Planning Orchestrator"
-  short_description: "Adaptive deep planning protocol"
-  default_prompt: "Use $deep-planning-codex to plan this deeply before execution."
+  display_name: "Codex Deep Planning Orchestrator (Deprecated)"
+  short_description: "Deprecated; use native Codex Plan Mode"
+  default_prompt: "Do not invoke this deprecated skill. Use native Codex Plan Mode with focused verification or adversarial review when needed."
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false

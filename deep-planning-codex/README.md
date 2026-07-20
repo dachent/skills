@@ -1,5 +1,7 @@
 # Codex Deep Planning Orchestrator Skill
 
+> **Deprecated for GPT-5.6 Sol — do not install or invoke.** Use native Codex Plan Mode, with focused verification or adversarial review skills when needed. The remainder of this document is retained as historical implementation reference.
+
 `deep-planning-codex` is the master Codex skill for gated, evidence-backed planning before execution. It adapts a Claude-native deep planning prompt into a Codex workflow that can handle software with Git, software without Git, business artifacts, and mixed business-coding projects.
 
 Use it when a task needs more than a quick implementation plan: unfamiliar systems, failed prior attempts, high-risk changes, stakeholder-sensitive deliverables, or work that should stop at explicit proceed gates.

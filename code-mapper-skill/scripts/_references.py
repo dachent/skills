@@ -7,7 +7,7 @@ from typing import Any
 
 import jedi
 
-from _paths import JEDI_CACHE_DIR
+import _paths
 
 _DEF_RE_TEMPLATE = r"^\s*(?:async\s+def|def|class)\s+({name})\b"
 
@@ -27,8 +27,9 @@ def find_symbol_references(
     module_dotted: str,
     symbol_name: str,
 ) -> list[dict[str, Any]]:
-    JEDI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    jedi.settings.cache_directory = str(JEDI_CACHE_DIR)
+    cache_dir = Path(_paths.io_path(_paths.require_work_root() / "jedi"))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    jedi.settings.cache_directory = str(cache_dir)
     line, column = find_definition_position(file_path, symbol_name)
     project = jedi.Project(str(package_dir.parent))
     script = jedi.Script(path=str(file_path), project=project)
