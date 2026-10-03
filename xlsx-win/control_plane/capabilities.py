@@ -107,6 +107,42 @@ def _within(name: str, actual: int, bounds: dict, failures: list[dict]) -> None:
         failures.append({"limit": name, "actual": actual, "allowed": bounds})
 
 
+def _check_windows_build(profile: dict, env: dict, actual: object, failures: list[dict]) -> None:
+    """Admit ``windows_build`` against the profile's floor, or exact membership.
+
+    Mirrors :func:`_check_excel_build` (the WKFINOPS-435 pattern; the third
+    environment-drift floor after 435 excel and 461 dotnet). With
+    ``min_windows_build`` declared, the floor is the gate and
+    ``windows_builds`` is the proven set: a build at or above the floor but
+    outside the proven set proceeds with a WARN (named for the live composite
+    smoke that qualifies it) so drift is visible in the run evidence, and a
+    build below the floor fails closed. Without a floor, exact membership
+    remains the gate (backward compatible). Motivation: Windows feature-update
+    auto-updates move the host build (26200 -> 26300 on 2026-10-02) outside any
+    exact admission list and block EVERY xlsx-win job before Excel launches —
+    a per-update list edit is guaranteed toil (WKFINOPS-552).
+    """
+    min_build = env.get("min_windows_build")
+    if min_build is None:
+        if actual not in env["windows_builds"]:
+            failures.append({"check": "windows_build", "actual": actual, "allowed": env["windows_builds"]})
+        return
+    actual_tuple = _build_tuple(actual)
+    if actual_tuple is None or actual_tuple < _build_tuple(min_build):
+        failures.append(
+            {"check": "windows_build", "actual": actual, "allowed": {"min_windows_build": min_build}}
+        )
+        return
+    if actual not in env["windows_builds"]:
+        LOGGER.warning(
+            "uncertified newer build %s (profile %s proven set %s, min_windows_build %s) - the live smoke qualifies it",
+            actual,
+            profile["id"],
+            env["windows_builds"],
+            min_build,
+        )
+
+
 def _check_excel_build(profile: dict, env: dict, actual: object, failures: list[dict]) -> None:
     """Admit ``excel_build`` against the profile's floor, or exact membership.
 
@@ -187,6 +223,13 @@ def admit_manifest(
     names the *certified* set (evidence, not the gate) and an installed build
     above the floor but outside that set proceeds with a WARN log line. When
     no floor is declared, membership in ``excel_builds`` remains the gate.
+
+    ``windows_build`` admission mirrors it (WKFINOPS-552): when the profile
+    declares ``environment.min_windows_build``, a build below the floor fails
+    closed; at or above the floor it proceeds — silently inside
+    ``windows_builds`` (the *proven* set, evidence not the gate) and with a
+    WARN log line outside it (the live composite smoke qualifies it). When no
+    floor is declared, membership in ``windows_builds`` remains the gate.
     """
     validate_job(manifest)
     if manifest.get("schema_version") != COMPOSITE_SCHEMA_VERSION:
@@ -240,7 +283,6 @@ def admit_manifest(
     if environment is not None:
         env = profile["environment"]
         membership = {
-            "windows_build": "windows_builds",
             "locale": "locales",
             "date_system": "date_systems",
         }
@@ -249,6 +291,7 @@ def admit_manifest(
                 failures.append(
                     {"check": actual_name, "actual": environment.get(actual_name), "allowed": env[allowed_name]}
                 )
+        _check_windows_build(profile, env, environment.get("windows_build"), failures)
         _check_excel_build(profile, env, environment.get("excel_build"), failures)
         _check_dotnet_runtime(profile, env, environment.get("dotnet_runtime"), failures)
         for exact in ("office_bitness",):

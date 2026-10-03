@@ -6,9 +6,9 @@
   "candidate": "streaming_ooxml_native_excel_v1",
   "environment": {
     "windows_builds": [
-      "10.0.26200",
-      "10.0.26300"
+      "10.0.26200"
     ],
+    "min_windows_build": "10.0.26200",
     "excel_builds": [
       "16.0.20313.20000",
       "16.0.20326.20000",

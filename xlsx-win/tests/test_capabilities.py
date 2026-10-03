@@ -220,42 +220,86 @@ def test_beta_label_is_impossible_without_complete_evidence() -> None:
 
 
 # ---------------------------------------------------------------------------
-# WKFINOPS-232 (2026-10-02): Windows 26H2 (build 26300) admission — the
-# exact-membership windows_builds gate blocked EVERY xlsx-win job after the
-# host feature update (the third environment-drift instance: 435 excel, 461
-# dotnet, this). 26300 is admitted alongside 26200; unknown builds stay
-# fail-closed.
+# WKFINOPS-552 (2026-10-02): windows_build FLOOR semantics — the
+# exact-membership windows_builds gate becomes a floor (mirrors the 435 excel
+# / 461 dotnet floors; the third environment-drift instance). The
+# windows_builds list stays as the PROVEN-set record: 26200 is the only build
+# with a completed composite job (2026-09-30); the 2026-10-02 WKFINOPS-232
+# fiat list-admission of the then-new 26300 is superseded — a build at/above
+# the floor but outside the proven set WARNs and proceeds (the live smoke
+# qualifies it), below the floor it fails closed.
 # ---------------------------------------------------------------------------
 
 
-def test_windows_build_26300_admitted() -> None:
-    # pinned against the append profile (both profiles share the windows_builds fix)
-    admitted = admit_manifest(
-        _production_append(),
-        environment={
-            "windows_build": "10.0.26300",
-            "excel_build": "16.0.20527.20000",
-            "office_bitness": "x64",
-            "dotnet_runtime": "10.0.11",
-            "locale": "en-US",
-            "date_system": "1900",
-        },
+def _append_environment_windows(windows_build: str) -> dict:
+    env = _append_environment_dotnet("10.0.10")
+    env["windows_build"] = windows_build
+    return env
+
+
+def test_both_pivot_profiles_declare_the_windows_floor() -> None:
+    for profile in load_profiles().values():
+        env = profile["environment"]
+        assert env["min_windows_build"] == "10.0.26200"
+        # the proven-set record keeps the proven build; the floor is the gate
+        assert "10.0.26200" in env["windows_builds"]
+
+
+def test_windows_build_26300_admitted_with_warning(caplog: pytest.LogCaptureFixture) -> None:
+    # the current host build (the 2026-10-02 26200 -> 26300 feature update that
+    # tripped the exact-membership gate): at/above the floor, outside the proven
+    # set -> admitted WITH the warning, not silently.
+    with caplog.at_level("WARNING", logger="control_plane.capabilities"):
+        admitted = admit_manifest(_production_append(), environment=_append_environment_windows("10.0.26300"))
+    assert admitted["profile"]["id"] == "excel64_table_pivot_append_saved_sort_v1"
+    warnings = [record for record in caplog.records if record.levelname == "WARNING"]
+    assert any(
+        "uncertified newer build 10.0.26300" in record.getMessage()
+        and "the live smoke qualifies it" in record.getMessage()
+        for record in warnings
     )
-    assert admitted is not None
 
 
-def test_unknown_windows_build_still_fail_closed() -> None:
+def test_proven_windows_build_passes_silently(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING", logger="control_plane.capabilities"):
+        admitted = admit_manifest(_production_append(), environment=_append_environment_windows("10.0.26200"))
+    assert admitted["profile"]["id"] == "excel64_table_pivot_append_saved_sort_v1"
+    assert not [record for record in caplog.records if record.levelname == "WARNING"]
+
+
+def test_windows_build_below_floor_fails_closed() -> None:
     with pytest.raises(ContractError) as excinfo:
-        admit_manifest(
-            _production_append(),
-            environment={
-                "windows_build": "10.0.26999",
-                "excel_build": "16.0.20527.20000",
-                "office_bitness": "x64",
-                "dotnet_runtime": "10.0.11",
-                "locale": "en-US",
-                "date_system": "1900",
-            },
-        )
+        admit_manifest(_production_append(), environment=_append_environment_windows("10.0.26100"))
     assert excinfo.value.code == "CAPABILITY_PROFILE_INVALID"
-    assert excinfo.value.details["failures"][0]["check"] == "windows_build"
+    failure = excinfo.value.details["failures"][0]
+    assert failure["check"] == "windows_build"
+    assert failure["actual"] == "10.0.26100"
+    assert failure["allowed"] == {"min_windows_build": "10.0.26200"}
+
+
+def test_unknown_windows_build_above_floor_warns_and_proceeds(caplog: pytest.LogCaptureFixture) -> None:
+    # the WKFINOPS-232 test_unknown_windows_build_still_fail_closed semantics
+    # moved: a future unknown build (the next 26Hx feature update) is at or
+    # above the floor and proceeds with a WARN instead of blocking every job.
+    with caplog.at_level("WARNING", logger="control_plane.capabilities"):
+        admitted = admit_manifest(_production_append(), environment=_append_environment_windows("10.0.26999"))
+    assert admitted["profile"]["id"] == "excel64_table_pivot_append_saved_sort_v1"
+    warnings = [record for record in caplog.records if record.levelname == "WARNING"]
+    assert any("uncertified newer build 10.0.26999" in record.getMessage() for record in warnings)
+
+
+def test_legacy_profile_without_windows_floor_keeps_exact_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    profile = copy.deepcopy(load_profiles()["excel64_table_pivot_append_saved_sort_v1"])
+    del profile["environment"]["min_windows_build"]
+    monkeypatch.setattr(
+        "control_plane.capabilities.load_profiles",
+        lambda: {profile["id"]: profile},
+    )
+    # the proven build still passes.
+    admit_manifest(_production_append(), environment=_append_environment_windows("10.0.26200"))
+    # anything outside windows_builds -- even a newer build -- is rejected,
+    # exactly as before.
+    with pytest.raises(ContractError) as excinfo:
+        admit_manifest(_production_append(), environment=_append_environment_windows("10.0.26300"))
+    assert excinfo.value.code == "CAPABILITY_PROFILE_INVALID"
+    assert any(failure["check"] == "windows_build" for failure in excinfo.value.details["failures"])
