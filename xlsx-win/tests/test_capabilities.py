@@ -217,3 +217,45 @@ def test_beta_label_is_impossible_without_complete_evidence() -> None:
     with pytest.raises(ContractError) as excinfo:
         validate_profile(profile)
     assert excinfo.value.code == "CAPABILITY_PROFILE_INVALID"
+
+
+# ---------------------------------------------------------------------------
+# WKFINOPS-232 (2026-10-02): Windows 26H2 (build 26300) admission — the
+# exact-membership windows_builds gate blocked EVERY xlsx-win job after the
+# host feature update (the third environment-drift instance: 435 excel, 461
+# dotnet, this). 26300 is admitted alongside 26200; unknown builds stay
+# fail-closed.
+# ---------------------------------------------------------------------------
+
+
+def test_windows_build_26300_admitted() -> None:
+    # pinned against the append profile (both profiles share the windows_builds fix)
+    admitted = admit_manifest(
+        _production_append(),
+        environment={
+            "windows_build": "10.0.26300",
+            "excel_build": "16.0.20527.20000",
+            "office_bitness": "x64",
+            "dotnet_runtime": "10.0.11",
+            "locale": "en-US",
+            "date_system": "1900",
+        },
+    )
+    assert admitted is not None
+
+
+def test_unknown_windows_build_still_fail_closed() -> None:
+    with pytest.raises(ContractError) as excinfo:
+        admit_manifest(
+            _production_append(),
+            environment={
+                "windows_build": "10.0.26999",
+                "excel_build": "16.0.20527.20000",
+                "office_bitness": "x64",
+                "dotnet_runtime": "10.0.11",
+                "locale": "en-US",
+                "date_system": "1900",
+            },
+        )
+    assert excinfo.value.code == "CAPABILITY_PROFILE_INVALID"
+    assert excinfo.value.details["failures"][0]["check"] == "windows_build"
