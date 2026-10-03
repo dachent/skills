@@ -277,20 +277,26 @@ around it exactly as `run_corpus.py` does.
 
 `control_plane/capabilities.py` admits a composite (schema 2.1) job only if it
 fits an immutable profile from `capabilities/`. The environment checks are
-exact membership everywhere -- `windows_builds`, `office_bitness`,
-`dotnet_runtime`, `locales`, `date_systems` -- **except** `excel_build`, where
-a profile may declare `environment.min_excel_build`. With a floor present, the
-installed Excel build only has to compare greater than or equal to it
-(dotted-integer tuple comparison, e.g. `(16,0,20330,20000) >=
-(16,0,20313,20000)`); `excel_builds` then names the *certified* set, kept as
-evidence, and a build at/above the floor but outside that set proceeds with a
-WARN log line ("uncertified Excel build X; composite proof is the gate") so
-M365 auto-update drift is visible in the run logs instead of bricking
-production. Below the floor, admission fails closed with
-`CAPABILITY_PROFILE_INVALID`, exactly as before. Profiles without
-`min_excel_build` keep the old exact-membership gate unchanged. The runtime's
-real guarantee is the mandatory per-run composite proof (hash-bound
-invariants, fail-closed), which verifies output regardless of build.
+exact membership everywhere -- `office_bitness`, `locales`, `date_systems` --
+**except** the three auto-update drift axes, which may each declare an
+optional floor: `excel_build` (`min_excel_build`, the M365 update class),
+`dotnet_runtime` (`min_dotnet_runtime`, the .NET servicing class; the scalar
+names the certified value), and `windows_build` (`min_windows_build`, the
+Windows feature-update class: the 26200 -> 26300 host update on 2026-10-02
+tripped the exact-membership gate and blocked every xlsx-win job before Excel
+launched). With a floor present, the installed value only has to compare
+greater than or equal to it (dotted-integer tuple comparison, e.g.
+`(16,0,20330,20000) >= (16,0,20313,20000)`); the matching list
+(`excel_builds`, the *certified* set; `windows_builds`, the *proven* set) or
+the `dotnet_runtime` scalar is then kept as evidence, and a value at/above the
+floor but outside it proceeds with a WARN log line ("uncertified Excel build
+X; composite proof is the gate" / "uncertified newer build X - the live smoke
+qualifies it") so auto-update drift is visible in the run logs instead of
+bricking production. Below a floor, admission fails closed with
+`CAPABILITY_PROFILE_INVALID`, exactly as before. Profiles without a floor
+keep the old exact-membership gate unchanged. The runtime's real guarantee is
+the mandatory per-run composite proof (hash-bound invariants, fail-closed),
+which verifies output regardless of build.
 
 ## Running the tests
 
