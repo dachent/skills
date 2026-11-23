@@ -20,9 +20,9 @@
 
 ## Review Focus
 
-- A synchronous COM call blocks the STA thread: the timer must still emit; pin with the existing real hang integration test in Task 3.
+- A synchronous COM call blocks the STA thread: the timer must still emit; pin with the existing real hang integration test in Task 2.
 - Timer disposal races an in-flight callback: no write may occur after disposal; pin in Task 1.
-- A live but non-completing worker must still hit its absolute cap; pin in Task 3.
+- A live but non-completing worker must still hit its absolute cap; pin in Task 2.
 - Heartbeat failure must not be silently presented as healthy progress; pin the explicit failure path in Task 1.
 - Existing refresh heartbeats and event parsing must remain compatible; run the complete native unit suite in Task 3.
 
@@ -47,7 +47,7 @@ Create tests proving: a heartbeat with the current phase/message appears while a
 - [ ] **Step 2: Verify RED**
 
 Run: `dotnet test xlsx-win/supervisor/XlsxWinWorker.Tests/XlsxWinWorker.Tests.csproj --filter WorkerHeartbeatTests`
-Expected: FAIL because `WorkerHeartbeat`, synchronization, and `CurrentPhase` do not exist.
+Expected: FAIL because `WorkerHeartbeat`, synchronized writes, and atomic `EmitHeartbeat` do not exist.
 
 - [ ] **Step 3: Implement the minimal synchronized writer and timer**
 
@@ -77,7 +77,7 @@ In the existing opt-in timeout-kill test, require at least one worker heartbeat 
 
 - [ ] **Step 2: Verify RED**
 
-Run the test with `XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1`, only when its existing no-other-Excel gate passes. Expected: the new heartbeat assertion FAILs because `RunJob` has no heartbeat; do not weaken the pre-existing timeout assertion.
+Run `dotnet test xlsx-win/supervisor/XlsxWinSupervisor.IntegrationTests/XlsxWinSupervisor.IntegrationTests.csproj --filter FullyQualifiedName~TimeoutKillTests` with `XLSXWIN_RUN_EXCEL_INTEGRATION_TESTS=1`, only when its existing no-other-Excel gate passes. This executes both the pre-existing real-hang case and the new same-phase acceptance case. Expected: the new heartbeat assertion FAILs because `RunJob` has no heartbeat; do not weaken the pre-existing timeout assertion.
 
 - [ ] **Step 3: Wire one heartbeat into `RunJob`**
 
@@ -85,7 +85,7 @@ Immediately after the initial `STARTING_EXCEL` event, create one `WorkerHeartbea
 
 - [ ] **Step 4: Verify GREEN**
 
-Run the same integration test against the new build, then Task 1's tests. Expected: heartbeat observed, one absolute-cap timeout, cleanup green, and all heartbeat unit tests PASS.
+Run the same `FullyQualifiedName~TimeoutKillTests` class against the new build, requiring separate phase-cap and whole-job-cap outcomes, then Task 1's tests. Expected: heartbeat observed, each absolute-cap timeout and cleanup green, and all heartbeat unit tests PASS.
 
 - [ ] **Step 5: Commit**
 
