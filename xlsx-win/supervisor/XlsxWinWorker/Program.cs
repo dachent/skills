@@ -80,6 +80,7 @@ internal static class Program
         JobTimeouts timeouts)
     {
         events.Emit(new WorkerEvent { RunId = runId, Phase = "STARTING_EXCEL" });
+        using var heartbeat = new WorkerHeartbeat(events, runId);
 
         using var session = new ExcelSession();
         try

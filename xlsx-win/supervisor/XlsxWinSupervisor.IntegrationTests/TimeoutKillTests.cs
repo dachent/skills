@@ -16,8 +16,11 @@ public class TimeoutKillTests
         ExcelIntegrationGate.PreflightOrSkip();
     }
 
-    [SkippableFact]
-    public void Hanging_worker_is_force_terminated_within_bounded_time_and_leaves_no_excel_process()
+    [SkippableTheory]
+    [InlineData(20, 60, "phase 'STARTING_EXCEL' deadline 20s exceeded")]
+    [InlineData(60, 20, "whole-job deadline 20s exceeded")]
+    public void Hanging_worker_is_force_terminated_within_bounded_time_and_leaves_no_excel_process(
+        int phaseCapSeconds, int wholeJobSeconds, string expectedReason)
     {
         using var tempDir = new TestTempDir();
         var inputPath = tempDir.Combine("input.xlsx");
@@ -27,21 +30,20 @@ public class TimeoutKillTests
 
         FixtureWorkbookBuilder.CreateSimpleWorkbook(inputPath);
 
-        // deadlineSeconds must comfortably exceed realistic (non-hung) Excel
-        // COM-activation latency: the worker only reports its Excel PID (so
-        // the supervisor can assign it to the Job Object) *after* Excel
-        // finishes starting, and only *then* does the test-only hang begin.
-        // Too short a deadline risks firing before that PID is ever known --
-        // see README.md "Known limitation: startup-vs-hang deadline race".
-        const int deadlineSeconds = 20;
-        const int hangSeconds = 90; // comfortably longer than the deadline
+        // The phase cap must comfortably exceed realistic Excel COM activation:
+        // the test-only hang begins only after the exact Excel PID is contained.
+        // Inactivity is shorter than the hang but longer than the five-second
+        // heartbeat, so only worker activity can defer the inactivity watchdog.
+        const int hangSeconds = 90; // comfortably longer than either absolute cap
 
         var manifest = new JobManifest
         {
             IdempotencyKey = "timeout-kill-test",
             Timeouts = new JobTimeouts
             {
-                StartExcelSeconds = deadlineSeconds,
+                StartExcelSeconds = phaseCapSeconds,
+                WholeJobSeconds = wholeJobSeconds,
+                InactivitySeconds = 6,
                 OpenWorkbookSeconds = 30,
                 RefreshTotalSeconds = 30,
                 CalculationSeconds = 30,
@@ -74,6 +76,17 @@ public class TimeoutKillTests
             var resultDoc = ResultDocument.Parse(File.ReadAllText(resultPath));
             Assert.Equal("TIMED_OUT", resultDoc.FinalState);
             Assert.False(resultDoc.Ok);
+            var failure = Assert.Single(resultDoc.Steps, step => step.Status == "failed");
+            Assert.Equal("ABSOLUTE_DEADLINE_EXCEEDED", failure.Error?.Code);
+            Assert.Contains(expectedReason, failure.Message);
+
+            var events = File.ReadLines(eventsPath)
+                .Select(WorkerEvent.TryParse)
+                .Where(evt => evt is not null)
+                .Select(evt => evt!)
+                .ToList();
+            Assert.Contains(events, evt =>
+                evt.Phase == "STARTING_EXCEL" && evt.Message == "heartbeat: worker still running.");
         }
         finally
         {
