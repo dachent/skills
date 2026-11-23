@@ -36,13 +36,13 @@
 - Test: `xlsx-win/supervisor/XlsxWinWorker.Tests/WorkerHeartbeatTests.cs`
 
 **Interfaces:**
-- `EventWriter.Emit(WorkerEvent evt)` remains the single write path and becomes synchronized.
-- `EventWriter.CurrentPhase` returns the last emitted phase, initially `""`.
+- `EventWriter.Emit(WorkerEvent evt)` remains the ordinary write path and becomes synchronized.
+- `EventWriter.EmitHeartbeat(string runId)` selects the last emitted phase and writes the heartbeat under that same lock, so a stale phase cannot become a later transition.
 - `WorkerHeartbeat(EventWriter events, string runId, TimeSpan? interval = null)` starts the timer; `IDisposable` stops it before writer disposal.
 
 - [ ] **Step 1: Write failing heartbeat tests**
 
-Create tests proving: a heartbeat with the current phase/message appears while a `ManualResetEventSlim` blocks the calling thread; concurrent ordinary events and heartbeat events all parse; disposal stops later writes; a writer failure is surfaced to the heartbeat owner rather than silently marked as progress.
+Create tests proving: a heartbeat with the current phase/message appears while a `ManualResetEventSlim` blocks the calling thread; concurrent ordinary events and heartbeat events all parse; a forced phase-A/phase-B interleaving never emits a delayed phase-A heartbeat after phase B; disposal stops later writes; a writer failure is surfaced to the heartbeat owner rather than silently marked as progress.
 
 - [ ] **Step 2: Verify RED**
 
@@ -51,7 +51,7 @@ Expected: FAIL because `WorkerHeartbeat`, synchronization, and `CurrentPhase` do
 
 - [ ] **Step 3: Implement the minimal synchronized writer and timer**
 
-Lock `EventWriter.Emit`/phase update and make disposal mutually exclusive with writes. Implement `WorkerHeartbeat` with `System.Threading.Timer`, an injectable interval, and deterministic callback/disposal coordination. Do not add fields to `WorkerEvent`.
+Lock `EventWriter.Emit`/phase update and make disposal mutually exclusive with writes. Implement `EventWriter.EmitHeartbeat` so phase selection and heartbeat emission are one atomic operation. Implement `WorkerHeartbeat` with `System.Threading.Timer`, an injectable interval, and deterministic callback/disposal coordination. Do not add fields to `WorkerEvent`.
 
 - [ ] **Step 4: Verify GREEN**
 
@@ -68,12 +68,12 @@ Stage the three Task 1 files explicitly and commit `WKFINOPS-807 Add a thread-sa
 - Test: `xlsx-win/supervisor/XlsxWinSupervisor.IntegrationTests/TimeoutKillTests.cs`
 
 **Interfaces:**
-- Consumes Task 1's `WorkerHeartbeat(EventWriter, string, TimeSpan?)` and `EventWriter.CurrentPhase`.
+- Consumes Task 1's `WorkerHeartbeat(EventWriter, string, TimeSpan?)` and atomic `EventWriter.EmitHeartbeat(string)`.
 - Produces heartbeat events throughout `RunJob`, including composite preflight and the existing test-only synchronous hang.
 
 - [ ] **Step 1: Add failing real-hang assertions**
 
-In the existing opt-in timeout-kill test, require at least one worker heartbeat while the STA thread is blocked, then retain the existing `TIMED_OUT`/`ABSOLUTE_DEADLINE_EXCEEDED` result and process-cleanup assertions. The absolute cap must fire despite those heartbeats.
+In the existing opt-in timeout-kill test, require at least one worker heartbeat while the STA thread is blocked. Set inactivity below the observed hang window but above the heartbeat interval, then use explicit phase/whole-job budgets that independently identify the expected absolute kill. Assert `TIMED_OUT`, the failed supervisor step's exact `ABSOLUTE_DEADLINE_EXCEEDED` code, the expected absolute/phase reason, elapsed bound, and process cleanup. Add the same-phase supervisor acceptance case in `TimeoutKillTests.cs`, proving activity refreshes inactivity while phase-start and whole-job-start timestamps remain unchanged through the real supervisor event loop rather than duplicated deadline arithmetic.
 
 - [ ] **Step 2: Verify RED**
 
@@ -105,7 +105,7 @@ Run `dotnet test xlsx-win/supervisor/XlsxWinSupervisor.slnx` without the integra
 
 - [ ] **Step 2: Update the heartbeat documentation**
 
-Document worker-originated timer semantics, the five-second interval, inactivity versus absolute caps, and the explicit exclusion of rows/deadline-ratio telemetry. Remove any stale claim that heartbeat coverage exists only for refresh polling.
+Document worker-originated timer semantics, the five-second interval, inactivity versus absolute caps, and the explicit exclusion of rows/deadline-ratio telemetry. Replace both stale claims: that coverage exists only for refresh polling, and that same-phase heartbeat resets the supervisor's phase-deadline clock. Phase start and whole-job start remain unchanged by heartbeat.
 
 - [ ] **Step 3: Commit and record the runtime-promotion boundary**
 
