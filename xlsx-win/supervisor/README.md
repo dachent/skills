@@ -186,18 +186,22 @@ inventing a new `JobStates`/`state_machine.py` phase -- there is no
 conflicting with that shared state list) with a distinguishing
 `message: "heartbeat: still refreshing."` instead.
 
-One side effect worth calling out explicitly: `XlsxWinSupervisor`'s own
-`Program.cs` resets `lastTransitionUtc` on *every* event with a non-empty
-`Phase`, including a same-phase heartbeat (see `EventTailer`/`Program.cs`
-around `if (!string.IsNullOrEmpty(evt.Phase)) { currentPhase = evt.Phase;
-lastTransitionUtc = DateTime.UtcNow; }`). So a refresh that keeps emitting
-heartbeats also keeps the supervisor's own independent phase-deadline clock
-from firing early relative to the worker's own internal
-`refresh_total_seconds` deadline (`RunRefresh`'s own `deadline` variable,
-computed once and shared across all connections in one refresh step) --
-this is a deliberate, welcome side effect of reusing the phase field, not a
-bug: the two clocks now stay in lockstep instead of racing to expire at
-the same original timestamp.
+WKFINOPS-807 adds a second, general mechanism: `RunJob` owns a
+`WorkerHeartbeat` timer that emits `message: "heartbeat: worker still running."`
+every five seconds with the worker's current phase. This covers synchronous
+composite-preflight COM calls and other native work where the STA thread cannot
+emit cooperatively. `EventWriter` synchronizes ordinary and timer writes, and
+its atomic `EmitHeartbeat` operation selects and emits the current phase under
+the same lock, so a delayed heartbeat cannot resurrect a superseded phase.
+Timer disposal precedes writer disposal on every `RunJob` exit, and a timer
+write failure is exposed through `WorkerHeartbeat.Fault` rather than being
+reported as healthy progress.
+
+Every worker event refreshes the supervisor's inactivity clock. Heartbeat does
+not change the whole-job start, the current phase's start, or either absolute
+cap: a live but non-completing worker still times out. A same-phase heartbeat
+is activity only, not a phase transition. The worker's internal refresh
+deadline remains separate and unchanged as well.
 
 **Real-world caveat, confirmed by direct COM probing, not guessed:** this
 polling loop only gets a chance to run long enough to emit a heartbeat for
@@ -228,22 +232,18 @@ the issue: reuse the existing polling loop, no separate timer thread) can
 prove end-to-end with the connection types this codebase currently builds
 real fixtures for.
 
-**Acceptance-criteria scope, stated plainly:** no `events.jsonl` from any
-real, non-synthetic run in this repository currently shows a heartbeat
-event actually firing. The heartbeat mechanism (the interval check and the
-`Emit` call) is verified only against a synthetic fake `dynamic` connection
-object in `RefreshHeartbeatTests.cs`, with an artificially shortened
-interval and a connection double engineered to keep reporting
-`Refreshing = true`. It has not been observed to fire for any connection
-type this codebase's own certification fixtures exercise -- the one real
-connection type probed (`power_query_minimal`'s Power-Query/Mashup OLEDB
-connection) blocks synchronously in `Refresh()` for its entire duration and
-leaves no "still waiting" window for the loop to emit into. Treat the
-heartbeat as mechanically-correct-by-unit-test, not yet demonstrated on any
-real job this codebase can currently run end-to-end; closing that gap needs
-a connection/provider confirmed to keep `Refreshing = true` past 5 seconds
-after `Refresh()` returns (e.g. a provider that does not fully honor
-`BackgroundQuery = false`), which no corpus item here currently provides.
+**Acceptance evidence:** `WorkerHeartbeatTests.cs` proves timer emission while
+the calling thread is blocked, atomic phase selection under concurrent ordinary
+writes, clean parsing, disposal, and writer-fault visibility. The opt-in
+`TimeoutKillTests.cs` real-Excel cases additionally prove heartbeat emission
+during a genuinely blocked STA thread for both a phase-cap kill and a
+whole-job-cap kill, with exact `ABSOLUTE_DEADLINE_EXCEEDED` evidence and no
+surviving Excel process. The refresh-specific fake-connection tests remain
+separate evidence for the polling-loop message above. No weekly production run
+is claimed by these tests.
+
+WKFINOPS-833 separately owns `rows_done`, active-deadline context, and >80%
+consumption telemetry. None is asserted by either heartbeat message.
 
 ### Pre-touch staging (issue #72)
 
