@@ -44,8 +44,10 @@ public class WorkerHeartbeatTests
                 }
             }
 
+            var observedEvents = ReadEvents(path);
+            Assert.Contains(observedEvents, evt => evt.Message == "heartbeat: worker still running.");
             var latestOrdinaryPhase = "";
-            foreach (var evt in ReadEvents(path))
+            foreach (var evt in observedEvents)
             {
                 if (evt.Message == "heartbeat: worker still running.")
                 {
@@ -120,9 +122,17 @@ public class WorkerHeartbeatTests
         using var reader = new StreamReader(stream);
         return reader.ReadToEnd()
             .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(WorkerEvent.TryParse)
-            .Where(evt => evt is not null)
-            .Select(evt => evt!)
+            .Select(ParseEvent)
             .ToList();
+    }
+
+    private static WorkerEvent ParseEvent(string line)
+    {
+        var evt = WorkerEvent.TryParse(line, out var parseError);
+        if (evt is null)
+        {
+            throw new InvalidOperationException($"Malformed worker event: {parseError}");
+        }
+        return evt;
     }
 }

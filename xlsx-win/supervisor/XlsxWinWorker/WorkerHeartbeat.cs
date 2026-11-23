@@ -9,17 +9,30 @@ internal sealed class WorkerHeartbeat : IDisposable
     private readonly string _runId;
     private readonly Timer _timer;
     private readonly object _sync = new();
+    private readonly Func<Exception?>? _faultInjector;
+    private Exception? _fault;
     private bool _stopped;
 
-    public WorkerHeartbeat(EventWriter events, string runId, TimeSpan? interval = null)
+    public WorkerHeartbeat(EventWriter events, string runId, TimeSpan? interval = null,
+        Func<Exception?>? faultInjector = null)
     {
         _events = events;
         _runId = runId;
+        _faultInjector = faultInjector;
         var period = interval ?? TimeSpan.FromSeconds(5);
         _timer = new Timer(OnTick, null, period, period);
     }
 
-    public Exception? Fault { get; private set; }
+    public Exception? Fault
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _fault;
+            }
+        }
+    }
 
     private void OnTick(object? state)
     {
@@ -31,13 +44,18 @@ internal sealed class WorkerHeartbeat : IDisposable
             }
             try
             {
+                if (_faultInjector?.Invoke() is Exception injected)
+                {
+                    throw injected;
+                }
                 _events.EmitHeartbeat(_runId);
             }
             catch (Exception ex)
             {
-                Fault = ex;
+                _fault = ex;
                 _stopped = true;
                 _timer.Dispose();
+                Console.Error.WriteLine($"WORKER_HEARTBEAT_WRITE_FAILED: {ex.Message}");
             }
         }
     }

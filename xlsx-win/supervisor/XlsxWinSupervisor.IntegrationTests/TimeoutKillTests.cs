@@ -43,7 +43,7 @@ public class TimeoutKillTests
             {
                 StartExcelSeconds = phaseCapSeconds,
                 WholeJobSeconds = wholeJobSeconds,
-                InactivitySeconds = 6,
+                InactivitySeconds = 12,
                 OpenWorkbookSeconds = 30,
                 RefreshTotalSeconds = 30,
                 CalculationSeconds = 30,

@@ -217,8 +217,8 @@ seconds it took, with only ~0.07s of subsequent polling before
 `Refreshing` read back `false` -- i.e., `TrySetBackgroundQueryOff`'s
 `BackgroundQuery = false` request is fully honored by this provider, and
 the post-`Refresh()` loop simply never has meaningful time to run for it.
-**No heartbeat is visible in `events.jsonl` for that connection type in
-this environment, and that is the loop working correctly, not a defect --
+**No refresh-loop heartbeat (`heartbeat: still refreshing.`) is visible for
+that connection type in this environment, and that is the loop working correctly, not a defect --
 there is no "still waiting" period left to report once `Refresh()` has
 already returned with the work done.** The mechanism itself (the interval
 check and the `Emit` call) is proven correct and deterministic against a
@@ -227,10 +227,9 @@ exercises a connection that keeps reporting `Refreshing = true` past the
 configured interval (simulating a provider that does not fully honor
 synchronous mode) and asserts at least one heartbeat event is written, plus
 a companion test proving the immediate-completion case emits none. This is
-the honest scope of what this increment's heartbeat placement (dictated by
-the issue: reuse the existing polling loop, no separate timer thread) can
-prove end-to-end with the connection types this codebase currently builds
-real fixtures for.
+the honest scope of the original refresh-loop placement, which deliberately
+reused the existing polling loop without a timer. WKFINOPS-807's later
+`RunJob`-scoped timer is the separate general mechanism documented above.
 
 **Acceptance evidence:** `WorkerHeartbeatTests.cs` proves timer emission while
 the calling thread is blocked, atomic phase selection under concurrent ordinary
@@ -238,9 +237,11 @@ writes, clean parsing, disposal, and writer-fault visibility. The opt-in
 `TimeoutKillTests.cs` real-Excel cases additionally prove heartbeat emission
 during a genuinely blocked STA thread for both a phase-cap kill and a
 whole-job-cap kill, with exact `ABSOLUTE_DEADLINE_EXCEEDED` evidence and no
-surviving Excel process. The refresh-specific fake-connection tests remain
-separate evidence for the polling-loop message above. No weekly production run
-is claimed by these tests.
+surviving Excel process. `HeartbeatFaultTests.cs` proves a heartbeat write fault
+reaches a named `WORKER_HEARTBEAT_WRITE_FAILED` failed result and nonzero exit,
+rather than depending on the already-failing event stream. The refresh-specific
+fake-connection tests remain separate evidence for the polling-loop message
+above. No weekly production run is claimed by these tests.
 
 WKFINOPS-833 separately owns `rows_done`, active-deadline context, and >80%
 consumption telemetry. None is asserted by either heartbeat message.
