@@ -22,6 +22,11 @@ internal static class Program
     // has no way to set this.
     private const string SimulateCrashEnvVar = "XLSXWIN_TEST_SIMULATE_CRASH_AFTER_STEP";
 
+    // Test-only heartbeat fault injection proves the owner receives a named failed
+    // result even when the event writer is already unavailable. No manifest field
+    // can enable it; production jobs never set this environment variable.
+    private const string SimulateHeartbeatFaultEnvVar = "XLSXWIN_TEST_SIMULATE_HEARTBEAT_FAULT";
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -80,6 +85,10 @@ internal static class Program
         JobTimeouts timeouts)
     {
         events.Emit(new WorkerEvent { RunId = runId, Phase = "STARTING_EXCEL" });
+        using var heartbeat = new WorkerHeartbeat(events, runId,
+            faultInjector: Environment.GetEnvironmentVariable(SimulateHeartbeatFaultEnvVar) == "1"
+                ? () => new InvalidOperationException("Simulated heartbeat write fault (test-only).")
+                : null);
 
         using var session = new ExcelSession();
         try
@@ -176,6 +185,22 @@ internal static class Program
         {
             finalState = "FAILED";
             events.Emit(new WorkerEvent { RunId = runId, Phase = finalState, Message = leaseEvidence });
+        }
+        if (heartbeat.Fault is Exception heartbeatFault)
+        {
+            finalState = "FAILED";
+            stepResults.Add(new StepResult
+            {
+                StepIndex = manifest.Steps.Count,
+                Type = "worker_heartbeat",
+                Status = "failed",
+                Message = "The worker heartbeat could not be written.",
+                Error = new ErrorDetail
+                {
+                    Code = "WORKER_HEARTBEAT_WRITE_FAILED",
+                    Message = heartbeatFault.Message,
+                },
+            });
         }
         var result = ResultDocument.Build(runId, manifest.IdempotencyKey, finalState, stepResults, invariants);
         File.WriteAllText(parsedArgs.ResultPath, result.ToJson());

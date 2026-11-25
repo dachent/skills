@@ -64,6 +64,8 @@ public sealed class WorkerEvent
 public sealed class EventWriter : IDisposable
 {
     private readonly StreamWriter _writer;
+    private readonly object _sync = new();
+    private string _currentPhase = "";
 
     public EventWriter(string path)
     {
@@ -81,8 +83,34 @@ public sealed class EventWriter : IDisposable
 
     public void Emit(WorkerEvent evt)
     {
-        _writer.WriteLine(evt.ToJsonLine());
+        lock (_sync)
+        {
+            _writer.WriteLine(evt.ToJsonLine());
+            if (!string.IsNullOrEmpty(evt.Phase))
+            {
+                _currentPhase = evt.Phase;
+            }
+        }
     }
 
-    public void Dispose() => _writer.Dispose();
+    public void EmitHeartbeat(string runId)
+    {
+        lock (_sync)
+        {
+            _writer.WriteLine(new WorkerEvent
+            {
+                RunId = runId,
+                Phase = _currentPhase,
+                Message = "heartbeat: worker still running.",
+            }.ToJsonLine());
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_sync)
+        {
+            _writer.Dispose();
+        }
+    }
 }
