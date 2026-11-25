@@ -317,3 +317,19 @@ def test_coordinator_append_runs_streaming_native_verifier_and_publication(tmp_p
         "telemetry.jsonl",
         "worker-events.jsonl",
     } <= set(evidence_index["files"])
+
+    worker_events = [json.loads(line) for line in (evidence_dir / "worker-events.jsonl").read_text(encoding="utf-8").splitlines()]
+    python_progress = [event for event in worker_events if event["run_id"].startswith("composite-python-")]
+    assert [(event["rows_done"], event["rows_total"]) for event in python_progress] == [(0, 1), (1, 1)]
+    native_milestone = next(event for event in worker_events if event.get("message") == "Native preflight ListRows.Count milestone.")
+    assert (native_milestone["rows_done"], native_milestone["rows_total"]) == (3, 3)
+
+    telemetry = [json.loads(line) for line in (evidence_dir / "telemetry.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert telemetry
+    for sample in telemetry:
+        deadline = sample["active_deadline"]
+        assert deadline["phase"] == sample["phase"]
+        assert deadline["kind"] in {"whole_job", "inactivity", "phase"}
+        assert deadline["limit_seconds"] > 0
+        assert deadline["elapsed_seconds"] >= 0
+        assert deadline["warning"] == (deadline["consumed_ratio"] > 0.8)

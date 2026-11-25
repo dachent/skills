@@ -72,4 +72,82 @@ public class DeadlineTrackerTests
 
         Assert.False(tracker.IsBreached("STARTING_EXCEL", start, start.AddSeconds(30)));
     }
+
+    [Theory]
+    [InlineData(23.9, false)]
+    [InlineData(24.0, false)]
+    [InlineData(24.1, true)]
+    public void Active_phase_deadline_warns_only_above_eighty_percent(double elapsedSeconds, bool expectedWarning)
+    {
+        var tracker = new DeadlineTracker(Timeouts);
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = start.AddSeconds(elapsedSeconds);
+
+        var snapshot = tracker.Snapshot("STARTING_EXCEL", start, start, now, now);
+
+        Assert.Equal("STARTING_EXCEL", snapshot.Phase);
+        Assert.Equal("phase", snapshot.Kind);
+        Assert.Equal(30, snapshot.LimitSeconds);
+        Assert.Equal(elapsedSeconds, snapshot.ElapsedSeconds, 6);
+        Assert.Equal(elapsedSeconds / 30, snapshot.ConsumedRatio, 6);
+        Assert.Equal(expectedWarning, snapshot.Warning);
+    }
+
+    [Fact]
+    public void Active_deadline_uses_the_default_limit_for_an_unknown_phase()
+    {
+        var tracker = new DeadlineTracker(Timeouts, defaultPhaseDeadlineSeconds: 100);
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = start.AddSeconds(80);
+
+        var atThreshold = tracker.Snapshot("UNKNOWN_PHASE", start, start, now, now);
+        var aboveThreshold = tracker.Snapshot("UNKNOWN_PHASE", start, start, now, now.AddTicks(1));
+
+        Assert.Equal("phase", atThreshold.Kind);
+        Assert.Equal(100, atThreshold.LimitSeconds);
+        Assert.False(atThreshold.Warning);
+        Assert.True(aboveThreshold.Warning);
+    }
+
+    [Fact]
+    public void Active_deadline_selects_the_most_imminent_clock()
+    {
+        var timeouts = new JobTimeouts
+        {
+            WholeJobSeconds = 100,
+            InactivitySeconds = 100,
+            StartExcelSeconds = 100,
+        };
+        var tracker = new DeadlineTracker(timeouts);
+        var now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var wholeJob = tracker.Snapshot("STARTING_EXCEL", now.AddSeconds(-90), now.AddSeconds(-10), now, now);
+        var inactivity = tracker.Snapshot("STARTING_EXCEL", now.AddSeconds(-10), now.AddSeconds(-10), now.AddSeconds(-90), now);
+        var phase = tracker.Snapshot("STARTING_EXCEL", now.AddSeconds(-10), now.AddSeconds(-90), now, now);
+
+        Assert.Equal("whole_job", wholeJob.Kind);
+        Assert.Equal(90, wholeJob.ElapsedSeconds);
+        Assert.Equal("inactivity", inactivity.Kind);
+        Assert.Equal(90, inactivity.ElapsedSeconds);
+        Assert.Equal("phase", phase.Kind);
+        Assert.Equal(90, phase.ElapsedSeconds);
+    }
+
+    [Fact]
+    public void Active_deadline_ties_follow_existing_breach_precedence()
+    {
+        var timeouts = new JobTimeouts
+        {
+            WholeJobSeconds = 100,
+            InactivitySeconds = 100,
+            StartExcelSeconds = 100,
+        };
+        var tracker = new DeadlineTracker(timeouts);
+        var start = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = start.AddSeconds(90);
+
+        var snapshot = tracker.Snapshot("STARTING_EXCEL", start, start, start, now);
+
+        Assert.Equal("whole_job", snapshot.Kind);
+    }
 }

@@ -98,8 +98,9 @@ out of scope for this issue (see "Explicitly deferred" below).
 - **events.jsonl**: one JSON object per line, appended by the worker as it
   moves through phases, using the exact state names from
   `control_plane/state_machine.py` (ported to C# in `JobStates`). Truncated
-  to empty by the supervisor before each run. Shape: `{run_id, timestamp,
-  phase, message?, excel_pid?}`. The supervisor tails this file to (a) track
+  to empty by the supervisor before each run, except for the composite
+  pre-native handoff described below. Shape: `{run_id, timestamp, phase,
+  message?, excel_pid?, rows_done?, rows_total?}`. The supervisor tails this file to (a) track
   which phase's deadline currently applies, and (b) learn the Excel process's
   own PID as soon as the worker captures it, so it can assign that PID to the
   Job Object too.
@@ -243,8 +244,40 @@ rather than depending on the already-failing event stream. The refresh-specific
 fake-connection tests remain separate evidence for the polling-loop message
 above. No weekly production run is claimed by these tests.
 
-WKFINOPS-833 separately owns `rows_done`, active-deadline context, and >80%
-consumption telemetry. None is asserted by either heartbeat message.
+### Row and active-deadline telemetry (WKFINOPS-833)
+
+`WorkerEvent` adds optional integer `rows_done` and `rows_total` fields. Null
+fields are omitted, and older event lines without either field still parse with
+null counts. `EventWriter.EmitHeartbeat` repeats only the last counts actually
+observed on an ordinary event; it never increments or estimates them. A later
+phase change without counts does not erase the last observation.
+
+Composite schema-2.1 jobs have two sequential producers for `events.jsonl`:
+
+1. The Python OOXML rewrite reports actual source rows successfully written by
+   `_rewrite_sheet`, using the declared source `row_count` as `rows_total`. Its
+   `WorkerEventSink` emits row 0, row 1, every 1000 rows, and the final row in
+   `APPLYING_EDITS`; it does not infer counts from time. The sink closes before
+   the supervisor starts.
+2. `composite_runtime` then launches with `XLSXWIN_APPEND_EVENTS=1`. The
+   supervisor preserves that fresh stream and the native worker opens it in
+   append mode. There is never a concurrent second writer. Native preflight
+   emits the actual `ListRows.Count` value as a `COMPOSITE_PREFLIGHT` milestone
+   with the final Table body-row count as `rows_total`. This is one native
+   milestone, not continuous Excel row processing.
+
+The supervisor alone writes `<events.jsonl>.telemetry.jsonl`. Every sample now
+contains `active_deadline: {phase, kind, limit_seconds, elapsed_seconds,
+consumed_ratio, warning}`. `kind` is `whole_job`, `inactivity`, or `phase`. The
+active clock is the one with the least remaining time; ties use the existing
+breach-check order: whole job, inactivity, then phase. `warning` is true only
+when `consumed_ratio > 0.8` (exactly 80% is not a warning). A
+`deadline_exceeded` sample is written before the Job-Object kill. Deadline
+breaches retain their existing strict `elapsed > limit` semantics and existing
+whole-job/inactivity/phase check order.
+
+These are synthetic/small-fixture capabilities only until a separately approved
+production observation; no 463K-row production run is claimed here.
 
 ### Pre-touch staging (issue #72)
 

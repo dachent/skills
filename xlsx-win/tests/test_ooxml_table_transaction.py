@@ -68,7 +68,16 @@ def test_streaming_rewrite_changes_only_target_sheet_and_emits_no_formula(tmp_pa
     _package(workbook)
     operation, schema = _sidecar(tmp_path)
     preflight = preflight_package(workbook, operation, schema)
-    manifest = rewrite_intermediate_package(workbook, output, operation, schema, preflight)
+    progress = []
+    manifest = rewrite_intermediate_package(
+        workbook,
+        output,
+        operation,
+        schema,
+        preflight,
+        row_progress=lambda done, total: progress.append((done, total)),
+    )
+    assert progress == [(1, 2), (2, 2)]
     assert manifest["changed_parts"] == ["xl/tables/table1.xml", "xl/worksheets/sheet1.xml"]
     with zipfile.ZipFile(output) as package:
         sheet = etree.fromstring(package.read("xl/worksheets/sheet1.xml"))

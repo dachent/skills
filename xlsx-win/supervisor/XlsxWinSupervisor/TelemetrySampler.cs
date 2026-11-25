@@ -14,7 +14,7 @@ internal sealed class TelemetrySampler : IDisposable
         _writer = new StreamWriter(new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read)) { AutoFlush = true };
     }
 
-    public void Sample(string phase, int workerPid, int? excelPid, string reason)
+    public void Sample(string phase, int workerPid, int? excelPid, string reason, DeadlineSnapshot activeDeadline)
     {
         var performance = new PerformanceInformation { Size = Marshal.SizeOf<PerformanceInformation>() };
         if (!GetPerformanceInfo(ref performance, performance.Size))
@@ -26,6 +26,15 @@ internal sealed class TelemetrySampler : IDisposable
             timestamp = DateTimeOffset.UtcNow,
             phase,
             reason,
+            active_deadline = new
+            {
+                phase = activeDeadline.Phase,
+                kind = activeDeadline.Kind,
+                limit_seconds = activeDeadline.LimitSeconds,
+                elapsed_seconds = activeDeadline.ElapsedSeconds,
+                consumed_ratio = activeDeadline.ConsumedRatio,
+                warning = activeDeadline.Warning,
+            },
             system_commit_total_bytes = unchecked((long)performance.CommitTotal) * pageSize,
             system_commit_limit_bytes = unchecked((long)performance.CommitLimit) * pageSize,
             worker = ProcessSample(workerPid),

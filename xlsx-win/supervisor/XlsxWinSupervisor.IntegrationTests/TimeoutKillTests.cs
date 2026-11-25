@@ -1,3 +1,4 @@
+using System.Text.Json;
 using XlsxWinContracts;
 using Xunit;
 
@@ -87,6 +88,17 @@ public class TimeoutKillTests
                 .ToList();
             Assert.Contains(events, evt =>
                 evt.Phase == "STARTING_EXCEL" && evt.Message == "heartbeat: worker still running.");
+
+            var telemetry = File.ReadLines(eventsPath + ".telemetry.jsonl")
+                .Select(line => JsonDocument.Parse(line).RootElement.Clone())
+                .ToList();
+            var expectedKind = wholeJobSeconds < phaseCapSeconds ? "whole_job" : "phase";
+            var warningIndex = telemetry.FindIndex(sample =>
+                sample.GetProperty("active_deadline").GetProperty("kind").GetString() == expectedKind
+                && sample.GetProperty("active_deadline").GetProperty("warning").GetBoolean());
+            var breachIndex = telemetry.FindIndex(sample => sample.GetProperty("reason").GetString() == "deadline_exceeded");
+            Assert.True(warningIndex >= 0, $"No >80% {expectedKind} warning was emitted: {File.ReadAllText(eventsPath + ".telemetry.jsonl")}");
+            Assert.True(breachIndex > warningIndex, "The deadline warning must precede the supervisor's kill sample.");
         }
         finally
         {

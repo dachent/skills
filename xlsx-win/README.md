@@ -232,6 +232,16 @@ elsewhere (a temp directory, a per-run subdirectory, etc.) -- useful for
 running the same manifest repeatedly without each run's events/result
 overwriting the last one's in place.
 
+For composite schema-2.1 jobs, `events.jsonl` also carries actual pre-native
+OOXML row milestones (`rows_done`/`rows_total`) before the native worker appends
+its own events. Python reports rows only after they are written (row 0, row 1,
+every 1000 rows, and the final row), then closes the file before launch. Native
+`ListRows.Count` is a single preflight milestone, not continuous Excel row
+progress. The supervisor's separate `<events.jsonl>.telemetry.jsonl` contains
+`active_deadline` (`phase`, `kind`, `limit_seconds`, `elapsed_seconds`,
+`consumed_ratio`, and strict `>0.8` `warning`) on every sample. See
+`supervisor/README.md` for producer ordering and deadline precedence.
+
 ### Locating the built executables (`control_plane/supervisor_runner.py`)
 
 `supervisor_runner.find_built_exe(project_name)` resolves each executable in
