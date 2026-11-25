@@ -272,7 +272,9 @@ consumed_ratio, warning}`. `kind` is `whole_job`, `inactivity`, or `phase`. The
 active clock is the one with the least remaining time; ties use the existing
 breach-check order: whole job, inactivity, then phase. `warning` is true only
 when `consumed_ratio > 0.8` (exactly 80% is not a warning). A
-`deadline_exceeded` sample is written before the Job-Object kill. Deadline
+`deadline_exceeded` sample is attempted before the Job-Object kill. Sampling is
+best-effort at this point only: a failure logs a fixed non-sensitive warning and
+cannot bypass the established timeout result or verified cleanup. Deadline
 breaches retain their existing strict `elapsed > limit` semantics and existing
 whole-job/inactivity/phase check order.
 

@@ -21,7 +21,18 @@ public class TimeoutKillTests
     [InlineData(20, 60, "phase 'STARTING_EXCEL' deadline 20s exceeded")]
     [InlineData(60, 20, "whole-job deadline 20s exceeded")]
     public void Hanging_worker_is_force_terminated_within_bounded_time_and_leaves_no_excel_process(
-        int phaseCapSeconds, int wholeJobSeconds, string expectedReason)
+        int phaseCapSeconds, int wholeJobSeconds, string expectedReason) =>
+        RunHangingWorker(phaseCapSeconds, wholeJobSeconds, expectedReason, simulateDeadlineTelemetryFault: false);
+
+    [SkippableFact]
+    public void Deadline_telemetry_fault_still_returns_timeout_and_cleans_up_owned_processes() =>
+        RunHangingWorker(20, 60, "phase 'STARTING_EXCEL' deadline 20s exceeded", simulateDeadlineTelemetryFault: true);
+
+    private static void RunHangingWorker(
+        int phaseCapSeconds,
+        int wholeJobSeconds,
+        string expectedReason,
+        bool simulateDeadlineTelemetryFault)
     {
         using var tempDir = new TestTempDir();
         var inputPath = tempDir.Combine("input.xlsx");
@@ -59,6 +70,10 @@ public class TimeoutKillTests
         {
             ["XLSXWIN_TEST_SIMULATE_HANG_SECONDS"] = hangSeconds.ToString(),
         };
+        if (simulateDeadlineTelemetryFault)
+        {
+            extraEnv[TelemetrySampler.SimulateDeadlineExceededFaultEnvironmentVariable] = "1";
+        }
 
         // Hard test-level ceiling: must be well under hangSeconds, proving
         // the supervisor -- not the worker eventually waking up -- is what
@@ -80,6 +95,8 @@ public class TimeoutKillTests
             var failure = Assert.Single(resultDoc.Steps, step => step.Status == "failed");
             Assert.Equal("ABSOLUTE_DEADLINE_EXCEEDED", failure.Error?.Code);
             Assert.Contains(expectedReason, failure.Message);
+            Assert.Contains(resultDoc.Invariants, invariant =>
+                invariant.Name == "supervisor_owned_process_cleanup" && invariant.Passed);
 
             var events = File.ReadLines(eventsPath)
                 .Select(WorkerEvent.TryParse)
@@ -96,9 +113,19 @@ public class TimeoutKillTests
             var warningIndex = telemetry.FindIndex(sample =>
                 sample.GetProperty("active_deadline").GetProperty("kind").GetString() == expectedKind
                 && sample.GetProperty("active_deadline").GetProperty("warning").GetBoolean());
-            var breachIndex = telemetry.FindIndex(sample => sample.GetProperty("reason").GetString() == "deadline_exceeded");
             Assert.True(warningIndex >= 0, $"No >80% {expectedKind} warning was emitted: {File.ReadAllText(eventsPath + ".telemetry.jsonl")}");
-            Assert.True(breachIndex > warningIndex, "The deadline warning must precede the supervisor's kill sample.");
+            var breachIndex = telemetry.FindIndex(sample => sample.GetProperty("reason").GetString() == "deadline_exceeded");
+            if (simulateDeadlineTelemetryFault)
+            {
+                Assert.Equal(-1, breachIndex);
+                Assert.Contains(
+                    "Warning: deadline_exceeded telemetry sample failed; continuing with timeout cleanup.",
+                    runResult.Stderr);
+            }
+            else
+            {
+                Assert.True(breachIndex > warningIndex, "The deadline warning must precede the supervisor's kill sample.");
+            }
         }
         finally
         {

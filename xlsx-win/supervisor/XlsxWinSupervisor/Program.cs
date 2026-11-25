@@ -28,7 +28,7 @@ internal static class Program
         var tracker = new DeadlineTracker(timeouts);
         EnsureParentDirectory(parsedArgs.EventsPath);
         EnsureParentDirectory(parsedArgs.ResultPath);
-        if (Environment.GetEnvironmentVariable(EventWriter.AppendEventsEnvironmentVariable) != "1")
+        if (!ShouldPreserveExistingEvents(Environment.GetEnvironmentVariable(EventWriter.AppendEventsEnvironmentVariable)))
         {
             File.WriteAllText(parsedArgs.EventsPath, string.Empty);
         }
@@ -100,8 +100,16 @@ internal static class Program
                 breachReason = $"phase '{currentPhase}' deadline {tracker.DeadlineSecondsFor(currentPhase)}s exceeded";
             if (breachReason is not null)
             {
-                telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "deadline_exceeded",
-                    tracker.Snapshot(currentPhase, startedUtc, phaseStartedUtc, lastActivityUtc, now));
+                try
+                {
+                    telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "deadline_exceeded",
+                        tracker.Snapshot(currentPhase, startedUtc, phaseStartedUtc, lastActivityUtc, now));
+                }
+                catch (Exception)
+                {
+                    Console.Error.WriteLine(
+                        "Warning: deadline_exceeded telemetry sample failed; continuing with timeout cleanup.");
+                }
                 break;
             }
             Thread.Sleep(PollIntervalMs);
@@ -337,6 +345,8 @@ internal static class Program
             Details = new Dictionary<string, object?> { ["cleanup_verified"] = cleanup },
         },
     };
+
+    internal static bool ShouldPreserveExistingEvents(string? appendEvents) => appendEvents == "1";
 
     private static void EnsureParentDirectory(string path)
     {

@@ -6,6 +6,8 @@ namespace XlsxWinSupervisor;
 
 internal sealed class TelemetrySampler : IDisposable
 {
+    internal const string SimulateDeadlineExceededFaultEnvironmentVariable = "XLSXWIN_TEST_SIMULATE_DEADLINE_TELEMETRY_FAULT";
+
     private readonly StreamWriter _writer;
 
     public TelemetrySampler(string eventsPath)
@@ -16,6 +18,12 @@ internal sealed class TelemetrySampler : IDisposable
 
     public void Sample(string phase, int workerPid, int? excelPid, string reason, DeadlineSnapshot activeDeadline)
     {
+        if (reason == "deadline_exceeded"
+            && Environment.GetEnvironmentVariable(SimulateDeadlineExceededFaultEnvironmentVariable) == "1")
+        {
+            throw new InvalidOperationException("Simulated deadline telemetry fault (test-only).");
+        }
+
         var performance = new PerformanceInformation { Size = Marshal.SizeOf<PerformanceInformation>() };
         if (!GetPerformanceInfo(ref performance, performance.Size))
             throw new InvalidOperationException("GetPerformanceInfo failed.");
