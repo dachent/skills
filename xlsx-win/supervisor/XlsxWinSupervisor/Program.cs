@@ -28,7 +28,10 @@ internal static class Program
         var tracker = new DeadlineTracker(timeouts);
         EnsureParentDirectory(parsedArgs.EventsPath);
         EnsureParentDirectory(parsedArgs.ResultPath);
-        File.WriteAllText(parsedArgs.EventsPath, string.Empty);
+        if (!ShouldPreserveExistingEvents(Environment.GetEnvironmentVariable(EventWriter.AppendEventsEnvironmentVariable)))
+        {
+            File.WriteAllText(parsedArgs.EventsPath, string.Empty);
+        }
         File.WriteAllText(parsedArgs.ResultPath, string.Empty);
 
         string workerExePath;
@@ -64,7 +67,8 @@ internal static class Program
 
         using var tailer = new EventTailer(parsedArgs.EventsPath);
         using var telemetry = new TelemetrySampler(parsedArgs.EventsPath);
-        telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "containment_acknowledged");
+        telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "containment_acknowledged",
+            tracker.Snapshot(currentPhase, startedUtc, phaseStartedUtc, lastActivityUtc, startedUtc));
 
         while (!worker.HasExited)
         {
@@ -75,7 +79,8 @@ internal static class Program
                 {
                     currentPhase = evt.Phase;
                     phaseStartedUtc = lastActivityUtc;
-                    telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "phase_boundary");
+                    telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "phase_boundary",
+                        tracker.Snapshot(currentPhase, startedUtc, phaseStartedUtc, lastActivityUtc, lastActivityUtc));
                 }
             }
 
@@ -83,7 +88,8 @@ internal static class Program
             var now = DateTime.UtcNow;
             if ((now - lastSampleUtc).TotalSeconds >= 1)
             {
-                telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "periodic");
+                telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "periodic",
+                    tracker.Snapshot(currentPhase, startedUtc, phaseStartedUtc, lastActivityUtc, now));
                 lastSampleUtc = now;
             }
             if ((now - startedUtc).TotalSeconds > timeouts.WholeJobSeconds)
@@ -92,7 +98,20 @@ internal static class Program
                 breachReason = $"inactivity watchdog {timeouts.InactivitySeconds}s exceeded";
             else if (tracker.IsBreached(currentPhase, phaseStartedUtc, now))
                 breachReason = $"phase '{currentPhase}' deadline {tracker.DeadlineSecondsFor(currentPhase)}s exceeded";
-            if (breachReason is not null) break;
+            if (breachReason is not null)
+            {
+                try
+                {
+                    telemetry.Sample(currentPhase, worker.Id, identity.ExcelPid, "deadline_exceeded",
+                        tracker.Snapshot(currentPhase, startedUtc, phaseStartedUtc, lastActivityUtc, now));
+                }
+                catch (Exception)
+                {
+                    Console.Error.WriteLine(
+                        "Warning: deadline_exceeded telemetry sample failed; continuing with timeout cleanup.");
+                }
+                break;
+            }
             Thread.Sleep(PollIntervalMs);
         }
 
@@ -326,6 +345,8 @@ internal static class Program
             Details = new Dictionary<string, object?> { ["cleanup_verified"] = cleanup },
         },
     };
+
+    internal static bool ShouldPreserveExistingEvents(string? appendEvents) => appendEvents == "1";
 
     private static void EnsureParentDirectory(string path)
     {

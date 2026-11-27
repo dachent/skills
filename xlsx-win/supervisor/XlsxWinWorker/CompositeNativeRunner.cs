@@ -174,6 +174,17 @@ internal sealed class CompositeNativeRunner
 
             listRows = Gateway.Acquire("VALIDATING", "ListObject.ListRows", () => table.ListRows);
             var rowCount = Gateway.Invoke("VALIDATING", "ListRows.Count", () => (int)listRows.Count);
+            if (captureFormulas)
+            {
+                _events.Emit(new WorkerEvent
+                {
+                    RunId = _runId,
+                    Phase = "COMPOSITE_PREFLIGHT",
+                    Message = "Native preflight ListRows.Count milestone.",
+                    RowsDone = rowCount,
+                    RowsTotal = step.Table.FinalBodyRows,
+                });
+            }
             var expectedRows = requireExistingRows ? step.Table.ExistingBodyRows : step.Table.FinalBodyRows;
             if (rowCount != expectedRows)
                 throw new InvalidOperationException($"Native Table row count {rowCount} != expected {expectedRows}.");

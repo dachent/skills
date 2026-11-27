@@ -31,6 +31,7 @@ from .schemas import validate_result
 from .staging import stage_copy
 from .supervisor_runner import SupervisorLaunchError, run_supervisor
 from .table_sidecar import inspect_sidecar, load_sidecar_schema, verify_source_binding
+from .worker_event_sink import WorkerEventSink
 
 
 def _canonical_json(value: object) -> bytes:
@@ -248,7 +249,16 @@ def run_composite_job(
         intermediate = staging_dir / "intermediate.xlsx"
         native_output = staging_dir / "native-output.xlsx"
         original_preflight = preflight_package(staged_seed, operation, sidecar_schema)
-        package_manifest = rewrite_intermediate_package(staged_seed, intermediate, operation, sidecar_schema, original_preflight)
+        with WorkerEventSink(events_path, run_id=f"composite-python-{uuid.uuid4().hex}") as event_sink:
+            event_sink.start(operation["source"]["row_count"])
+            package_manifest = rewrite_intermediate_package(
+                staged_seed,
+                intermediate,
+                operation,
+                sidecar_schema,
+                original_preflight,
+                row_progress=event_sink.row_written,
+            )
         package_manifest_hash = _write_json(evidence_dir / "intermediate-package-manifest.json", package_manifest)
 
         plan = {
@@ -274,7 +284,13 @@ def run_composite_job(
         hard_timeout = max(float(requested_hard_timeout_seconds), float(derived_timeout))
         native_result_path = staging_dir / "native-result.json"
         try:
-            launch = run_supervisor(native_manifest_path, events_path, native_result_path, hard_timeout)
+            launch = run_supervisor(
+                native_manifest_path,
+                events_path,
+                native_result_path,
+                hard_timeout,
+                extra_env={"XLSXWIN_APPEND_EVENTS": "1"},
+            )
         except (FileNotFoundError, SupervisorLaunchError) as exc:
             raise ContractError("SUPERVISOR_INVOCATION_FAILED", str(exc), {}) from exc
         _write_json(

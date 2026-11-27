@@ -44,7 +44,8 @@ internal static class Program
         var runId = Guid.NewGuid().ToString("N");
         var stepResults = new List<StepResult>();
 
-        using var events = new EventWriter(parsedArgs.EventsPath);
+        using var events = new EventWriter(parsedArgs.EventsPath,
+            append: Environment.GetEnvironmentVariable(EventWriter.AppendEventsEnvironmentVariable) == "1");
 
         JobManifest manifest;
         try

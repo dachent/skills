@@ -66,6 +66,44 @@ public class WorkerHeartbeatTests
     }
 
     [Fact]
+    public void Heartbeat_repeats_only_the_last_observed_row_counts()
+    {
+        var path = TempPath();
+        try
+        {
+            using var events = new EventWriter(path);
+            events.Emit(new WorkerEvent { RunId = "run", Phase = "COMPOSITE_PREFLIGHT" });
+            events.EmitHeartbeat("run");
+            events.Emit(new WorkerEvent
+            {
+                RunId = "run",
+                Phase = "COMPOSITE_PREFLIGHT",
+                RowsDone = 1000,
+                RowsTotal = 463000,
+            });
+            events.EmitHeartbeat("run");
+            events.Emit(new WorkerEvent { RunId = "run", Phase = "CALCULATING" });
+            events.EmitHeartbeat("run");
+
+            var heartbeats = ReadEvents(path)
+                .Where(evt => evt.Message == "heartbeat: worker still running.")
+                .ToList();
+            Assert.Equal(3, heartbeats.Count);
+            Assert.Null(heartbeats[0].RowsDone);
+            Assert.Null(heartbeats[0].RowsTotal);
+            Assert.All(heartbeats.Skip(1), evt =>
+            {
+                Assert.Equal(1000, evt.RowsDone);
+                Assert.Equal(463000, evt.RowsTotal);
+            });
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Dispose_stops_later_writes()
     {
         var path = TempPath();

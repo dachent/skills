@@ -17,6 +17,7 @@ import re
 import shutil
 import tempfile
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -477,6 +478,7 @@ def _rewrite_sheet(
     operation: dict,
     sidecar_schema: dict,
     preflight: PackagePreflight,
+    row_progress: Callable[[int, int], None] | None = None,
 ) -> None:
     source_rows = iter(iter_typed_rows(operation["source"]["path"], sidecar_schema))
     target_start = (
@@ -490,6 +492,13 @@ def _rewrite_sheet(
     root_context = None
     root = None
     seen_sheet_data = False
+    rows_done = 0
+
+    def report_row_written() -> None:
+        nonlocal rows_done
+        rows_done += 1
+        if row_progress is not None:
+            row_progress(rows_done, operation["source"]["row_count"])
 
     with etree.xmlfile(str(destination_path), encoding="UTF-8") as output:
         output.write_declaration(standalone=True)
@@ -516,6 +525,7 @@ def _rewrite_sheet(
                     except StopIteration as exc:
                         raise ContractError("PACKAGE_REWRITE_FAILED", "CSV ended before the declared source row count.", {}) from exc
                     output.write(_transform_target_row(None, typed, next_target, preflight))
+                    report_row_written()
                     next_target += 1
                 if target_start <= current_row <= target_end:
                     try:
@@ -523,6 +533,7 @@ def _rewrite_sheet(
                     except StopIteration as exc:
                         raise ContractError("PACKAGE_REWRITE_FAILED", "CSV ended before the declared source row count.", {}) from exc
                     output.write(_transform_target_row(element, typed, current_row, preflight))
+                    report_row_written()
                     next_target = current_row + 1
                 elif operation["type"] == "replace_table_data" and target_end < current_row <= preflight.old_body_end_row:
                     output.write(_clear_owned_tail(element, preflight))
@@ -539,6 +550,7 @@ def _rewrite_sheet(
                     except StopIteration as exc:
                         raise ContractError("PACKAGE_REWRITE_FAILED", "CSV ended before the declared source row count.", {}) from exc
                     output.write(_transform_target_row(None, typed, next_target, preflight))
+                    report_row_written()
                     next_target += 1
                 try:
                     next(source_rows)
@@ -599,6 +611,7 @@ def rewrite_intermediate_package(
     operation: dict,
     sidecar_schema: dict,
     preflight: PackagePreflight,
+    row_progress: Callable[[int, int], None] | None = None,
 ) -> dict:
     source_path = Path(workbook_path)
     destination_path = Path(output_path)
@@ -609,7 +622,7 @@ def rewrite_intermediate_package(
             with zipfile.ZipFile(source_path, "r") as source_package:
                 rewritten_table = _rewrite_table_definition(source_package.read(preflight.table_part), preflight)
                 with source_package.open(preflight.worksheet_part, "r") as source_sheet:
-                    _rewrite_sheet(source_sheet, rewritten_sheet, operation, sidecar_schema, preflight)
+                    _rewrite_sheet(source_sheet, rewritten_sheet, operation, sidecar_schema, preflight, row_progress)
                 with zipfile.ZipFile(destination_path, "w", allowZip64=True) as destination_package:
                     for info in source_package.infolist():
                         target_info = copy.copy(info)

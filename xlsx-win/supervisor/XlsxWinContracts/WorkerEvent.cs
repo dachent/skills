@@ -4,8 +4,8 @@ using System.Text.Json.Serialization;
 namespace XlsxWinContracts;
 
 /// <summary>
-/// One JSONL line emitted by XlsxWinWorker to its events file: one phase/state
-/// transition, using the exact state names from JobStates (ported from
+/// One JSONL phase, heartbeat, or progress observation in the events file,
+/// using the exact state names from JobStates (ported from
 /// control_plane/state_machine.py).
 /// </summary>
 public sealed class WorkerEvent
@@ -29,6 +29,12 @@ public sealed class WorkerEvent
     /// membership".</summary>
     [JsonPropertyName("excel_pid")]
     public int? ExcelPid { get; set; }
+
+    [JsonPropertyName("rows_done")]
+    public long? RowsDone { get; set; }
+
+    [JsonPropertyName("rows_total")]
+    public long? RowsTotal { get; set; }
 
     public string ToJsonLine() => JsonSerializer.Serialize(this, JsonDefaults.Options);
 
@@ -63,11 +69,15 @@ public sealed class WorkerEvent
 /// concurrently-tailing supervisor process always sees the latest line.</summary>
 public sealed class EventWriter : IDisposable
 {
+    public const string AppendEventsEnvironmentVariable = "XLSXWIN_APPEND_EVENTS";
+
     private readonly StreamWriter _writer;
     private readonly object _sync = new();
     private string _currentPhase = "";
+    private long? _rowsDone;
+    private long? _rowsTotal;
 
-    public EventWriter(string path)
+    public EventWriter(string path, bool append = false)
     {
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
@@ -75,7 +85,7 @@ public sealed class EventWriter : IDisposable
             Directory.CreateDirectory(directory);
         }
 
-        _writer = new StreamWriter(new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+        _writer = new StreamWriter(new FileStream(path, append ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.Read))
         {
             AutoFlush = true,
         };
@@ -90,6 +100,14 @@ public sealed class EventWriter : IDisposable
             {
                 _currentPhase = evt.Phase;
             }
+            if (evt.RowsDone.HasValue)
+            {
+                _rowsDone = evt.RowsDone;
+            }
+            if (evt.RowsTotal.HasValue)
+            {
+                _rowsTotal = evt.RowsTotal;
+            }
         }
     }
 
@@ -102,6 +120,8 @@ public sealed class EventWriter : IDisposable
                 RunId = runId,
                 Phase = _currentPhase,
                 Message = "heartbeat: worker still running.",
+                RowsDone = _rowsDone,
+                RowsTotal = _rowsTotal,
             }.ToJsonLine());
         }
     }

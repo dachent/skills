@@ -9,7 +9,14 @@ public class CompositeTablePivotTests
     public CompositeTablePivotTests() => ExcelIntegrationGate.PreflightOrSkip();
 
     [SkippableFact]
-    public void Composite_append_resizes_calculates_refreshes_saves_and_fresh_reopens()
+    public void Composite_append_resizes_calculates_refreshes_saves_and_fresh_reopens() =>
+        RunComposite(finalBodyRows: 3, expectedTableRef: "B3:D6");
+
+    [SkippableFact]
+    public void Composite_preflight_emits_actual_list_rows_count_milestone() =>
+        RunComposite(finalBodyRows: 2, expectedTableRef: "B3:D5");
+
+    private static void RunComposite(int finalBodyRows, string expectedTableRef)
     {
         using var tempDir = new TestTempDir();
         var inputPath = tempDir.Combine("intermediate.xlsx");
@@ -22,7 +29,7 @@ public class CompositeTablePivotTests
         var manifest = new JobManifest
         {
             SchemaVersion = "2.1",
-            IdempotencyKey = "composite-table-pivot-test",
+            IdempotencyKey = $"composite-table-pivot-test-{finalBodyRows}",
             Timeouts = new JobTimeouts
             {
                 StartExcelSeconds = 30,
@@ -52,7 +59,7 @@ public class CompositeTablePivotTests
                         Sheet = "Data",
                         Name = "Data",
                         ExistingBodyRows = 2,
-                        FinalBodyRows = 3,
+                        FinalBodyRows = finalBodyRows,
                         ColumnCount = 3,
                         WritableRuns = 2,
                         Filters = "none",
@@ -71,7 +78,7 @@ public class CompositeTablePivotTests
                         SchemaPath = "immutable.schema.json",
                         SchemaSha256 = new string('2', 64),
                         CanonicalSha256 = new string('3', 64),
-                        RowCount = 1,
+                        RowCount = finalBodyRows - 2,
                         ColumnCount = 3,
                         EncodedBytes = 1,
                         TextBytes = 5,
@@ -108,13 +115,24 @@ public class CompositeTablePivotTests
             Assert.True(leaseBalance.Passed, leaseBalance.Message);
             Assert.Contains("tracked_owned_rcw_high_water=", leaseBalance.Message);
 
+            var workerEvents = File.ReadLines(eventsPath)
+                .Select(WorkerEvent.TryParse)
+                .Where(evt => evt is not null)
+                .Select(evt => evt!)
+                .ToList();
+            var rowMilestone = Assert.Single(workerEvents, evt => evt.Message == "Native preflight ListRows.Count milestone.");
+            Assert.Equal("COMPOSITE_PREFLIGHT", rowMilestone.Phase);
+            Assert.Equal(finalBodyRows, rowMilestone.RowsDone);
+            Assert.Equal(finalBodyRows, rowMilestone.RowsTotal);
+            Assert.Contains("ListRows.Count", rowMilestone.Message);
+
             using var package = ZipFile.OpenRead(outputPath);
             var tableEntry = package.GetEntry("xl/tables/table1.xml")
                 ?? throw new InvalidOperationException("Saved package has no table1.xml.");
             using var stream = tableEntry.Open();
             var table = XDocument.Load(stream).Root
                 ?? throw new InvalidOperationException("Saved Table definition is empty.");
-            Assert.Equal("B3:D6", table.Attribute("ref")?.Value);
+            Assert.Equal(expectedTableRef, table.Attribute("ref")?.Value);
         }
         finally
         {
